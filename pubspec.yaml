@@ -1,0 +1,28 @@
+name: shuye_reader
+description: "书叶：安静、私有、本地优先的 Android 阅读器。"
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  archive: ^4.0.7
+  crypto: ^3.0.6
+  file_picker: ^10.3.10
+  gbk_codec: ^0.4.0
+  html: ^0.15.6
+  path: ^1.9.1
+  sqflite: ^2.4.2
+  xml: ^6.6.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  sqflite_common_ffi: ^2.3.6
+
+flutter:
+  uses-material-design: true

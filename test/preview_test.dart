@@ -1,0 +1,96 @@
+// Optional screenshots of real Flutter widgets, not Android device screenshots.
+// SHUYE_CAPTURE_DIR and local font paths are supplied only for local visual QA.
+import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:shuye_reader/main.dart';
+import 'package:shuye_reader/repository.dart';
+
+void main() {
+  final output = Platform.environment['SHUYE_CAPTURE_DIR'];
+  testWidgets('capture actual bookshelf and reading widgets', (tester) async {
+    sqfliteFfiInit();
+    for (final pair in [
+      ('Roboto', Platform.environment['SHUYE_PREVIEW_FONT']!),
+      ('serif', Platform.environment['SHUYE_PREVIEW_SERIF']!),
+      ('MaterialIcons', Platform.environment['SHUYE_PREVIEW_ICONS']!),
+    ]) {
+      final bytes = (await tester.runAsync(() => File(pair.$2).readAsBytes()))!;
+      final loader = FontLoader(pair.$1)
+        ..addFont(Future.value(ByteData.sublistView(bytes)));
+      await loader.load();
+    }
+    tester.view.physicalSize = const Size(390, 1040);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repo = (await tester.runAsync(
+      () => ReaderRepository.open(
+        path: inMemoryDatabasePath,
+        factory: databaseFactoryFfi,
+      ),
+    ))!;
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      RepaintBoundary(
+        key: key,
+        child: ShuyeApp(repository: repo),
+      ),
+    );
+    await tester.runAsync(
+      () async => Future<void>.delayed(const Duration(milliseconds: 200)),
+    );
+    await tester.pumpAndSettle();
+    Future<void> capture(String name) async {
+      final boundary =
+          key.currentContext!.findRenderObject() as RenderRepaintBoundary;
+      await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 2);
+        final data = await image.toByteData(format: ui.ImageByteFormat.png);
+        await Directory(output!).create(recursive: true);
+        await File('$output/$name.png')
+            .writeAsBytes(data!.buffer.asUint8List());
+        image.dispose();
+      });
+    }
+
+    await capture('bookshelf');
+    await tester.ensureVisible(find.text('山间来信').last);
+    await tester.tap(find.text('山间来信').last);
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(390, 844);
+    await tester.pumpAndSettle();
+    await capture('reader');
+    await tester.tap(find.byTooltip('阅读设置'));
+    await tester.pumpAndSettle();
+    await capture('typography');
+    await tester.tap(find.text('开始阅读'));
+    await tester.pumpAndSettle();
+    await tester.runAsync(
+      () async => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('摘录与笔记'));
+    await tester.pumpAndSettle();
+    await capture('note-editor');
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.runAsync(
+      () async => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('统计'));
+    await tester.pumpAndSettle();
+    await capture('statistics');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(() => repo.close());
+  }, skip: output == null);
+}
