@@ -557,7 +557,13 @@ class _ReaderScreenState extends State<ReaderScreen>
         );
       }
       if (action == 'share' && mounted) {
-        await showShareCard(context, quote, book.title);
+        await showShareCard(
+          context,
+          quote,
+          book.title,
+          settings: settings,
+          saveSettings: () => repo.saveSettings(settings),
+        );
       }
       if (action == 'word' && mounted) {
         final data = await editFields(context, '保存生词', {

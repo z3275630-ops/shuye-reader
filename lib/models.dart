@@ -253,6 +253,7 @@ class ReaderSettings {
       'reader.nightSchedule',
       'reader.typography.cjkLatinSpacing',
       'bookshelf.banner',
+      'home.banner',
       'privacy.lock',
     };
     const numberKeys = {
@@ -268,6 +269,7 @@ class ReaderSettings {
       'bookshelf.gap',
       'bookshelf.cardHeight',
       'stats.goalMinutes',
+      'app.textScale',
     };
     for (final e in j.entries) {
       if ((booleanKeys.contains(e.key) && e.value is! bool) ||

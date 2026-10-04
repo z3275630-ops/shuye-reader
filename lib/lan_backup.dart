@@ -91,7 +91,13 @@ class LanBackup {
       response.contentLength = payload.length;
       response.add(payload);
     } finally {
-      await response.close();
+      try {
+        await response.close();
+      } on SocketException {
+        // Leaving the transfer page can close an in-flight download.
+      } on HttpException {
+        // A disconnected client must not produce an uncaught background error.
+      }
     }
   }
 

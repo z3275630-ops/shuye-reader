@@ -8,6 +8,7 @@ import 'package:sqflite_sqlcipher/sqflite.dart' as cipher;
 import 'models.dart';
 import 'samples.dart';
 import 'services.dart';
+import 'facets.dart';
 
 class ReaderRepository {
   final Database db;
@@ -606,6 +607,114 @@ class ReaderRepository {
       }
       for (final e in entries) {
         await txn.insert('entries', e);
+      }
+    });
+  }
+
+  Future<void> assignFacet(
+    String field,
+    String name,
+    List<String> bookIds,
+  ) async {
+    name = name.trim();
+    validateFacet(field, name);
+    if (name.isEmpty) throw const FormatException('名称不能为空');
+    await db.transaction((txn) async {
+      for (final id in bookIds.toSet()) {
+        final rows = await txn.query(
+          'books',
+          columns: ['author', 'metadata'],
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+        if (rows.isEmpty) throw const FormatException('书籍已不存在，请刷新后重试');
+        final meta = Map<String, dynamic>.from(
+          jsonDecode(rows.single['metadata'] as String),
+        );
+        if (field == 'tags') {
+          meta[field] = ({
+            ...splitTags(meta[field] as String? ?? ''),
+            name,
+          }).join(', ');
+        } else if (field != 'author') {
+          meta[field] = name;
+        }
+        await txn.update(
+          'books',
+          field == 'author' ? {'author': name} : {'metadata': jsonEncode(meta)},
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      }
+    });
+  }
+
+  Future<void> renameFacet(String field, String oldName, String newName) async {
+    newName = newName.trim();
+    validateFacet(field, oldName);
+    validateFacet(field, newName);
+    if (oldName.isEmpty) throw const FormatException('不能重命名未设置分组');
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        'books',
+        columns: ['id', 'author', 'metadata'],
+      );
+      for (final row in rows) {
+        final meta = Map<String, dynamic>.from(
+          jsonDecode(row['metadata'] as String),
+        );
+        final value = field == 'author'
+            ? row['author'] as String
+            : meta[field] as String? ?? '';
+        if (field == 'tags') {
+          final tags = splitTags(value);
+          if (!tags.contains(oldName)) continue;
+          meta[field] = tags
+              .map((t) => t == oldName ? newName : t)
+              .where((t) => t.isNotEmpty)
+              .toSet()
+              .join(', ');
+        } else {
+          if (value.trim() != oldName) continue;
+          if (field != 'author') meta[field] = newName;
+        }
+        await txn.update(
+          'books',
+          field == 'author'
+              ? {'author': newName}
+              : {'metadata': jsonEncode(meta)},
+          where: 'id = ?',
+          whereArgs: [row['id']],
+        );
+      }
+      for (final row in await txn.query(
+        'entries',
+        where: 'kind = ?',
+        whereArgs: ['facets'],
+      )) {
+        final data = Map<String, dynamic>.from(
+          jsonDecode(row['data'] as String),
+        );
+        if (data['field'] == field && data['name'] == oldName) {
+          if (newName.isEmpty) {
+            await txn.delete(
+              'entries',
+              where: 'id = ?',
+              whereArgs: [row['id']],
+            );
+          } else {
+            data['name'] = newName;
+            await txn.update(
+              'entries',
+              {
+                'data': jsonEncode(data),
+                'updated': DateTime.now().millisecondsSinceEpoch,
+              },
+              where: 'id = ?',
+              whereArgs: [row['id']],
+            );
+          }
+        }
       }
     });
   }

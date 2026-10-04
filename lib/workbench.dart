@@ -24,6 +24,8 @@ import 'presets.dart';
 import 'book_proposals.dart';
 import 'character_graph.dart';
 import 'lan_backup.dart';
+import 'tool_catalog.dart';
+import 'share_card.dart';
 
 const originalCovers = [
   'assets/art/mountain.webp',
@@ -660,81 +662,72 @@ Future<void> showAiAssistant(
   prompt.dispose();
 }
 
-Future<void> showShareCard(BuildContext ctx, String quote, String title) async {
+Future<void> showShareCard(
+  BuildContext ctx,
+  String quote,
+  String title, {
+  ReaderSettings? settings,
+  Future<void> Function()? saveSettings,
+}) async {
   final key = GlobalKey();
   var art = 0;
+  var template = settings?.value('share.template', 'paper') ?? 'paper';
+  if (!shareTemplates.containsKey(template)) template = 'paper';
   await showDialog<void>(
     context: ctx,
     builder: (c) => StatefulBuilder(
       builder: (c, set) => AlertDialog(
+        title: const Text('摘录卡片'),
         content: SizedBox(
           width: 360,
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                RepaintBoundary(
-                  key: key,
-                  child: Container(
-                    width: 360,
-                    padding: const EdgeInsets.all(28),
-                    decoration: BoxDecoration(
-                      color: const Color(0xfff4eddf),
-                      image: DecorationImage(
-                        image: AssetImage(originalCovers[art]),
-                        fit: BoxFit.cover,
-                        opacity: .13,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(
-                          Icons.format_quote,
-                          color: Color(0xff58735f),
-                          size: 36,
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          quote.length > 800 ? quote.substring(0, 800) : quote,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            height: 1.8,
-                            color: Color(0xff263b32),
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                        Text(
-                          '— $title',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xff58735f),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          '书叶 · 把喜欢的文字留在身边',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Color(0xff58735f),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    for (var i = 0; i < 3; i++)
+                    for (final e in shareTemplates.entries)
                       ChoiceChip(
-                        label: Text(['山间', '诗意', '手记'][i]),
-                        selected: art == i,
-                        onSelected: (_) => set(() => art = i),
+                        label: Text(e.value),
+                        selected: template == e.key,
+                        onSelected: (_) async {
+                          set(() => template = e.key);
+                          settings?.extra['share.template'] = e.key;
+                          try {
+                            await saveSettings?.call();
+                          } catch (_) {
+                            if (c.mounted) toast(c, '样式未保存，请重试。');
+                          }
+                        },
                       ),
                   ],
                 ),
+                const SizedBox(height: 12),
+                if (template == 'paper')
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      for (var i = 0; i < 3; i++)
+                        ChoiceChip(
+                          label: Text(['山间', '诗意', '手记'][i]),
+                          selected: art == i,
+                          onSelected: (_) => set(() => art = i),
+                        ),
+                    ],
+                  ),
+                const SizedBox(height: 12),
+                RepaintBoundary(
+                  key: key,
+                  child: QuoteCard(
+                    quote: quote,
+                    title: title,
+                    art: art,
+                    template: template,
+                  ),
+                ),
+                const SizedBox(height: 12),
               ],
             ),
           ),
@@ -747,6 +740,7 @@ Future<void> showShareCard(BuildContext ctx, String quote, String title) async {
           TextButton(
             onPressed: () async {
               try {
+                await WidgetsBinding.instance.endOfFrame;
                 final boundary =
                     key.currentContext!.findRenderObject()
                         as RenderRepaintBoundary;
@@ -772,6 +766,7 @@ Future<void> showShareCard(BuildContext ctx, String quote, String title) async {
           FilledButton(
             onPressed: () async {
               try {
+                await WidgetsBinding.instance.endOfFrame;
                 final boundary =
                     key.currentContext!.findRenderObject()
                         as RenderRepaintBoundary;
@@ -1285,17 +1280,9 @@ class _WorkshopScreenState extends State<WorkshopScreen>
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('阅读工具箱')),
-    body: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        if (busy) const LinearProgressIndicator(),
-        const Padding(
-          padding: EdgeInsets.all(12),
-          child: Text(
-            '按需启用。正文不会自动上传，服务密钥留在手机安全存储中。',
-            style: TextStyle(height: 1.6),
-          ),
-        ),
+    body: ToolCatalog(
+      busy: busy,
+      actions: [
         tile(
           Icons.auto_awesome,
           'AI 服务配置',
@@ -1470,25 +1457,15 @@ class _WorkshopScreenState extends State<WorkshopScreen>
             }
           }),
         ),
-        const SizedBox(height: 20),
       ],
     ),
   );
-  Widget tile(
+  ToolAction tile(
     IconData icon,
     String title,
     String subtitle,
     VoidCallback action,
-  ) => Card(
-    margin: const EdgeInsets.only(bottom: 8),
-    child: ListTile(
-      leading: Icon(icon),
-      title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: busy ? null : action,
-    ),
-  );
+  ) => ToolAction(icon, title, subtitle, action);
   void entries(String kind, String title, List<String> fields) =>
       Navigator.push(
         context,

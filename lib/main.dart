@@ -18,6 +18,10 @@ import 'workbench.dart';
 import 'shelf_layouts.dart';
 import 'privacy.dart';
 import 'typography.dart';
+import 'appearance.dart';
+import 'home_dashboard.dart';
+import 'statistics_period.dart';
+import 'library_collections.dart';
 
 const ink = Color(0xff263b32);
 const sage = Color(0xff58735f);
@@ -66,34 +70,24 @@ class ShuyeApp extends StatelessWidget {
   final ReaderRepository repository;
   const ShuyeApp({super.key, required this.repository});
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    title: '书叶',
-    debugShowCheckedModeBanner: false,
-    builder: (c, child) => PrivacyGate(repo: repository, child: child!),
-    theme: ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(seedColor: sage, surface: paper),
-      scaffoldBackgroundColor: paper,
-      appBarTheme: const AppBarTheme(
-        backgroundColor: paper,
-        foregroundColor: ink,
-        surfaceTintColor: Colors.transparent,
-      ),
-      cardTheme: const CardThemeData(
-        color: Colors.white,
-        elevation: 0,
-        margin: EdgeInsets.zero,
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
+  Widget build(BuildContext context) => ValueListenableBuilder<AppAppearance>(
+    valueListenable: appAppearance,
+    builder: (context, appearance, _) => MaterialApp(
+      title: '书叶',
+      debugShowCheckedModeBanner: false,
+      theme: applicationTheme(Brightness.light),
+      darkTheme: applicationTheme(Brightness.dark),
+      themeMode: appearance.themeMode,
+      builder: (c, child) => MediaQuery(
+        data: MediaQuery.of(c).copyWith(
+          textScaler: TextScaler.linear(
+            MediaQuery.textScalerOf(c).scale(1) * appearance.scale,
+          ),
         ),
+        child: PrivacyGate(repo: repository, child: child!),
       ),
+      home: LibraryHome(repository: repository),
     ),
-    home: LibraryHome(repository: repository),
   );
 }
 
@@ -285,7 +279,7 @@ class _LibraryHomeState extends State<LibraryHome> {
   ReaderSettings settings = ReaderSettings();
   Map<String, int> stats = {};
   Map<int, int> hourlyStats = {};
-  int tab = 0, filter = 0;
+  int tab = 4, filter = 0;
   bool loading = true, busy = false, grid = true;
   String query = '';
   String noteQuery = '';
@@ -331,6 +325,7 @@ class _LibraryHomeState extends State<LibraryHome> {
           books = b;
           notes = n;
           settings = s;
+          appAppearance.value = AppAppearance.fromSettings(s);
           privacyEnabled.value = s.flag('privacy.lock');
           stats = t;
           hourlyStats = hours;
@@ -448,13 +443,10 @@ class _LibraryHomeState extends State<LibraryHome> {
       await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('部分文件未导入'),
+          title: Text('部分文件未导入'),
           content: SingleChildScrollView(child: Text(errors.join('\n\n'))),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('知道了'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text('知道了')),
           ],
         ),
       );
@@ -542,13 +534,13 @@ class _LibraryHomeState extends State<LibraryHome> {
           children: [
             ListTile(title: Text(book.title)),
             ListTile(
-              leading: const Icon(Icons.edit_outlined),
-              title: const Text('书籍资料与管理'),
+              leading: Icon(Icons.edit_outlined),
+              title: Text('书籍资料与管理'),
               onTap: () => Navigator.pop(c, 'edit'),
             ),
             ListTile(
-              leading: const Icon(Icons.delete_outline),
-              title: const Text('移除书籍'),
+              leading: Icon(Icons.delete_outline),
+              title: Text('移除书籍'),
               onTap: () => Navigator.pop(c, 'delete'),
             ),
           ],
@@ -577,11 +569,11 @@ class _LibraryHomeState extends State<LibraryHome> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消'),
+              child: Text('取消'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('继续'),
+              child: Text('继续'),
             ),
           ],
         ),
@@ -647,7 +639,7 @@ class _LibraryHomeState extends State<LibraryHome> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, update) => AlertDialog(
-          title: const Text('分章与净化规则'),
+          title: Text('分章与净化规则'),
           content: SizedBox(
             width: 450,
             child: SingleChildScrollView(
@@ -655,7 +647,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     '分章规则作用于之后导入的 TXT。净化规则只隐藏匹配的整行，原文会保留。',
                     style: TextStyle(fontSize: 13),
                   ),
@@ -678,10 +670,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                   if (error != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 12),
-                      child: Text(
-                        error!,
-                        style: const TextStyle(color: Colors.red),
-                      ),
+                      child: Text(error!, style: TextStyle(color: Colors.red)),
                     ),
                 ],
               ),
@@ -693,12 +682,9 @@ class _LibraryHomeState extends State<LibraryHome> {
                 chapter.text = defaultChapterPattern;
                 purify.clear();
               },
-              child: const Text('恢复默认'),
+              child: Text('恢复默认'),
             ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text('取消')),
             FilledButton(
               onPressed: () async {
                 try {
@@ -711,7 +697,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                   update(() => error = '$e');
                 }
               },
-              child: const Text('保存'),
+              child: Text('保存'),
             ),
           ],
         ),
@@ -727,39 +713,67 @@ class _LibraryHomeState extends State<LibraryHome> {
     appBar: AppBar(
       title: Row(
         children: [
-          const Icon(Icons.eco_outlined, color: sage),
+          Icon(
+            Icons.eco_outlined,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           const SizedBox(width: 8),
           Text(
-            ['书叶', '我的摘录', '阅读足迹', '设置'][tab],
-            style: const TextStyle(
-              letterSpacing: 2,
-              fontWeight: FontWeight.w600,
-            ),
+            ['书架', '我的摘录', '阅读足迹', '设置', '书叶'][tab],
+            style: TextStyle(letterSpacing: 2, fontWeight: FontWeight.w600),
           ),
         ],
       ),
-      actions: tab == 0
+      actions: tab == 4
           ? [
               IconButton(
-                tooltip: grid ? '列表视图' : '网格视图',
+                tooltip: '调整首页布局',
                 onPressed: () async {
-                  setState(() => grid = !grid);
-                  settings.extra['bookshelf.layout'] = grid ? 'grid' : 'list';
-                  await repo.saveSettings(settings);
+                  await configureHome(
+                    context,
+                    settings,
+                    () => repo.saveSettings(settings),
+                  );
+                  await reload();
                 },
-                icon: Icon(
-                  grid ? Icons.view_list_outlined : Icons.grid_view_outlined,
-                ),
-              ),
-              IconButton(
-                tooltip: '书架装修',
-                onPressed: shelfSettings,
-                icon: const Icon(Icons.dashboard_customize_outlined),
+                icon: Icon(Icons.dashboard_customize_outlined),
               ),
               IconButton(
                 tooltip: '导入书籍',
                 onPressed: busy ? null : importBooks,
-                icon: const Icon(Icons.add),
+                icon: Icon(Icons.add),
+              ),
+            ]
+          : tab == 0
+          ? [
+              IconButton(
+                tooltip: '整理书库',
+                onPressed: openCollections,
+                icon: Icon(Icons.folder_outlined),
+              ),
+              PopupMenuButton<String>(
+                tooltip: '书架选项',
+                onSelected: (v) async {
+                  if (v == 'layout') {
+                    await shelfSettings();
+                  } else {
+                    setState(() => grid = !grid);
+                    settings.extra['bookshelf.layout'] = grid ? 'grid' : 'list';
+                    await repo.saveSettings(settings);
+                  }
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'view',
+                    child: Text(grid ? '切换列表视图' : '切换网格视图'),
+                  ),
+                  const PopupMenuItem(value: 'layout', child: Text('书架装修')),
+                ],
+              ),
+              IconButton(
+                tooltip: '导入书籍',
+                onPressed: busy ? null : importBooks,
+                icon: Icon(Icons.add),
               ),
             ]
           : tab == 1
@@ -767,7 +781,7 @@ class _LibraryHomeState extends State<LibraryHome> {
               IconButton(
                 tooltip: '导出 Markdown 笔记',
                 onPressed: busy ? null : () => exportData(markdown: true),
-                icon: const Icon(Icons.ios_share_outlined),
+                icon: Icon(Icons.ios_share_outlined),
               ),
             ]
           : null,
@@ -778,15 +792,27 @@ class _LibraryHomeState extends State<LibraryHome> {
             children: [
               if (busy) const LinearProgressIndicator(minHeight: 2),
               Expanded(
-                child: [library, notebook, statistics, preferences][tab](),
+                child: [
+                  library,
+                  notebook,
+                  statistics,
+                  preferences,
+                  dashboard,
+                ][tab](),
               ),
             ],
           ),
     bottomNavigationBar: NavigationBar(
-      backgroundColor: Colors.white,
-      selectedIndex: tab,
-      onDestinationSelected: (i) => setState(() => tab = i),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      selectedIndex: const [4, 0, 1, 2, 3].indexOf(tab),
+      onDestinationSelected: (i) =>
+          setState(() => tab = const [4, 0, 1, 2, 3][i]),
       destinations: const [
+        NavigationDestination(
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home),
+          label: '首页',
+        ),
         NavigationDestination(
           icon: Icon(Icons.auto_stories_outlined),
           selectedIcon: Icon(Icons.auto_stories),
@@ -805,6 +831,52 @@ class _LibraryHomeState extends State<LibraryHome> {
         NavigationDestination(icon: Icon(Icons.tune), label: '设置'),
       ],
     ),
+  );
+  Future<void> openTools() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => WorkshopScreen(repo: repo, settings: settings),
+      ),
+    );
+    await reload();
+  }
+
+  Future<void> openCollections() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => LibraryCollections(
+          repo: repo,
+          open: openBook,
+          cover: (b) => BookCover(b),
+        ),
+      ),
+    );
+    await reload();
+  }
+
+  Future<void> editDailyGoal() => operation(() async {
+    final data = await editFields(context, '每日阅读目标', {
+      '分钟': '${settings.number('stats.goalMinutes', 20).round()}',
+    });
+    if (data == null) return;
+    settings.extra['stats.goalMinutes'] = (int.tryParse(data['分钟']!) ?? 20)
+        .clamp(5, 240);
+    await repo.saveSettings(settings);
+    await reload();
+  });
+  Widget dashboard() => HomeDashboard(
+    books: books,
+    stats: stats,
+    notes: notes.length,
+    settings: settings,
+    cover: (b) => BookCover(b),
+    open: openBook,
+    shelf: () => setState(() => tab = 0),
+    tools: openTools,
+    statistics: () => setState(() => tab = 2),
+    goal: editDailyGoal,
   );
   Widget library() {
     final filtered = books
@@ -863,19 +935,22 @@ class _LibraryHomeState extends State<LibraryHome> {
                       ),
                     ),
                   ),
-                const Text(
+                Text(
                   '给自己，一页安静。',
                   style: TextStyle(
                     fontSize: 27,
                     fontFamily: 'serif',
-                    color: ink,
+                    color: Theme.of(context).colorScheme.onSurface,
                     height: 1.5,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   '${books.length} 本藏书 · 文字留在你的设备里',
-                  style: const TextStyle(color: Colors.black54, fontSize: 12),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
                 ),
                 const SizedBox(height: 24),
                 if (recent != null)
@@ -887,7 +962,9 @@ class _LibraryHomeState extends State<LibraryHome> {
                       child: Container(
                         padding: const EdgeInsets.all(18),
                         decoration: BoxDecoration(
-                          color: const Color(0xffe7ece3),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHigh,
                           borderRadius: BorderRadius.circular(18),
                         ),
                         child: Row(
@@ -898,14 +975,19 @@ class _LibraryHomeState extends State<LibraryHome> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
+                                  Text(
                                     '继续上次的故事',
-                                    style: TextStyle(fontSize: 11, color: sage),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary,
+                                    ),
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
                                     recent.title,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -915,17 +997,19 @@ class _LibraryHomeState extends State<LibraryHome> {
                                     '${recent.chapters[recent.chapter].title} · ${(recent.progress * 100).round()}%',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 11,
-                                      color: Colors.black54,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            const Icon(
+                            Icon(
                               Icons.arrow_forward_rounded,
-                              color: sage,
+                              color: Theme.of(context).colorScheme.primary,
                             ),
                           ],
                         ),
@@ -1028,7 +1112,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                             b.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
+                            style: TextStyle(fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(height: 5),
                           Row(
@@ -1038,9 +1122,11 @@ class _LibraryHomeState extends State<LibraryHome> {
                                   b.author,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
-                                    color: Colors.black54,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
                                   ),
                                 ),
                               ),
@@ -1048,9 +1134,9 @@ class _LibraryHomeState extends State<LibraryHome> {
                                 b.lastRead > 0
                                     ? '${(b.progress * 100).round()}%'
                                     : b.format,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10,
-                                  color: sage,
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
                               ),
                             ],
@@ -1092,7 +1178,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                       trailing: IconButton(
                         tooltip: '书籍管理',
                         onPressed: () => bookMenu(b),
-                        icon: const Icon(Icons.more_horiz),
+                        icon: Icon(Icons.more_horiz),
                       ),
                     ),
                   ),
@@ -1150,9 +1236,11 @@ class _LibraryHomeState extends State<LibraryHome> {
                                   Expanded(
                                     child: Text(
                                       b?.title ?? '书籍',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 12,
-                                        color: sage,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
                                       ),
                                     ),
                                   ),
@@ -1162,15 +1250,15 @@ class _LibraryHomeState extends State<LibraryHome> {
                                       context,
                                       n.quote,
                                       b?.title ?? '书叶',
+                                      settings: settings,
+                                      saveSettings: () =>
+                                          repo.saveSettings(settings),
                                     ),
-                                    icon: const Icon(Icons.ios_share, size: 16),
+                                    icon: Icon(Icons.ios_share, size: 16),
                                   ),
                                   IconButton(
                                     tooltip: '编辑笔记',
-                                    icon: const Icon(
-                                      Icons.edit_outlined,
-                                      size: 16,
-                                    ),
+                                    icon: Icon(Icons.edit_outlined, size: 16),
                                     onPressed: () => operation(() async {
                                       final data = await editFields(
                                         context,
@@ -1209,7 +1297,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                                         await reload();
                                       }
                                     }),
-                                    icon: const Icon(Icons.close, size: 16),
+                                    icon: Icon(Icons.close, size: 16),
                                   ),
                                 ],
                               ),
@@ -1218,7 +1306,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                                 n.quote,
                                 maxLines: 8,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontFamily: 'serif',
                                   height: 1.8,
                                   fontSize: 16,
@@ -1229,8 +1317,10 @@ class _LibraryHomeState extends State<LibraryHome> {
                                   padding: const EdgeInsets.only(top: 14),
                                   child: Text(
                                     n.comment,
-                                    style: const TextStyle(
-                                      color: Colors.black54,
+                                    style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
                                       height: 1.6,
                                     ),
                                   ),
@@ -1238,9 +1328,11 @@ class _LibraryHomeState extends State<LibraryHome> {
                               const SizedBox(height: 15),
                               Text(
                                 '${b?.chapters[n.chapter].title ?? ''} · ${DateTime.fromMillisecondsSinceEpoch(n.created).toIso8601String().substring(0, 10)}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10,
-                                  color: Colors.black45,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
                                 ),
                               ),
                             ],
@@ -1271,11 +1363,17 @@ class _LibraryHomeState extends State<LibraryHome> {
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        const Text(
+        Text(
           '每一页，都算数。',
-          style: TextStyle(fontSize: 27, fontFamily: 'serif', color: ink),
+          style: TextStyle(
+            fontSize: 27,
+            fontFamily: 'serif',
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
         ),
         const SizedBox(height: 24),
+        PeriodStatistics(stats: stats),
+        const SizedBox(height: 18),
         Row(
           children: [
             Expanded(child: metric('累计阅读', '${total ~/ 60}', '分钟')),
@@ -1305,7 +1403,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                     Expanded(
                       child: Text(
                         '每日目标 ${settings.number('stats.goalMinutes', 20).round()} 分钟',
-                        style: const TextStyle(fontSize: 17),
+                        style: TextStyle(fontSize: 17),
                       ),
                     ),
                     IconButton(
@@ -1322,7 +1420,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                           await reload();
                         }
                       }),
-                      icon: const Icon(Icons.edit_outlined),
+                      icon: Icon(Icons.edit_outlined),
                     ),
                   ],
                 ),
@@ -1336,7 +1434,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                           .clamp(0, 1),
                 ),
                 const SizedBox(height: 16),
-                const Text('常读时段（本次升级后开始记录）'),
+                Text('常读时段（本次升级后开始记录）'),
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 5,
@@ -1352,13 +1450,12 @@ class _LibraryHomeState extends State<LibraryHome> {
                           decoration: BoxDecoration(
                             color: (hourlyStats[h] ?? 0) > 0
                                 ? sage.withValues(alpha: .6)
-                                : const Color(0xffe7ece3),
+                                : Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerHigh,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Text(
-                            '$h',
-                            style: const TextStyle(fontSize: 10),
-                          ),
+                          child: Text('$h', style: TextStyle(fontSize: 10)),
                         ),
                       ),
                   ],
@@ -1373,7 +1470,7 @@ class _LibraryHomeState extends State<LibraryHome> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   '最近 28 天',
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
                 ),
@@ -1391,7 +1488,9 @@ class _LibraryHomeState extends State<LibraryHome> {
                       child: Container(
                         decoration: BoxDecoration(
                           color: seconds == 0
-                              ? const Color(0xffedf0e9)
+                              ? Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHigh
                               : sage.withValues(
                                   alpha: (.25 + seconds / 1800).clamp(.25, 1),
                                 ),
@@ -1411,18 +1510,25 @@ class _LibraryHomeState extends State<LibraryHome> {
                   }).toList(),
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   '颜色越深，阅读时间越长。',
-                  style: TextStyle(fontSize: 11, color: Colors.black54),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
           ),
         ),
         const SizedBox(height: 20),
-        const Text(
+        Text(
           '只统计停留在阅读页的前台时间，短于 5 秒的片段不计入。统计在退出阅读页或进入后台后更新。删除书籍会移除对应记录。',
-          style: TextStyle(fontSize: 12, color: Colors.black54, height: 1.8),
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            height: 1.8,
+          ),
         ),
       ],
     );
@@ -1434,13 +1540,17 @@ class _LibraryHomeState extends State<LibraryHome> {
       Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: const Color(0xffe7ece3),
+          color: Theme.of(context).colorScheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(18),
         ),
-        child: const Column(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.eco_outlined, size: 32, color: sage),
+            Icon(
+              Icons.eco_outlined,
+              size: 32,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             SizedBox(height: 10),
             Text(
               '书叶 SHUYE',
@@ -1453,22 +1563,32 @@ class _LibraryHomeState extends State<LibraryHome> {
             SizedBox(height: 8),
             Text(
               '一本书，一段属于自己的时间。\n本地优先 · 无账号 · 无广告',
-              style: TextStyle(fontSize: 12, height: 1.8, color: sage),
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.8,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
           ],
         ),
       ),
       const SizedBox(height: 24),
-      const Text('阅读偏好', style: TextStyle(fontSize: 12, color: sage)),
+      Text(
+        '阅读偏好',
+        style: TextStyle(
+          fontSize: 12,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      ),
       const SizedBox(height: 10),
       Card(
         child: Column(
           children: [
             ListTile(
-              leading: const Icon(Icons.palette_outlined),
-              title: const Text('字体与纸色'),
-              subtitle: const Text('字号、行距、字体、中西文间距'),
-              trailing: const Icon(Icons.chevron_right),
+              leading: Icon(Icons.palette_outlined),
+              title: Text('字体与纸色'),
+              subtitle: Text('字号、行距、字体、中西文间距'),
+              trailing: Icon(Icons.chevron_right),
               onTap: () async {
                 await showReaderSettings(
                   context,
@@ -1479,17 +1599,17 @@ class _LibraryHomeState extends State<LibraryHome> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.filter_alt_outlined),
-              title: const Text('分章与净化规则'),
-              subtitle: const Text('识别章节，隐藏正文中的广告行'),
-              trailing: const Icon(Icons.chevron_right),
+              leading: Icon(Icons.filter_alt_outlined),
+              title: Text('分章与净化规则'),
+              subtitle: Text('识别章节，隐藏正文中的广告行'),
+              trailing: Icon(Icons.chevron_right),
               onTap: editRules,
             ),
             ListTile(
-              leading: const Icon(Icons.handyman_outlined),
-              title: const Text('阅读工具箱'),
-              subtitle: const Text('AI、听书、识字、在线书库、字体和加密同步'),
-              trailing: const Icon(Icons.chevron_right),
+              leading: Icon(Icons.handyman_outlined),
+              title: Text('阅读工具箱'),
+              subtitle: Text('AI、听书、识字、在线书库、字体和加密同步'),
+              trailing: Icon(Icons.chevron_right),
               onTap: () async {
                 await Navigator.push(
                   context,
@@ -1502,36 +1622,63 @@ class _LibraryHomeState extends State<LibraryHome> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.dashboard_customize_outlined),
-              title: const Text('书架装修'),
-              subtitle: const Text('五种布局、列数、间距和置顶横幅'),
+              leading: Icon(Icons.dashboard_customize_outlined),
+              title: Text('书架装修'),
+              subtitle: Text('五种布局、列数、间距和置顶横幅'),
               onTap: shelfSettings,
             ),
           ],
         ),
       ),
       const SizedBox(height: 24),
-      const Text('你的数据', style: TextStyle(fontSize: 12, color: sage)),
+      Text(
+        '你的数据',
+        style: TextStyle(
+          fontSize: 12,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      ),
       const SizedBox(height: 10),
       Card(
         child: Column(
           children: [
             ListTile(
-              leading: const Icon(Icons.save_alt),
-              title: const Text('导出完整备份'),
-              subtitle: const Text('书籍、进度、笔记、设置和统计 · JSON'),
+              leading: Icon(Icons.folder_outlined),
+              title: Text('整理书库'),
+              subtitle: Text('标签、分类、书单和作者'),
+              trailing: Icon(Icons.chevron_right),
+              onTap: openCollections,
+            ),
+            ListTile(
+              leading: Icon(Icons.palette_outlined),
+              title: Text('应用外观'),
+              subtitle: Text('跟随系统、深浅色和界面文字大小'),
+              trailing: Icon(Icons.chevron_right),
+              onTap: () async {
+                await configureAppearance(
+                  context,
+                  settings,
+                  () => repo.saveSettings(settings),
+                );
+                await reload();
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.save_alt),
+              title: Text('导出完整备份'),
+              subtitle: Text('书籍、进度、笔记、设置和统计 · JSON'),
               onTap: busy ? null : () => exportData(),
             ),
             ListTile(
-              leading: const Icon(Icons.restore),
-              title: const Text('从备份恢复'),
-              subtitle: const Text('替换当前书库，请先保存现有数据'),
+              leading: Icon(Icons.restore),
+              title: Text('从备份恢复'),
+              subtitle: Text('替换当前书库，请先保存现有数据'),
               onTap: busy ? null : restore,
             ),
             ListTile(
-              leading: const Icon(Icons.ios_share),
-              title: const Text('导出全部笔记'),
-              subtitle: const Text('Markdown 格式，可在笔记工具中打开'),
+              leading: Icon(Icons.ios_share),
+              title: Text('导出全部笔记'),
+              subtitle: Text('Markdown 格式，可在笔记工具中打开'),
               onTap: busy ? null : () => exportData(markdown: true),
             ),
           ],
@@ -1540,17 +1687,17 @@ class _LibraryHomeState extends State<LibraryHome> {
       const SizedBox(height: 24),
       Card(
         child: ListTile(
-          leading: const Icon(Icons.info_outline),
-          title: const Text('关于书叶 0.2.0'),
-          subtitle: const Text('独立实现 · 非 Reeden 官方产品'),
+          leading: Icon(Icons.info_outline),
+          title: Text('关于书叶 0.3.0'),
+          subtitle: Text('独立实现 · 非 Reeden 官方产品'),
           onTap: () => showAboutDialog(
             context: context,
             applicationName: '书叶',
-            applicationVersion: '0.2.0',
-            applicationIcon: const Icon(
+            applicationVersion: '0.3.0',
+            applicationIcon: Icon(
               Icons.eco_outlined,
               size: 40,
-              color: sage,
+              color: Theme.of(context).colorScheme.primary,
             ),
             children: const [
               Text(
@@ -1561,9 +1708,13 @@ class _LibraryHomeState extends State<LibraryHome> {
         ),
       ),
       const SizedBox(height: 22),
-      const Text(
+      Text(
         '书籍不会自动上传。导出的备份包含正文和笔记，请保存在可信位置。',
-        style: TextStyle(fontSize: 12, height: 1.8, color: Colors.black54),
+        style: TextStyle(
+          fontSize: 12,
+          height: 1.8,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
       ),
     ],
   );
@@ -1575,7 +1726,10 @@ class _LibraryHomeState extends State<LibraryHome> {
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 12, color: Colors.black54),
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 12),
           Text.rich(
@@ -1583,15 +1737,18 @@ class _LibraryHomeState extends State<LibraryHome> {
               children: [
                 TextSpan(
                   text: value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 32,
-                    color: ink,
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 TextSpan(
                   text: ' $unit',
-                  style: const TextStyle(fontSize: 12, color: sage),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
               ],
             ),
@@ -1606,20 +1763,27 @@ class _LibraryHomeState extends State<LibraryHome> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 52, color: sage.withValues(alpha: .5)),
+          Icon(
+            icon,
+            size: 52,
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: .5),
+          ),
           const SizedBox(height: 18),
           Text(
             title,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 18, color: ink),
+            style: TextStyle(
+              fontSize: 18,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ),
           const SizedBox(height: 10),
           Text(
             subtitle,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: Colors.black54,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               height: 1.7,
             ),
           ),

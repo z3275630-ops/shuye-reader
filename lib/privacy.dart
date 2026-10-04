@@ -19,7 +19,7 @@ class PrivacyGate extends StatefulWidget {
 }
 
 class _PrivacyGateState extends State<PrivacyGate> with WidgetsBindingObserver {
-  bool locked = false, checking = false;
+  bool locked = false, checking = false, loading = true;
   String? error;
   @override
   void initState() {
@@ -30,9 +30,25 @@ class _PrivacyGateState extends State<PrivacyGate> with WidgetsBindingObserver {
   }
 
   Future<void> load() async {
-    final s = await widget.repo.settings();
-    privacyEnabled.value = s.flag('privacy.lock');
-    if (mounted && privacyEnabled.value) setState(() => locked = true);
+    try {
+      final s = await widget.repo.settings();
+      privacyEnabled.value = s.flag('privacy.lock');
+      configure();
+      if (mounted) {
+        setState(() {
+          locked = privacyEnabled.value;
+          loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          locked = true;
+          loading = false;
+          error = '读取隐私设置失败，请保留数据并重新打开应用。';
+        });
+      }
+    }
   }
 
   void configure() {
@@ -71,7 +87,11 @@ class _PrivacyGateState extends State<PrivacyGate> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) => Stack(
     children: [
-      widget.child,
+      Offstage(offstage: loading || locked, child: widget.child),
+      if (loading)
+        const Positioned.fill(
+          child: Material(child: Center(child: CircularProgressIndicator())),
+        ),
       if (locked)
         Positioned.fill(
           child: Material(

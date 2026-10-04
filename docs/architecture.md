@@ -44,3 +44,13 @@ MCP 默认关闭、只绑定 loopback，验证令牌、Host、Origin、协议版
 Wi-Fi 传输仅提供已加密快照下载，随机链接令牌、最多三次、十分钟失效。关窗口 / 进后台 / 离开工具箱均停止，不提供目录列表或修改接口。
 
 云盘目前是手动快照传输，不包含分布式增量同步、冲突合并或 OAuth 生命周期管理。范围详见功能对照表。
+
+## 0.3.0 界面与资料补充
+
+`home_dashboard.dart` 根据摘要与真实统计生成首页，卡片顺序用 `home.sections` 保存，不存伪造目标成绩。`appearance.dart` 统一应用主题与文字缩放，阅读配色继续独立。`tool_catalog.dart` 对实际工具动作分组 / 搜索。`statistics_period.dart` 使用自然日、周一开始的一周、月、年边界，支持闰年和历史切换。
+
+`facets.dart` 统一标签拆分与名称校验；`library_collections.dart` 提供独立管理入口。新增 `facets` entries 保存空分组。`assignFacet` / `renameFacet` 在数据库事务中只更新资料列，保留全文、二进制源、笔记、进度和其他资料；不存在的书籍使整批回滚。标签为多值，分类 / 书单 / 作者为单值，尚无复杂层级关系。
+
+`share_card.dart` 实现四种有实际数据的 PNG 卡片，日期来自当前日期，文字上限按 Unicode 码点截取。保存 / 分享之前等待界面完成绘制。主题选择保存在设置中。新增功能继续使用 schema 3 / backup version 2，无新数据库列。
+
+隐私层在设置读取期间和锁定状态使用 Offstage 保留导航状态，同时隐藏绘制、触控和辅助功能内容；初始化时再次应用 Android secure 标记。原生身份验证仍需要设备回归。
