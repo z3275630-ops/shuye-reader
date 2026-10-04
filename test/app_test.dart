@@ -26,7 +26,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('山间来信'), findsWidgets);
       await tester.ensureVisible(find.text('山间来信').last);
+      await tester.pumpAndSettle();
       await tester.tap(find.text('山间来信').last);
+      await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 250)),
+      );
       await tester.pumpAndSettle();
       expect(find.byType(SelectableText), findsOneWidget);
       await tester.tap(find.byTooltip('下一页'));
@@ -105,6 +109,11 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('统计'));
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('最近 28 天'),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('最近 28 天'), findsOneWidget);
       await tester.tap(find.text('笔记'));
       await tester.pumpAndSettle();

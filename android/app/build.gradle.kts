@@ -45,6 +45,7 @@ android {
 
     buildTypes {
         release {
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (!signingFile.exists()) {
                 // Permit debug development, but never silently ship a debug-signed release.
                 if (gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }) {
@@ -65,4 +66,8 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
 }

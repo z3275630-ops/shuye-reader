@@ -4,72 +4,69 @@
 
 <table><tr><td><img src="docs/screenshots/bookshelf.png" width="240" alt="书架预览"></td><td><img src="docs/screenshots/reader.png" width="240" alt="阅读预览"></td><td><img src="docs/screenshots/typography.png" width="240" alt="排版设置预览"></td></tr></table>
 
-以上是实际 Flutter 界面的渲染预览，使用本机字体，非安卓真机截图。
+实际 Flutter 界面预览，使用本机字体，非安卓真机截图。三个封面和书架横幅由 Codex 内置生图能力原创生成；书名与作者由 APP 叠加。
 
-书叶是一款 **Android 本地阅读器**，用 Flutter / Dart 独立实现。参考提供的 Reeden 1.42.1 分析资料整理产品需求，使用自己的代码、图标与原创示例文章。不是 Reeden 官方产品，也没有恢复或包含其反编译代码、素材、授权接口或付费逻辑。
+书叶是用 Flutter / Dart 独立实现的 Android 本地阅读器，参考用户提供的 Reeden 1.42.1 技术分析报告整理需求。使用自己的代码、图标、插画与示例文章，不包含原应用代码、素材、授权接口或付费逻辑。
 
-## 第一版已经实现
+## 0.2.0 的功能
 
-- TXT / EPUB 批量导入，SHA-256 内容去重；原文件移动后仍能阅读。
-- TXT 支持 UTF-8、带 BOM 的 UTF-16、GBK；智能分章及自定义分章规则。超长章节自动分段，减少分页等待。
-- EPUB 按 spine 顺序解析文字章节、书名、作者及可用封面，忽略脚本。
-- 网格 / 列表书架，按书名 / 作者搜索，在读 / 读完筛选，继续上次阅读。
-- 依据实际字体、视口、系统文字缩放进行分页；左右滑动和按钮翻页；章节目录与全文搜索。
-- 四种纸色、夜读、字号 / 行距 / 系统字体、中西文自动间距。
-- 可撤销的整行净化规则，保留原始正文；进度与笔记位置映射回原文。
-- 文字摘录、位置笔记、回到笔记位置、Markdown 导出。
-- 前台阅读时间、28 天阅读热力图；数据来自实际阅读，无预填统计。
-- SQLite 本地书库、自动进度保存、完整 JSON 备份 / 事务恢复。
-- 自有 Android 图标与 release 签名，GitHub Actions 自动检查及开发包构建。
+- **导入与整理**：TXT、EPUB、PDF、Markdown、HTML、DOCX、RTF、CBZ，以及未加密的部分 PalmDOC / MOBI / AZW；ZIP 批量导入逐本报告失败，内容去重保留旧进度。五种书架布局、密度和排序设置；作者、分类、标签、评分、书评、书单与阅读目标；封面选择、人物关系图、生词分组、章节编辑、EPUB / TXT 导出。
+- **正文阅读**：字体度量分页、长按选字、目录、全文搜索、原文位置笔记；纸张卷页、宽屏双页、墨水屏、简繁转换、英文断词与首字母加粗、标点字体特性、关键词高亮、净化与分章规则、主题和规则方案的保存 / 导入 / 导出、自定义字体、自动翻页、音量键 / 键盘翻页、亮度 / 方向 / 常亮、单手模式、遮罩、夜间时间表、休息提醒与细雨 / 轻雪氛围。
+- **PDF 与漫画**：PDF 原版渲染、缩放、搜索、目录 / 缩略图、夜间反色、手写标注、文字提取重排、当前页中文 OCR；CBZ 自然页序、图片缩放与进度保存。
+- **笔记与统计**：摘录、评论、标签、搜索、位置回跳、Markdown 导出与插画分享卡片；按日 / 小时统计、每日目标与 28 天热力图，无预填阅读数据。
+- **AI 与声音**：用户自备 OpenAI 兼容地址 / 密钥 / 模型，保存多套配置与自定义提示词；当前段落 / 章节解释、书库概览、本地问答记录、可检查的书评与资料修改建议。中文图片识字使用本机 ML Kit；系统 TTS 可选语音与倍速。手机有声书支持音频库、续播位置、后台通知 / 耳机控制、倍速、定时与安卓均衡器。
+- **数据与连接**：Android SQLCipher 加密书库、安全存储密钥、旧书库升级、指纹 / 屏幕锁验证；完整 JSON 与 AES-256-GCM 密码备份。WebDAV、S3、OneDrive、Dropbox、Google Drive 手动加密快照传输及记录；KOReader 进度读取 / PDF 进度上传；临时 Wi-Fi 加密备份下载。MCP 默认关闭、仅本机、令牌与会话验证，读取书库 / 笔记 / 统计 / 搜索，资料修改须在 APP 内检查后应用。
+- **Android 桌面**：书架、当前书籍、统计、周报、热力图、摘录、书单七种桌面小组件，以及书籍 / 书架深链接。
 
-## 安装
+各功能的完成程度、入口与限制见 [调研材料逐项对照](docs/report-coverage.md)。这轮是大幅补齐，仍不是原报告全部功能的等价实现。
 
-从本私有仓库的 **Releases → v0.1.0** 下载：
+## 安装与更新
+
+从本私有仓库 [Releases → v0.2.0](https://github.com/z3275630-ops/shuye-reader/releases/tag/v0.2.0) 下载：
 
 | APK | 适用设备 |
 | --- | --- |
-| `shuye-0.1.0-arm64-v8a.apk` | 大多数现代安卓手机，优先选择 |
-| `shuye-0.1.0-armeabi-v7a.apk` | 旧款 32 位 ARM 设备 |
-| `shuye-0.1.0-x86_64.apk` | x86_64 安卓设备 / 模拟器 |
+| `shuye-0.2.0-arm64-v8a.apk` | 大多数现代安卓手机，优先选择 |
+| `shuye-0.2.0-armeabi-v7a.apk` | 旧款 32 位 ARM 设备 |
+| `shuye-0.2.0-x86_64.apk` | x86_64 安卓设备 / 模拟器 |
 
-系统若询问是否允许当前来源安装，请按需开启。Actions 产物是 **debug 开发包**，使用不同签名，不能直接覆盖正式签名的 release 安装；日常安装请选择 Releases。
+最低 Android 7.0（API 24）。正式包沿用 0.1.0 的包名与签名，可以覆盖安装；请先从旧版设置导出备份，再安装更新。**不用卸载旧版**，卸载会删除本机数据库密钥和书库。旧数据库升级时会核验内容，并先保留加密恢复快照。
 
-应用最低 Android 7.0（API 24）。第一版尚需在你的手机上确认系统文件选择器、字体和手势的实际表现。
+Actions 提供的 debug 开发包使用不同签名，不能覆盖正式版。正式 APK 的 SHA-256 可用同一 Release 中的 `SHA256SUMS.txt` 核对。
 
-## 快速使用
+## 常用入口
 
-1. 打开书叶，书架右上角 `+` 导入自己的 TXT / EPUB。
-2. 点击封面阅读。底部目录跳章，左右滑动翻页；右上角搜索、摘录、排版设置。
-3. 长按选中文字后点“摘录”；没有选区时可以给当前页记笔记。
-4. 设置 → 导出完整备份。卸载、清除应用数据前务必备份。
-5. 书架长按封面或在列表点菜单可移除书籍，操作会先确认。
+1. 书架右上角 `+` 导入文件；长按书籍 → 管理书籍，可改资料、封面、人物、生词和章节。
+2. 正文右上角排版按钮 → 更多阅读控制；右上角菜单可自动翻页、听书、进度跳转、阅读助手、分享卡片和查看插图。
+3. 设置 → 阅读工具箱：AI、OCR、有声书、字体、方案、同步、备份、书库锁和 MCP。
+4. 手机桌面长按空白位置 → 小组件 → 书叶。开启书库锁后，小组件内容隐藏。
+5. 网盘与 AI 均使用自己的服务凭据，只在用户触发时发送数据。没有书叶账号、内置付费接口或自动上传。
 
-## 当前边界
+## 数据与兼容限制
 
-这是一款可运行的首版，**不是分析报告中全部功能的等价复刻**。
-
-- 每本导入文件上限 20 MB；EPUB 解压内容上限 60 MB / 4000 条目。
-- EPUB 目前是文字阅读，不显示正文插图、复杂 CSS、脚注跳转或音视频；加密 EPUB 不支持。
-- 暂无 PDF、MOBI、漫画、OCR、TTS、AI、网盘同步、MCP、SQLCipher、仿真 GPU 卷页和原生小组件。
-- 使用系统字体，中文衬线字形是否可用取决于设备；暂未实现专业标点压缩或英文连字符算法。
-- 分章规则只影响之后导入的 TXT。净化规则针对整行；除内置规则外，不支持含括号的分组或前后向表达式。超过 4000 字符的单行跳过净化。
-- 进度显示以当前页位置估计，看到最后一页时标记到章节末尾；阅读时间以秒采样，短于 5 秒的片段不计入。
-- 本地数据库和导出备份没有应用级加密；备份含全文和笔记，请自行妥善保存。正式 APK 不请求网络和全盘文件权限，并关闭 Android 自动云备份。
+- 每本文件上限 20 MB，压缩内容上限 60 MB / 4000 条目，备份导入上限 80 MB。音频文件上限 512 MB，复制在本机；音频副本与自定义字体不会随简单主题方案分发，换手机的音频文件需重新导入。
+- EPUB 保留提取文字和章节图片，图片从阅读菜单查看；尚不还原原书的 CSS、图片行内位置、脚注跳转、音视频或完整编辑结构。导出 EPUB 是依据书叶内容重新生成的文件。
+- DOCX / RTF / Markdown / HTML 以文字导入为主。Kindle 仅支持未加密的未压缩 / PalmDOC 文本记录，不能承诺完整 KF8 / AZW3；DRM、HUFF/CDIC、旧 DOC 和 RAR/CBR 需先转换。
+- PDF 标注保存在书叶书库中，不写回原 PDF；OCR 当前为单张图片 / 当前 PDF 页的中文与拉丁文字识别。文字提取可处理整个 PDF 的现有文字层。
+- 同步是用户触发的加密快照上传 / 替换恢复，未实现自动增量、冲突合并、OAuth 刷新。云盘令牌须具备对应权限并自行更新。百度网盘和 123 云盘原生 API 暂未接入；支持 WebDAV 的云盘可用 WebDAV 配置。
+- KOReader 文本书按百分比近似读取进度，上传仅支持 PDF；按文件名匹配时，两端文件名需一致，KOReader 需选择对应匹配方式。
+- 系统 TTS 取决于手机语音引擎；若所选语音需要联网，系统引擎可能发送朗读文本。未接入 Azure / 阿里 / 字节 / Edge 云 TTS、Tavily、Paddle / MinerU / ONNX OCR。
+- 密码备份不导出 API 密钥、网盘密码或数据库密钥。**普通 JSON 备份含全文和笔记，未加密**；对外转移请选择加密备份。忘记备份密码不能解密。
+- 阅读统计只采样前台阅读；弹窗、后台与遮罩不计时，短于 5 秒的片段不计入。PDF 的短暂菜单浏览和漫画统计覆盖仍有限。
 
 ## 开发与构建
 
-使用 Flutter **3.47.2** / Dart **3.13.2**、JDK 21、Android SDK 36、NDK 28.2.13676358。依赖由 `pubspec.lock` 固定。
+Flutter **3.47.2** / Dart **3.13.2**、JDK 21、Android SDK 36、NDK 28.2.13676358。依赖由 `pubspec.lock` 固定。
 
 ```sh
 flutter pub get --enforce-lockfile
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test --concurrency=1
-flutter run
 flutter build apk --debug
 ```
 
-正式版必须提供 `android/key.properties`，缺少签名时会明确拒绝 release 构建：
+正式版需自行提供 `android/key.properties`：
 
 ```properties
 storeFile=C:/private/shuye-release.jks
@@ -82,21 +79,14 @@ keyAlias=shuye
 flutter build apk --release --split-per-abi
 ```
 
-签名文件和密码已排除在 Git 之外。请保留首次签名材料，后续更新必须使用同一密钥。不要把密码、签名库、个人书籍或书库提交到仓库。
+签名、密码、个人书库均不进入 Git。Windows 中文路径问题可用独立英文构建目录和 `TEMP` / `TMP` 避免，不修改全局设置；见 [Windows 构建说明](docs/windows-build.md)。
 
-Windows 的 Flutter tester、Gradle / Kotlin 在部分中文路径下会出错。建议把项目、构建临时目录、Gradle 缓存放在英文路径，并在当前终端设置 `TEMP` / `TMP`，不用更改 Windows 全局设置。见 [Windows 构建说明](docs/windows-build.md)。
+## 实现与验证
 
-## 结构与依据
+- [架构与数据模型](docs/architecture.md)
+- [调研材料逐项对照](docs/report-coverage.md)
+- [验证记录与未验证范围](docs/verification.md)
+- [原创图片和完整生图提示词](docs/image-assets.md)
+- [服务配置说明](docs/services.md)
 
-- `lib/models.dart`：书籍、章节、笔记、点分命名设置。
-- `lib/importer.dart`：离线 TXT / EPUB 解析、净化、编码处理。
-- `lib/repository.dart`：SQLite、去重、进度、统计、备份与事务恢复。
-- `lib/reader.dart`：字体度量分页、原文位置映射、阅读交互。
-- `lib/main.dart`：书架、笔记、统计与设置。
-- `test/`：解析、编码、分页、持久化、恢复回滚及阅读交互测试。
-- [设计说明与后续路线](docs/architecture.md)
-- [验证记录](docs/verification.md)
-
-参考库的官方使用说明：[Flutter Android 发布](https://docs.flutter.dev/deployment/android)、[sqflite](https://pub.dev/packages/sqflite)、[file_picker 10.3.10](https://pub.dev/packages/file_picker/versions/10.3.10)、[archive](https://pub.dev/packages/archive)、[xml](https://pub.dev/packages/xml)。
-
-提供的静态分析报告作为需求输入，并未重新验证其 APK 真伪、隐私或性能结论；其原始对象池字符串、APK 和反汇编产物未纳入本仓库。
+原报告作为需求资料，原始 APK 真伪、隐私与性能推断未重新验证；对象池、反汇编产物和第三方阅读内容未纳入仓库。

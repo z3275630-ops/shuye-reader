@@ -46,6 +46,18 @@ void main() {
       () async => Future<void>.delayed(const Duration(milliseconds: 200)),
     );
     await tester.pumpAndSettle();
+    await tester.runAsync(() async {
+      final ctx = key.currentContext!;
+      for (final asset in [
+        'mountain.webp',
+        'poetry.webp',
+        'notebook.webp',
+        'reading-garden.webp',
+      ]) {
+        await precacheImage(AssetImage('assets/art/$asset'), ctx);
+      }
+    });
+    await tester.pumpAndSettle();
     Future<void> capture(String name) async {
       final boundary =
           key.currentContext!.findRenderObject() as RenderRepaintBoundary;
@@ -61,7 +73,11 @@ void main() {
 
     await capture('bookshelf');
     await tester.ensureVisible(find.text('山间来信').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('山间来信').last);
+    await tester.runAsync(
+      () async => Future<void>.delayed(const Duration(milliseconds: 250)),
+    );
     await tester.pumpAndSettle();
     tester.view.physicalSize = const Size(390, 844);
     await tester.pumpAndSettle();

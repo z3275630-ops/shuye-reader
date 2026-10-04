@@ -1,22 +1,50 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 
 import 'importer.dart';
 import 'models.dart';
 import 'reader.dart';
 import 'repository.dart';
+import 'document_reader.dart';
+import 'services.dart';
+import 'workbench.dart';
+import 'shelf_layouts.dart';
+import 'privacy.dart';
+import 'typography.dart';
 
 const ink = Color(0xff263b32);
 const sage = Color(0xff58735f);
 const paper = Color(0xfff7f6f1);
 
+List<Map<String, dynamic>> decodeArchive(Uint8List bytes) => [
+  for (final f in checkedZip(bytes))
+    if (f.isFile &&
+        RegExp(
+          r'\.(txt|epub|pdf|md|markdown|html?|docx|rtf|mobi|azw3?|cbz)$',
+          caseSensitive: false,
+        ).hasMatch(f.name) &&
+        f.size <= maxImportBytes)
+      {'name': f.name, 'bytes': Uint8List.fromList(f.content)},
+];
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
+    await ChineseConverter.load();
+    if (Platform.isAndroid) {
+      await JustAudioBackground.init(
+        androidNotificationChannelId: 'dev.shuye.audio',
+        androidNotificationChannelName: '书叶有声书',
+        androidNotificationOngoing: true,
+      );
+    }
     runApp(ShuyeApp(repository: await ReaderRepository.open()));
   } catch (e) {
     runApp(
@@ -41,6 +69,7 @@ class ShuyeApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
     title: '书叶',
     debugShowCheckedModeBanner: false,
+    builder: (c, child) => PrivacyGate(repo: repository, child: child!),
     theme: ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(seedColor: sage, surface: paper),
@@ -153,6 +182,64 @@ class BookCover extends StatelessWidget {
       fit: BoxFit.cover,
       child: SizedBox(width: 160, height: 230, child: artwork()),
     );
+    final cover =
+        book.cover ??
+        {
+          'shuye-original-1': 'asset:assets/art/mountain.webp',
+          'shuye-original-2': 'asset:assets/art/poetry.webp',
+          'shuye-original-3': 'asset:assets/art/notebook.webp',
+        }[book.id] ??
+        'asset:${originalCovers[book.id.codeUnits.fold<int>(0, (a, b) => a + b) % originalCovers.length]}';
+    Widget illustrated() => Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset(
+          cover.substring(6),
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => fallback(),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.white.withValues(alpha: .35),
+                Colors.transparent,
+                Colors.black.withValues(alpha: .55),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                book.title,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: 'serif',
+                  fontSize: 19,
+                  height: 1.4,
+                  color: ink,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                book.author,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 10, color: Colors.white),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
     return Container(
       width: width,
       height: height,
@@ -168,10 +255,13 @@ class BookCover extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: book.cover == null
-            ? fallback()
+        child: cover.startsWith('asset:')
+            ? FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(width: 160, height: 230, child: illustrated()),
+              )
             : Image.memory(
-                base64Decode(book.cover!),
+                base64Decode(cover),
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => fallback(),
               ),
@@ -188,34 +278,83 @@ class LibraryHome extends StatefulWidget {
 }
 
 class _LibraryHomeState extends State<LibraryHome> {
+  StreamSubscription<MethodCall>? deviceEvents;
+  bool initialLinkRead = false;
   List<Book> books = [];
   List<Note> notes = [];
   ReaderSettings settings = ReaderSettings();
   Map<String, int> stats = {};
+  Map<int, int> hourlyStats = {};
   int tab = 0, filter = 0;
   bool loading = true, busy = false, grid = true;
   String query = '';
+  String noteQuery = '';
   ReaderRepository get repo => widget.repository;
   @override
   void initState() {
     super.initState();
+    DeviceReader.initialize();
+    deviceEvents = DeviceReader.events.stream.listen((call) {
+      if (call.method == 'link') {
+        unawaited(handleLink(call.arguments as String?));
+      }
+    });
     reload();
+  }
+
+  @override
+  void dispose() {
+    unawaited(deviceEvents?.cancel());
+    super.dispose();
+  }
+
+  Future<void> handleLink(String? value) async {
+    if (value == null || !mounted) return;
+    final uri = Uri.tryParse(value);
+    if (uri == null || uri.scheme != 'shuye') return;
+    if (uri.host == 'book' && uri.pathSegments.isNotEmpty) {
+      final b = books.where((b) => b.id == uri.pathSegments.first).firstOrNull;
+      if (b != null) await openBook(b);
+    }
+    if (uri.host == 'library' && mounted) setState(() => tab = 0);
   }
 
   Future<void> reload() async {
     try {
-      final b = await repo.books();
+      final b = await repo.books(summaries: true);
       final n = await repo.notes();
       final s = await repo.settings();
       final t = await repo.statistics();
+      final hours = await repo.hourlyStatistics();
       if (mounted) {
         setState(() {
           books = b;
           notes = n;
           settings = s;
+          privacyEnabled.value = s.flag('privacy.lock');
           stats = t;
+          hourlyStats = hours;
           loading = false;
+          grid = settings.value('bookshelf.layout', 'grid') == 'grid';
         });
+        for (final font in await repo.entries('fonts')) {
+          try {
+            final loader = FontLoader(font['name'] as String)
+              ..addFont(
+                Future.value(
+                  ByteData.sublistView(base64Decode(font['data'] as String)),
+                ),
+              );
+            await loader.load();
+          } catch (_) {
+            /* The original font may be invalid on this device. */
+          }
+        }
+        await updateWidgets();
+        if (!initialLinkRead) {
+          initialLinkRead = true;
+          await handleLink(await DeviceReader.call<String>('initialLink'));
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -246,7 +385,22 @@ class _LibraryHomeState extends State<LibraryHome> {
   Future<void> importBooks() => operation(() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['txt', 'epub'],
+      allowedExtensions: [
+        'txt',
+        'epub',
+        'pdf',
+        'md',
+        'markdown',
+        'html',
+        'htm',
+        'docx',
+        'rtf',
+        'mobi',
+        'azw',
+        'azw3',
+        'cbz',
+        'zip',
+      ],
       allowMultiple: true,
       withData: false,
     );
@@ -259,15 +413,30 @@ class _LibraryHomeState extends State<LibraryHome> {
           throw const FormatException('文件过大或无法访问');
         }
         final bytes = await File(file.path!).readAsBytes();
-        final book = await compute(parseBook, {
-          'bytes': bytes,
-          'name': file.name,
-          'pattern': settings.chapterPattern,
-        });
-        if (await repo.addBook(book)) {
-          added++;
+        final inputs = <Map<String, dynamic>>[];
+        if (file.name.toLowerCase().endsWith('.zip')) {
+          final archive = await compute(decodeArchive, bytes);
+          inputs.addAll(archive);
         } else {
-          duplicates++;
+          inputs.add({'name': file.name, 'bytes': bytes});
+        }
+        if (inputs.isEmpty) {
+          throw const FormatException('压缩包中没有支持的书籍文件');
+        }
+        for (final input in inputs) {
+          try {
+            final book = await compute(parseBook, {
+              ...input,
+              'pattern': settings.chapterPattern,
+            });
+            if (await repo.addBook(book)) {
+              added++;
+            } else {
+              duplicates++;
+            }
+          } catch (e) {
+            errors.add('${input['name']}：$e');
+          }
         }
       } catch (e) {
         errors.add('${file.name}：$e');
@@ -292,16 +461,110 @@ class _LibraryHomeState extends State<LibraryHome> {
     }
   });
   Future<void> openBook(Book book, [Note? note]) async {
+    book = await repo.book(book.id);
+    if (!mounted) return;
     if (note != null) {
       book.chapter = note.chapter;
       book.offset = note.offset;
     }
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            ReaderScreen(book: book, repository: repo, settings: settings),
+        builder: (_) => book.format == 'PDF'
+            ? DocumentReader(book: book, repo: repo, settings: settings)
+            : book.format == 'CBZ'
+            ? ComicReader(book: book, repo: repo)
+            : ReaderScreen(book: book, repository: repo, settings: settings),
       ),
     );
+    await reload();
+  }
+
+  Future<void> updateWidgets() async {
+    if (settings.flag('privacy.lock')) {
+      await DeviceReader.call('widgets', {
+        for (final name in [
+          'shelf',
+          'current',
+          'stats',
+          'weekly',
+          'heatmap',
+          'quote',
+          'lists',
+        ])
+          name: '解锁书叶后查看',
+        'link': 'shuye://library',
+      });
+      return;
+    }
+    final recent = books.where((b) => b.lastRead > 0).firstOrNull;
+    final now = DateTime.now();
+    var weekly = 0;
+    final marks = <String>[];
+    for (var i = 27; i >= 0; i--) {
+      final day = now
+          .subtract(Duration(days: i))
+          .toIso8601String()
+          .substring(0, 10);
+      final seconds = stats[day] ?? 0;
+      if (i < 7) weekly += seconds;
+      marks.add(seconds > 0 ? '■' : '□');
+    }
+    await DeviceReader.call('widgets', {
+      'shelf': books.take(5).map((b) => b.title).join('\n'),
+      'current': recent == null
+          ? '还没有开始阅读'
+          : '${recent.title}\n已读 ${(recent.progress * 100).round()}%',
+      'stats':
+          '${books.length} 本藏书\n累计阅读 ${stats.values.fold<int>(0, (a, b) => a + b) ~/ 60} 分钟',
+      'weekly': '近 7 天阅读 ${weekly ~/ 60} 分钟',
+      'heatmap': [
+        for (var i = 0; i < 4; i++) marks.sublist(i * 7, i * 7 + 7).join(' '),
+      ].join('\n'),
+      'quote': notes.firstOrNull?.quote ?? '开始阅读，记下让你心动的文字。',
+      'lists': books
+          .map((b) => b.metadata['list'] as String? ?? '')
+          .where((s) => s.isNotEmpty)
+          .toSet()
+          .join('\n'),
+      'link': recent == null ? 'shuye://library' : 'shuye://book/${recent.id}',
+    });
+  }
+
+  Future<void> bookMenu(Book book) async {
+    book = await repo.book(book.id);
+    if (!mounted) return;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (c) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(title: Text(book.title)),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('书籍资料与管理'),
+              onTap: () => Navigator.pop(c, 'edit'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline),
+              title: const Text('移除书籍'),
+              onTap: () => Navigator.pop(c, 'delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (action == 'edit') {
+      await showBookDetails(context, book, repo, reload);
+    } else if (action == 'delete') {
+      await deleteBook(book);
+    }
+  }
+
+  Future<void> shelfSettings() async {
+    await configureShelf(context, settings, () => repo.saveSettings(settings));
     await reload();
   }
 
@@ -479,10 +742,19 @@ class _LibraryHomeState extends State<LibraryHome> {
           ? [
               IconButton(
                 tooltip: grid ? '列表视图' : '网格视图',
-                onPressed: () => setState(() => grid = !grid),
+                onPressed: () async {
+                  setState(() => grid = !grid);
+                  settings.extra['bookshelf.layout'] = grid ? 'grid' : 'list';
+                  await repo.saveSettings(settings);
+                },
                 icon: Icon(
                   grid ? Icons.view_list_outlined : Icons.grid_view_outlined,
                 ),
+              ),
+              IconButton(
+                tooltip: '书架装修',
+                onPressed: shelfSettings,
+                icon: const Icon(Icons.dashboard_customize_outlined),
               ),
               IconButton(
                 tooltip: '导入书籍',
@@ -539,12 +811,35 @@ class _LibraryHomeState extends State<LibraryHome> {
         .where(
           (b) =>
               (b.title.toLowerCase().contains(query.toLowerCase()) ||
-                  b.author.toLowerCase().contains(query.toLowerCase())) &&
+                  b.author.toLowerCase().contains(query.toLowerCase()) ||
+                  ['category', 'tags', 'list', 'review']
+                      .map((k) => b.metadata[k] ?? '')
+                      .any(
+                        (v) => v.toString().toLowerCase().contains(
+                          query.toLowerCase(),
+                        ),
+                      )) &&
               (filter == 0 ||
                   (filter == 1 && b.lastRead > 0 && b.progress < .99) ||
                   (filter == 2 && b.progress >= .99)),
         )
         .toList();
+    switch (settings.value('bookshelf.sort', 'recent')) {
+      case 'added':
+        filtered.sort((a, b) => b.added.compareTo(a.added));
+      case 'title':
+        filtered.sort((a, b) => a.title.compareTo(b.title));
+      case 'author':
+        filtered.sort((a, b) => a.author.compareTo(b.author));
+      case 'progress':
+        filtered.sort((a, b) => b.progress.compareTo(a.progress));
+      case 'rating':
+        filtered.sort(
+          (a, b) => (b.metadata['rating'] as num? ?? 0).compareTo(
+            a.metadata['rating'] as num? ?? 0,
+          ),
+        );
+    }
     final recent = books.where((b) => b.lastRead > 0).firstOrNull;
     return CustomScrollView(
       slivers: [
@@ -554,6 +849,20 @@ class _LibraryHomeState extends State<LibraryHome> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (settings.flag('bookshelf.banner', true))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 20),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(18),
+                      child: AspectRatio(
+                        aspectRatio: 2.6,
+                        child: Image.asset(
+                          'assets/art/reading-garden.webp',
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  ),
                 const Text(
                   '给自己，一页安静。',
                   style: TextStyle(
@@ -660,12 +969,30 @@ class _LibraryHomeState extends State<LibraryHome> {
               books.isEmpty ? '点击右上角 +，导入 TXT 或 EPUB。' : '试试其他关键词或分类。',
             ),
           )
+        else if (![
+          'grid',
+          'list',
+        ].contains(settings.value('bookshelf.layout', 'grid')))
+          SliverToBoxAdapter(
+            child: AlternativeShelf(
+              books: filtered,
+              settings: settings,
+              open: openBook,
+              menu: bookMenu,
+              cover: (b) => BookCover(b),
+            ),
+          )
         else if (grid)
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 30),
             sliver: SliverLayoutBuilder(
               builder: (ctx, c) {
-                final count = c.crossAxisExtent > 650
+                final count = settings.number('bookshelf.columns', 0) > 0
+                    ? settings
+                          .number('bookshelf.columns', 2)
+                          .round()
+                          .clamp(1, 5)
+                    : c.crossAxisExtent > 650
                     ? 4
                     : c.crossAxisExtent > 450
                     ? 3
@@ -674,15 +1001,18 @@ class _LibraryHomeState extends State<LibraryHome> {
                   itemCount: filtered.length,
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: count,
-                    mainAxisSpacing: 22,
-                    crossAxisSpacing: 22,
-                    mainAxisExtent: 290,
+                    mainAxisSpacing: settings.number('bookshelf.gap', 22),
+                    crossAxisSpacing: settings.number('bookshelf.gap', 22),
+                    mainAxisExtent: settings.number(
+                      'bookshelf.cardHeight',
+                      290,
+                    ),
                   ),
                   itemBuilder: (_, i) {
                     final b = filtered[i];
                     return InkWell(
                       onTap: () => openBook(b),
-                      onLongPress: () => deleteBook(b),
+                      onLongPress: () => bookMenu(b),
                       borderRadius: BorderRadius.circular(8),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -760,8 +1090,8 @@ class _LibraryHomeState extends State<LibraryHome> {
                       isThreeLine: true,
                       onTap: () => openBook(b),
                       trailing: IconButton(
-                        tooltip: '移除书籍',
-                        onPressed: () => deleteBook(b),
+                        tooltip: '书籍管理',
+                        onPressed: () => bookMenu(b),
                         icon: const Icon(Icons.more_horiz),
                       ),
                     ),
@@ -774,82 +1104,157 @@ class _LibraryHomeState extends State<LibraryHome> {
     );
   }
 
-  Widget notebook() => notes.isEmpty
-      ? empty(Icons.bookmark_border, '把心动的句子留下来', '阅读时长按选择正文，点击摘录按钮保存。')
-      : ListView.separated(
-          padding: const EdgeInsets.all(22),
-          itemCount: notes.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 14),
-          itemBuilder: (_, i) {
-            final n = notes[i];
-            final b = books.where((b) => b.id == n.bookId).firstOrNull;
-            return Card(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: b == null ? null : () => openBook(b, n),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              b?.title ?? '书籍',
-                              style: const TextStyle(fontSize: 12, color: sage),
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: '删除笔记',
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () => operation(() async {
-                              if (await confirm('删除这条笔记？', '删除后不能撤销。')) {
-                                await repo.deleteNote(n.id);
-                                await reload();
-                              }
-                            }),
-                            icon: const Icon(Icons.close, size: 16),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        n.quote,
-                        maxLines: 8,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: 'serif',
-                          height: 1.8,
-                          fontSize: 16,
-                        ),
-                      ),
-                      if (n.comment.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 14),
-                          child: Text(
-                            n.comment,
-                            style: const TextStyle(
-                              color: Colors.black54,
-                              height: 1.6,
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 15),
-                      Text(
-                        '${b?.chapters[n.chapter].title ?? ''} · ${DateTime.fromMillisecondsSinceEpoch(n.created).toIso8601String().substring(0, 10)}',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Colors.black45,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+  Widget notebook() {
+    final matching = notes
+        .where(
+          (n) =>
+              noteQuery.isEmpty ||
+              '${n.quote} ${n.comment} ${n.tags}'.toLowerCase().contains(
+                noteQuery.toLowerCase(),
               ),
-            );
-          },
-        );
+        )
+        .toList();
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
+          child: TextField(
+            decoration: const InputDecoration(
+              hintText: '搜索摘录、想法或标签',
+              prefixIcon: Icon(Icons.search),
+            ),
+            onChanged: (v) => setState(() => noteQuery = v),
+          ),
+        ),
+        Expanded(
+          child: matching.isEmpty
+              ? empty(Icons.bookmark_border, '把心动的句子留下来', '阅读时长按选择正文，点击摘录按钮保存。')
+              : ListView.separated(
+                  padding: const EdgeInsets.all(22),
+                  itemCount: matching.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 14),
+                  itemBuilder: (_, i) {
+                    final n = matching[i];
+                    final b = books.where((b) => b.id == n.bookId).firstOrNull;
+                    return Card(
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: b == null ? null : () => openBook(b, n),
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      b?.title ?? '书籍',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: sage,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    tooltip: '分享摘录卡片',
+                                    onPressed: () => showShareCard(
+                                      context,
+                                      n.quote,
+                                      b?.title ?? '书叶',
+                                    ),
+                                    icon: const Icon(Icons.ios_share, size: 16),
+                                  ),
+                                  IconButton(
+                                    tooltip: '编辑笔记',
+                                    icon: const Icon(
+                                      Icons.edit_outlined,
+                                      size: 16,
+                                    ),
+                                    onPressed: () => operation(() async {
+                                      final data = await editFields(
+                                        context,
+                                        '编辑笔记',
+                                        {
+                                          '摘录正文': n.quote,
+                                          '想法说明': n.comment,
+                                          '标签（逗号分隔）': n.tags,
+                                        },
+                                      );
+                                      if (data == null) return;
+                                      await repo.updateNote(
+                                        Note(
+                                          id: n.id,
+                                          bookId: n.bookId,
+                                          chapter: n.chapter,
+                                          offset: n.offset,
+                                          quote: data['摘录正文']!,
+                                          comment: data['想法说明']!,
+                                          tags: data['标签（逗号分隔）']!,
+                                          created: n.created,
+                                        ),
+                                      );
+                                      await reload();
+                                    }),
+                                  ),
+                                  IconButton(
+                                    tooltip: '删除笔记',
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () => operation(() async {
+                                      if (await confirm(
+                                        '删除这条笔记？',
+                                        '删除后不能撤销。',
+                                      )) {
+                                        await repo.deleteNote(n.id);
+                                        await reload();
+                                      }
+                                    }),
+                                    icon: const Icon(Icons.close, size: 16),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                n.quote,
+                                maxLines: 8,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: 'serif',
+                                  height: 1.8,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              if (n.comment.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 14),
+                                  child: Text(
+                                    n.comment,
+                                    style: const TextStyle(
+                                      color: Colors.black54,
+                                      height: 1.6,
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(height: 15),
+                              Text(
+                                '${b?.chapters[n.chapter].title ?? ''} · ${DateTime.fromMillisecondsSinceEpoch(n.created).toIso8601String().substring(0, 10)}',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.black45,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
   Widget statistics() {
     final today = DateTime.now();
     final days = List.generate(
@@ -889,6 +1294,79 @@ class _LibraryHomeState extends State<LibraryHome> {
           ],
         ),
         const SizedBox(height: 28),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '每日目标 ${settings.number('stats.goalMinutes', 20).round()} 分钟',
+                        style: const TextStyle(fontSize: 17),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '设置每日目标',
+                      onPressed: () => operation(() async {
+                        final data = await editFields(context, '每日阅读目标', {
+                          '分钟':
+                              '${settings.number('stats.goalMinutes', 20).round()}',
+                        });
+                        if (data != null) {
+                          settings.extra['stats.goalMinutes'] =
+                              (int.tryParse(data['分钟']!) ?? 20).clamp(5, 240);
+                          await repo.saveSettings(settings);
+                          await reload();
+                        }
+                      }),
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
+                  ],
+                ),
+                LinearProgressIndicator(
+                  value:
+                      ((stats[key(today)] ?? 0) /
+                              (settings
+                                      .number('stats.goalMinutes', 20)
+                                      .clamp(5, 240) *
+                                  60))
+                          .clamp(0, 1),
+                ),
+                const SizedBox(height: 16),
+                const Text('常读时段（本次升级后开始记录）'),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 5,
+                  runSpacing: 8,
+                  children: [
+                    for (var h = 0; h < 24; h++)
+                      Tooltip(
+                        message: '$h 点：${(hourlyStats[h] ?? 0) ~/ 60} 分钟',
+                        child: Container(
+                          width: 28,
+                          height: 34,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: (hourlyStats[h] ?? 0) > 0
+                                ? sage.withValues(alpha: .6)
+                                : const Color(0xffe7ece3),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '$h',
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(22),
@@ -1007,6 +1485,28 @@ class _LibraryHomeState extends State<LibraryHome> {
               trailing: const Icon(Icons.chevron_right),
               onTap: editRules,
             ),
+            ListTile(
+              leading: const Icon(Icons.handyman_outlined),
+              title: const Text('阅读工具箱'),
+              subtitle: const Text('AI、听书、识字、在线书库、字体和加密同步'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        WorkshopScreen(repo: repo, settings: settings),
+                  ),
+                );
+                await reload();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.dashboard_customize_outlined),
+              title: const Text('书架装修'),
+              subtitle: const Text('五种布局、列数、间距和置顶横幅'),
+              onTap: shelfSettings,
+            ),
           ],
         ),
       ),
@@ -1041,12 +1541,12 @@ class _LibraryHomeState extends State<LibraryHome> {
       Card(
         child: ListTile(
           leading: const Icon(Icons.info_outline),
-          title: const Text('关于书叶 0.1.0'),
+          title: const Text('关于书叶 0.2.0'),
           subtitle: const Text('独立实现 · 非 Reeden 官方产品'),
           onTap: () => showAboutDialog(
             context: context,
             applicationName: '书叶',
-            applicationVersion: '0.1.0',
+            applicationVersion: '0.2.0',
             applicationIcon: const Icon(
               Icons.eco_outlined,
               size: 40,
@@ -1054,7 +1554,7 @@ class _LibraryHomeState extends State<LibraryHome> {
             ),
             children: const [
               Text(
-                '参考提供的阅读器分析报告，使用原创代码实现。示例文章为项目原创。\n\n支持 TXT 与文字 EPUB。暂不支持 PDF、AI、网盘同步、插图排版和仿真卷页。\n\n正文与笔记仅保存在应用内。卸载应用或清除应用数据会丢失本地书库，请定期导出备份。导出的备份未加密，请妥善保管。',
+                '参考提供的阅读器分析报告，使用原创代码和原创插画实现。\n\n支持 TXT、EPUB、PDF、DOCX、HTML、Markdown、RTF、部分无加密 Kindle 及 CBZ。AI 和网盘使用你自己配置的服务；未配置时仍可完整离线阅读。\n\n卸载或清除应用数据会丢失本地书库，请定期备份。普通 JSON 备份未加密；工具箱提供密码加密备份。',
               ),
             ],
           ),

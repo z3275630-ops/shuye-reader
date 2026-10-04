@@ -6,16 +6,28 @@ const defaultChapterPattern =
 class Chapter {
   final String title;
   final String text;
-  const Chapter(this.title, this.text);
-  Map<String, dynamic> toJson() => {'title': title, 'text': text};
-  factory Chapter.fromJson(Map<String, dynamic> j) =>
-      Chapter(j['title'] as String, j['text'] as String);
+  final List<String> images;
+  const Chapter(this.title, this.text, {this.images = const []});
+  Map<String, dynamic> toJson() => {
+    'title': title,
+    'text': text,
+    'images': images,
+  };
+  factory Chapter.fromJson(Map<String, dynamic> j) => Chapter(
+    j['title'] as String,
+    j['text'] as String,
+    images: List<String>.from(j['images'] as List? ?? []),
+  );
 }
 
 class Book {
-  final String id, title, author, format;
-  final List<Chapter> chapters;
-  final String? cover;
+  final String id, format;
+  String title, author;
+  List<Chapter> chapters;
+  String? cover;
+  String? source;
+  Map<String, dynamic> metadata;
+  final bool isSummary;
   final int added;
   int chapter, offset, lastRead;
   Book({
@@ -25,18 +37,34 @@ class Book {
     this.author = '未知作者',
     this.format = 'TXT',
     this.cover,
+    this.source,
+    Map<String, dynamic>? metadata,
+    this.isSummary = false,
     int? added,
     this.chapter = 0,
     this.offset = 0,
     this.lastRead = 0,
-  }) : added = added ?? DateTime.now().millisecondsSinceEpoch;
-  int get words => chapters.fold(0, (n, c) => n + c.text.runes.length);
+  }) : metadata = metadata ?? {},
+       added = added ?? DateTime.now().millisecondsSinceEpoch;
+  int get words => isSummary
+      ? metadata['_words'] as int? ?? 0
+      : chapters.fold(0, (n, c) => n + c.text.runes.length);
   double get progress {
-    final total = chapters.fold<int>(0, (n, c) => n + c.text.length);
+    if (format == 'PDF') {
+      final count = metadata['pdfPages'] as int? ?? 0;
+      return count <= 1
+          ? 0
+          : (((metadata['pdfPage'] as int? ?? 1) - 1) / (count - 1)).clamp(
+              0,
+              1,
+            );
+    }
+    final lengths = isSummary
+        ? List<int>.from(metadata['_lengths'] as List? ?? [])
+        : chapters.map((c) => c.text.length).toList();
+    final total = lengths.fold<int>(0, (n, c) => n + c);
     if (total == 0) return 0;
-    final read =
-        chapters.take(chapter).fold<int>(0, (n, c) => n + c.text.length) +
-        offset;
+    final read = lengths.take(chapter).fold<int>(0, (n, c) => n + c) + offset;
     return (read / total).clamp(0, 1);
   }
 
@@ -46,6 +74,8 @@ class Book {
     'author': author,
     'format': format,
     'cover': cover,
+    'source': source,
+    'metadata': metadata,
     'added': added,
     'chapter': chapter,
     'offset': offset,
@@ -53,6 +83,9 @@ class Book {
     'chapters': chapters.map((c) => c.toJson()).toList(),
   };
   factory Book.fromJson(Map<String, dynamic> j) {
+    final metadata = Map<String, dynamic>.from(j['metadata'] as Map? ?? {});
+    final source =
+        j['source'] as String? ?? metadata.remove('binary') as String?;
     final chapters = (j['chapters'] as List)
         .map((c) => Chapter.fromJson(Map<String, dynamic>.from(c as Map)))
         .toList();
@@ -68,6 +101,8 @@ class Book {
       author: j['author'] as String? ?? '未知作者',
       format: j['format'] as String? ?? 'TXT',
       cover: j['cover'] as String?,
+      source: source,
+      metadata: metadata,
       added: j['added'] as int?,
       chapter: chapter,
       offset: (j['offset'] as int? ?? 0).clamp(
@@ -78,27 +113,65 @@ class Book {
       chapters: chapters,
     );
   }
-  Map<String, Object?> toRow() => {
-    'id': id,
-    'title': title,
-    'author': author,
-    'format': format,
-    'cover': cover,
-    'added': added,
-    'chapter': chapter,
-    'offset': offset,
-    'last_read': lastRead,
-    'content': jsonEncode(chapters.map((c) => c.toJson()).toList()),
-  };
+  Map<String, Object?> toRow() {
+    if (isSummary) throw StateError('请先加载书籍正文再修改');
+    metadata.addAll({
+      '_words': words,
+      '_titles': chapters.map((c) => c.title).toList(),
+      '_lengths': chapters.map((c) => c.text.length).toList(),
+    });
+    return {
+      'id': id,
+      'title': title,
+      'author': author,
+      'format': format,
+      'cover': cover,
+      'source': source == null ? null : base64Decode(source!),
+      'metadata': jsonEncode(metadata),
+      'added': added,
+      'chapter': chapter,
+      'offset': offset,
+      'last_read': lastRead,
+      'content': jsonEncode(chapters.map((c) => c.toJson()).toList()),
+    };
+  }
+
   factory Book.fromRow(Map<String, Object?> r) => Book.fromJson({
     ...r,
+    'source': r['source'] == null
+        ? null
+        : base64Encode(r['source'] as List<int>),
+    'metadata': jsonDecode(r['metadata'] as String? ?? '{}'),
     'lastRead': r['last_read'],
     'chapters': jsonDecode(r['content'] as String),
   });
+  factory Book.fromSummary(Map<String, Object?> r) {
+    final metadata = Map<String, dynamic>.from(
+      jsonDecode(r['metadata'] as String) as Map,
+    );
+    return Book(
+      id: r['id'] as String,
+      title: r['title'] as String,
+      author: r['author'] as String,
+      format: r['format'] as String,
+      cover: r['cover'] as String?,
+      added: r['added'] as int,
+      chapter: r['chapter'] as int,
+      offset: r['offset'] as int,
+      lastRead: r['last_read'] as int,
+      metadata: metadata,
+      isSummary: true,
+      chapters: [
+        for (final title in metadata['_titles'] as List? ?? ['正文'])
+          Chapter(title as String, ' '),
+      ],
+    );
+  }
 }
 
 class Note {
   final String id, bookId, quote, comment;
+  final String tags;
   final int chapter, offset, created;
   const Note({
     required this.id,
@@ -108,6 +181,7 @@ class Note {
     required this.quote,
     required this.comment,
     required this.created,
+    this.tags = '',
   });
   Map<String, Object?> toJson() => {
     'id': id,
@@ -117,6 +191,7 @@ class Note {
     'quote': quote,
     'comment': comment,
     'created': created,
+    'tags': tags,
   };
   factory Note.fromJson(Map<String, dynamic> j) => Note(
     id: j['id'] as String,
@@ -126,6 +201,7 @@ class Note {
     quote: j['quote'] as String,
     comment: j['comment'] as String,
     created: j['created'] as int,
+    tags: j['tags'] as String? ?? '',
   );
 }
 
@@ -133,6 +209,13 @@ class ReaderSettings {
   double fontSize, lineHeight;
   String theme, font, chapterPattern, purifyLines;
   bool cjkSpacing;
+  final Map<String, dynamic> extra;
+  bool flag(String key, [bool fallback = false]) =>
+      extra[key] as bool? ?? fallback;
+  double number(String key, double fallback) =>
+      (extra[key] as num? ?? fallback).toDouble();
+  String value(String key, String fallback) =>
+      extra[key] as String? ?? fallback;
   ReaderSettings({
     this.fontSize = 20,
     this.lineHeight = 1.85,
@@ -141,8 +224,10 @@ class ReaderSettings {
     this.chapterPattern = defaultChapterPattern,
     this.purifyLines = '',
     this.cjkSpacing = true,
-  });
+    Map<String, dynamic>? extra,
+  }) : extra = extra ?? {};
   Map<String, dynamic> toJson() => {
+    ...extra,
     'reader.fontSize': fontSize,
     'reader.lineHeight': lineHeight,
     'reader.theme': theme,
@@ -152,6 +237,50 @@ class ReaderSettings {
     'reader.purifyLines': purifyLines,
   };
   factory ReaderSettings.fromJson(Map<String, dynamic> j) {
+    const booleanKeys = {
+      'reader.keepOn',
+      'reader.volumeKeys',
+      'reader.physicalKeys',
+      'reader.sound',
+      'reader.oneHand',
+      'reader.tapPages',
+      'reader.doublePage',
+      'reader.eink',
+      'reader.ignoreBlank',
+      'reader.bionic',
+      'reader.hyphenation',
+      'reader.punctuation',
+      'reader.nightSchedule',
+      'reader.typography.cjkLatinSpacing',
+      'bookshelf.banner',
+      'privacy.lock',
+    };
+    const numberKeys = {
+      'reader.fontSize',
+      'reader.lineHeight',
+      'reader.autoInterval',
+      'reader.charsPerSecond',
+      'reader.brightness',
+      'reader.margin',
+      'reader.reminderMinutes',
+      'reader.speechRate',
+      'bookshelf.columns',
+      'bookshelf.gap',
+      'bookshelf.cardHeight',
+      'stats.goalMinutes',
+    };
+    for (final e in j.entries) {
+      if ((booleanKeys.contains(e.key) && e.value is! bool) ||
+          (numberKeys.contains(e.key) &&
+              (e.value is! num || !(e.value as num).isFinite))) {
+        throw const FormatException('设置数据类型无效');
+      }
+      if (!booleanKeys.contains(e.key) &&
+          !numberKeys.contains(e.key) &&
+          e.value is! String) {
+        throw const FormatException('设置数据类型无效');
+      }
+    }
     final s = ReaderSettings(
       fontSize: (j['reader.fontSize'] as num? ?? 20).toDouble().clamp(14, 32),
       lineHeight: (j['reader.lineHeight'] as num? ?? 1.85).toDouble().clamp(
@@ -164,6 +293,7 @@ class ReaderSettings {
       chapterPattern:
           j['reader.titleSplitPattern'] as String? ?? defaultChapterPattern,
       purifyLines: j['reader.purifyLines'] as String? ?? '',
+      extra: Map<String, dynamic>.from(j),
     );
     validateRules(s.chapterPattern, s.purifyLines);
     if (!['paper', 'white', 'sage', 'night'].contains(s.theme)) {
