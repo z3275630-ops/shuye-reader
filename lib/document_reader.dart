@@ -53,7 +53,10 @@ class _DocumentReaderState extends State<DocumentReader>
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (active && !busy && document != null) {
         final now = DateTime.now();
-        if (now.hour != recordAt.hour || now.day != recordAt.day) {
+        if (now.hour != recordAt.hour ||
+            now.day != recordAt.day ||
+            now.month != recordAt.month ||
+            now.year != recordAt.year) {
           unawaited(flush());
           recordAt = now;
         }
@@ -72,7 +75,11 @@ class _DocumentReaderState extends State<DocumentReader>
   Future<void> flush() async {
     final n = seconds;
     seconds = 0;
-    await widget.repo.record(widget.book.id, n, at: recordAt);
+    try {
+      await widget.repo.record(widget.book.id, n, at: recordAt);
+    } catch (e) {
+      if (mounted) toast(context, '阅读时长暂未保存，下次保存时重试：$e');
+    }
   }
 
   Future<void> loadStrokes() async {

@@ -75,7 +75,7 @@ class _PeriodStatisticsState extends State<PeriodStatistics> {
     final label = switch (period) {
       ReadingPeriod.day => dayKey(start),
       ReadingPeriod.week =>
-        '${dayKey(start)} — ${dayKey(end.subtract(const Duration(days: 1)))}',
+        '${dayKey(start)} — ${dayKey(DateTime(end.year, end.month, end.day - 1))}',
       ReadingPeriod.month => '${anchor.year} 年 ${anchor.month} 月',
       ReadingPeriod.year => '${anchor.year} 年',
       _ => '全部阅读记录',

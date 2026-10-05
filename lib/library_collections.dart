@@ -134,6 +134,48 @@ class _LibraryCollectionsState extends State<LibraryCollections> {
       ),
     );
     if (chosen == true && ids.isNotEmpty) {
+      if (!mounted) return;
+      final replacing = books
+          .where(
+            (b) =>
+                ids.contains(b.id) &&
+                field != 'tags' &&
+                bookFacetValues(b, field).any((v) => v != name),
+          )
+          .toList();
+      if (replacing.isNotEmpty) {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: Text('更改${libraryFacets[field]}？'),
+            scrollable: true,
+            content: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '每本书只能设置一个${libraryFacets[field]}。以下书籍的原值将替换为“$name”，正文、进度与笔记保留。',
+                ),
+                const SizedBox(height: 12),
+                for (final b in replacing)
+                  Text(
+                    '${b.title}：${bookFacetValues(b, field).join('、')} → $name',
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(c, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(c, true),
+                child: const Text('确认更改'),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true || !mounted) return;
+      }
       await widget.repo.assignFacet(field, name, ids.toList());
     }
   }

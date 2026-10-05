@@ -658,6 +658,7 @@ class McpService {
         final p = Map<String, dynamic>.from(j['params'] as Map),
             name = p['name'];
         dynamic data;
+        String? searchNotice;
         if (name == 'propose_book_update') {
           final args = Map<String, dynamic>.from(p['arguments'] as Map);
           data = {
@@ -686,30 +687,23 @@ class McpService {
           if (q.isEmpty || q.length > 100) {
             throw const FormatException('查询长度 1–100');
           }
-          data = <Map<String, dynamic>>[];
-          for (final summary in await repo.books(summaries: true)) {
-            final b = await repo.book(summary.id);
-            for (var i = 0; i < b.chapters.length; i++) {
-              final at = b.chapters[i].text.indexOf(q);
-              if (at >= 0 && (data as List).length < 100) {
-                data.add({
-                  'book': b.title,
-                  'chapter': i,
-                  'offset': at,
-                  'excerpt': b.chapters[i].text.substring(
-                    max(0, at - 40),
-                    min(b.chapters[i].text.length, at + q.length + 80),
-                  ),
-                });
-              }
-            }
-          }
+          final found = await repo.searchText(
+            q,
+            isCancelled: () =>
+                server == null ||
+                !sessions.contains(req.headers.value('Mcp-Session-Id')),
+          );
+          data = found.matches;
+          searchNotice = found.truncated
+              ? '搜索已达到 100 项或 5 秒限制，仅展示已找到的结果。搜索只涵盖文本书，PDF 原版与漫画不参与。'
+              : '搜索只涵盖文本书，PDF 原版与漫画不参与。';
         } else {
           throw const FormatException('未知工具');
         }
         result = {
           'content': [
             {'type': 'text', 'text': jsonEncode(data)},
+            if (searchNotice != null) {'type': 'text', 'text': searchNotice},
           ],
         };
       } else {

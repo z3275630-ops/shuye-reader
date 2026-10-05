@@ -25,6 +25,27 @@ const readerSchemes = {
 };
 const readerNames = {'paper': '暖纸', 'white': '纸白', 'sage': '青竹', 'night': '夜读'};
 
+List<Color> readerColors(ReaderSettings settings, {DateTime? at}) {
+  if (settings.flag('reader.eink')) return [Colors.white, Colors.black];
+  final hour = (at ?? DateTime.now()).hour;
+  final night =
+      settings.flag('reader.nightSchedule') && (hour >= 20 || hour < 6);
+  final base = readerSchemes[night ? 'night' : settings.theme]!;
+  Color custom(String key, Color fallback) {
+    final hex = settings.value(key, '');
+    return RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(hex)
+        ? Color(0xff000000 | int.parse(hex, radix: 16))
+        : fallback;
+  }
+
+  return night
+      ? base
+      : [
+          custom('reader.background', base[0]),
+          custom('reader.foreground', base[1]),
+        ];
+}
+
 Future<void> showReaderSettings(
   BuildContext context,
   ReaderSettings s,
@@ -55,6 +76,28 @@ Future<void> showReaderSettings(
                     style: TextStyle(fontSize: 22, fontFamily: 'serif'),
                   ),
                   const SizedBox(height: 22),
+                  Container(
+                    key: const ValueKey('reader-settings-preview'),
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: readerColors(s)[0],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text.rich(
+                      readerSpan(
+                        '风翻过书页，文字慢慢清晰。\nA quiet page, a little time.',
+                        TextStyle(
+                          color: readerColors(s)[1],
+                          fontSize: s.fontSize,
+                          height: s.lineHeight,
+                          fontFamily: s.value('reader.customFont', s.font),
+                        ),
+                        s,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   Text('字号  ${s.fontSize.round()}'),
                   Slider(
                     value: s.fontSize,
@@ -267,7 +310,10 @@ class _ReaderScreenState extends State<ReaderScreen>
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (active && !dialogOpen && !shield) {
         final now = DateTime.now();
-        if (now.hour != recordAt.hour || now.day != recordAt.day) {
+        if (now.hour != recordAt.hour ||
+            now.day != recordAt.day ||
+            now.month != recordAt.month ||
+            now.year != recordAt.year) {
           unawaited(flushTime());
           recordAt = now;
         }
@@ -343,7 +389,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     try {
       await repo.record(book.id, elapsed, at: recordAt);
     } catch (e) {
-      if (mounted) message('阅读时长保存失败：$e');
+      if (mounted) message('阅读时长暂未保存，下次保存时重试：$e');
     }
   }
 
@@ -883,23 +929,7 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   @override
   Widget build(BuildContext context) {
-    final hour = DateTime.now().hour;
-    final night =
-        settings.flag('reader.nightSchedule') && (hour >= 20 || hour < 6);
-    final base = readerSchemes[night ? 'night' : settings.theme]!;
-    Color custom(String key, Color fallback) {
-      final hex = settings.value(key, '');
-      return RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(hex)
-          ? Color(0xff000000 | int.parse(hex, radix: 16))
-          : fallback;
-    }
-
-    final scheme = settings.flag('reader.eink')
-        ? [Colors.white, Colors.black]
-        : [
-            night ? base[0] : custom('reader.background', base[0]),
-            night ? base[1] : custom('reader.foreground', base[1]),
-          ];
+    final scheme = readerColors(settings);
     final style = TextStyle(
       color: scheme[1],
       fontSize: settings.fontSize,
@@ -912,7 +942,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     );
     return Theme(
       data: Theme.of(context).copyWith(
-        brightness: settings.theme == 'night'
+        brightness: scheme[0].computeLuminance() < .5
             ? Brightness.dark
             : Brightness.light,
         scaffoldBackgroundColor: scheme[0],
@@ -1010,8 +1040,12 @@ class _ReaderScreenState extends State<ReaderScreen>
             ? GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onDoubleTap: () => setState(() => shield = false),
-                child: const Center(
-                  child: Text('暂时休息\n双击返回阅读', textAlign: TextAlign.center),
+                child: Center(
+                  child: Text(
+                    '暂时休息\n双击返回阅读',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: scheme[1]),
+                  ),
                 ),
               )
             : SafeArea(
@@ -1277,6 +1311,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                                             ),
                                     ),
                                     if (!settings.flag('reader.eink') &&
+                                        !MediaQuery.disableAnimationsOf(ctx) &&
                                         settings.value(
                                               'reader.atmosphere',
                                               'none',

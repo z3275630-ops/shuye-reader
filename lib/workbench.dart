@@ -350,6 +350,8 @@ class EntryScreen extends StatefulWidget {
 class _EntryScreenState extends State<EntryScreen> {
   List<Map<String, dynamic>> entries = [];
   String search = '';
+  bool loading = true;
+  String? loadError;
   @override
   void initState() {
     super.initState();
@@ -357,8 +359,20 @@ class _EntryScreenState extends State<EntryScreen> {
   }
 
   Future<void> load() async {
-    final e = await widget.repo.entries(widget.kind, bookId: widget.book?.id);
-    if (mounted) setState(() => entries = e);
+    if (mounted) {
+      setState(() {
+        loading = true;
+        loadError = null;
+      });
+    }
+    try {
+      final e = await widget.repo.entries(widget.kind, bookId: widget.book?.id);
+      if (mounted) setState(() => entries = e);
+    } catch (e) {
+      if (mounted) setState(() => loadError = '记录读取失败，请重试。');
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
   }
 
   Future<void> edit([Map<String, dynamic>? e]) async {
@@ -410,7 +424,16 @@ class _EntryScreenState extends State<EntryScreen> {
           ),
         ),
         Expanded(
-          child: entries.isEmpty
+          child: loading
+              ? const Center(child: CircularProgressIndicator())
+              : loadError != null
+              ? Center(
+                  child: TextButton(
+                    onPressed: load,
+                    child: Text('$loadError 点击重试'),
+                  ),
+                )
+              : entries.isEmpty
               ? const Center(child: Text('点击 +，添加你的第一条记录'))
               : ListView(
                   children: [
@@ -484,7 +507,7 @@ Future<void> showAiAssistant(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('阅读助手', style: TextStyle(fontSize: 22)),
+                Text('阅读助手', style: Theme.of(c).textTheme.headlineSmall),
                 const SizedBox(height: 8),
                 Text(
                   excerpt != null
@@ -1340,7 +1363,7 @@ class _WorkshopScreenState extends State<WorkshopScreen>
         tile(
           Icons.lock_open_outlined,
           '恢复加密备份',
-          '保留恢复前的备份',
+          '替换当前书库；恢复前请先导出备份',
           () => run(() => encryptedBackup(true)),
         ),
         tile(

@@ -9,10 +9,20 @@ import 'models.dart';
 import 'samples.dart';
 import 'services.dart';
 import 'facets.dart';
+import 'reading_time.dart';
 
 class ReaderRepository {
   final Database db;
   ReaderRepository(this.db);
+  late final _readingTime = ReadingTimeQueue((bookId, seconds, at) async {
+    await db.insert('read_records', {
+      'book_id': bookId,
+      'day':
+          '${at.year}-${at.month.toString().padLeft(2, '0')}-${at.day.toString().padLeft(2, '0')}',
+      'hour': at.hour,
+      'seconds': seconds,
+    });
+  });
   static Future<ReaderRepository> open({
     String? path,
     DatabaseFactory? factory,
@@ -224,6 +234,68 @@ class ReaderRepository {
   Future<Book> book(String id) async => Book.fromRow(
     (await db.query('books', where: 'id = ?', whereArgs: [id])).single,
   );
+  // Search reads only chapter text, never PDF source or comic page images.
+  Future<({List<Map<String, dynamic>> matches, bool truncated})> searchText(
+    String query, {
+    int limit = 100,
+    Duration budget = const Duration(seconds: 5),
+    bool Function()? isCancelled,
+  }) async {
+    if (query.isEmpty || query.length > 100 || limit < 1 || limit > 100) {
+      throw const FormatException('查询长度 1–100，结果上限 1–100');
+    }
+    final watch = Stopwatch()..start();
+    final matches = <Map<String, dynamic>>[];
+    final rows = await db.query(
+      'books',
+      columns: ['id', 'title'],
+      where: 'format NOT IN (?, ?)',
+      whereArgs: ['PDF', 'CBZ'],
+      orderBy: 'last_read DESC, added DESC',
+    );
+    for (final row in rows) {
+      if (watch.elapsed >= budget || (isCancelled?.call() ?? false)) {
+        return (matches: matches, truncated: true);
+      }
+      final content =
+          (await db.query(
+                'books',
+                columns: ['content'],
+                where: 'id = ?',
+                whereArgs: [row['id']],
+              )).firstOrNull?['content']
+              as String?;
+      if (content == null) continue;
+      final chapters = jsonDecode(content) as List;
+      for (var i = 0; i < chapters.length; i++) {
+        final text = (chapters[i] as Map)['text'] as String;
+        var from = 0;
+        while (from < text.length) {
+          final at = text.indexOf(query, from);
+          if (at < 0) break;
+          matches.add({
+            'book': row['title'],
+            'chapter': i,
+            'offset': at,
+            'excerpt': text.substring(
+              max(0, at - 40),
+              min(text.length, at + query.length + 80),
+            ),
+          });
+          if (matches.length >= limit) {
+            return (matches: matches, truncated: true);
+          }
+          from = at + query.length;
+        }
+        await Future<void>.delayed(Duration.zero);
+        if (watch.elapsed >= budget || (isCancelled?.call() ?? false)) {
+          return (matches: matches, truncated: true);
+        }
+      }
+    }
+    return (matches: matches, truncated: false);
+  }
+
   Future<bool> addBook(Book b) async {
     if ((await db.query(
       'books',
@@ -243,8 +315,11 @@ class ReaderRepository {
     where: 'id = ?',
     whereArgs: [b.id],
   );
-  Future<void> deleteBook(String id) async =>
-      db.delete('books', where: 'id = ?', whereArgs: [id]);
+  Future<void> deleteBook(String id) async {
+    await _readingTime.flush();
+    await db.delete('books', where: 'id = ?', whereArgs: [id]);
+  }
+
   Future<String> proposeBookUpdate(
     String bookId,
     Map<String, dynamic> changes,
@@ -469,16 +544,7 @@ class ReaderRepository {
     'value': jsonEncode(s.toJson()),
   }, conflictAlgorithm: ConflictAlgorithm.replace);
   Future<void> record(String bookId, int seconds, {DateTime? at}) async {
-    if (seconds < 5) return;
-    final now = at ?? DateTime.now();
-    final day =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    await db.insert('read_records', {
-      'book_id': bookId,
-      'day': day,
-      'hour': now.hour,
-      'seconds': seconds,
-    });
+    await _readingTime.record(bookId, seconds, at ?? DateTime.now());
   }
 
   Future<Map<String, int>> statistics() async => {

@@ -227,7 +227,6 @@ class _ReadingHeatmapState extends State<ReadingHeatmap> {
         ? !next.isAfter(DateTime(now.year, now.month))
         : next.year <= now.year;
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -440,7 +439,7 @@ class _ReadingHeatmapState extends State<ReadingHeatmap> {
                   for (final item in [
                     ('阅读时长', compactReadingDuration(summary.total)),
                     ('阅读天数', '${summary.active} 天'),
-                    ('最长连续', '${summary.longest} 天'),
+                    ('本期最长连续', '${summary.longest} 天'),
                   ])
                     SizedBox(
                       width: (constraints.maxWidth - 20) / 3,

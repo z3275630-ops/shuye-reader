@@ -11,7 +11,7 @@
 - 基线仅一个压缩 ARM64 APK，27.34 MB（27,336,137 字节）。49 项本地测试通过；预览是电脑字体的 Flutter 渲染，真机功耗、温度等未测。本节数据是交接快照，新改动须重新验证。
 - 先读 README.md、docs/report-coverage.md、docs/ui-design.md、docs/verification.md；Windows 构建见 docs/windows-build.md。其余实现与签名约定见下文。
 
-最新主线改进与验证见 `docs/verification-usability.md`；正式发布基线仍为 0.3.5。
+最新主线为 0.3.6+9（ARM64 版本码 2009），安装包验证见 `docs/verification-0.3.6.md`，下载见 README。协助 Agent 的 PR #16 / #21 已采纳，20 个 Issue 的处理与未完成边界见 `docs/prd/review-2026-10-05.md`；接续开发先查此表，避免重复或丢弃用户数据。
 
 ### 其他 Agent 的 PRD 与协作
 

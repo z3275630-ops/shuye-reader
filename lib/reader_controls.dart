@@ -114,14 +114,22 @@ Future<void> advancedReaderSettings(
             onChanged: (v) => update(key, v),
           ),
         );
+        Widget section(String title) => Padding(
+          padding: const EdgeInsets.only(top: 20, bottom: 12),
+          child: Text(
+            title,
+            style: Theme.of(c).textTheme.titleMedium
+                ?.copyWith(color: Theme.of(c).colorScheme.primary),
+          ),
+        );
         return SafeArea(
           child: SizedBox(
             height: MediaQuery.sizeOf(c).height * .82,
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
               children: [
-                const Text('阅读控制', style: TextStyle(fontSize: 22)),
-                const SizedBox(height: 16),
+                Text('阅读控制', style: Theme.of(c).textTheme.headlineSmall),
+                section('翻页与屏幕'),
                 menu('reader.animation', '翻页效果', {
                   'none': '即时',
                   'slide': '平移翻页',
@@ -142,6 +150,7 @@ Future<void> advancedReaderSettings(
                 toggle('reader.tapPages', '点击正文左右侧翻页', fallback: true),
                 toggle('reader.doublePage', '宽屏双页阅读'),
                 toggle('reader.eink', '墨水屏：高对比度、关闭动画'),
+                section('排版与纸色'),
                 toggle('reader.ignoreBlank', '忽略空段'),
                 toggle('reader.bionic', '英文首字母加粗'),
                 toggle('reader.hyphenation', '英文按音节断词'),
@@ -154,6 +163,7 @@ Future<void> advancedReaderSettings(
                 toggle('reader.nightSchedule', '每日 20:00–06:00 自动夜读'),
                 slider('reader.margin', '左右页边距', 12, 48, 28),
                 slider('reader.brightness', '阅读亮度（负值跟随系统）', -1, 1, -1),
+                section('自动阅读与提醒'),
                 slider('reader.autoInterval', '自动翻页间隔（秒）', 3, 120, 15),
                 menu('reader.autoMode', '自动翻页计算方式', {
                   'interval': '固定间隔',
@@ -162,6 +172,7 @@ Future<void> advancedReaderSettings(
                 slider('reader.charsPerSecond', '每秒阅读字数', 3, 30, 10),
                 slider('reader.reminderMinutes', '阅读休息提醒（分钟；0 为关闭）', 0, 90, 30),
                 slider('reader.speechRate', '听书语速', .5, 2, 1),
+                section('氛围与个性设置'),
                 menu('reader.atmosphere', '阅读氛围', {
                   'none': '关闭',
                   'rain': '细雨',

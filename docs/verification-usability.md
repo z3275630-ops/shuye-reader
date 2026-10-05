@@ -32,7 +32,7 @@ Android debug ARM64 split 构建通过。正式签名的 release QA 构建通过
 - Flutter、PDFium、ML Kit OCR 和 SQLCipher 四个库与上版解压后字节完全一致；Dart 应用库随本轮代码改变。libdartjni.so 的 ELF section 对比仅 .note.gnu.build-id 不同，其余 sections 一致。
 - 图片、OCR 模型、中文转换、断词数据等静态资源不变；已有 MaterialIcons 的裁剪字体子集因新增眼睛标识改变，没有新增字体包。pubspec.yaml、pubspec.lock、Android 工程与数据库结构没有改动。
 
-本轮构建仅用于验证，沿用 0.3.5+8 / ARM64 2008，没有当作新版本分发或创建 Release。后续正式更新需同步 pubspec.yaml / branding.dart 并提升 build number。该 QA 包 SHA-256：`3bde03ccbaf3fdf9341a5da00088b412d4b8631dd273b70c0f9969d73f061983`。
+前次 QA 构建沿用 0.3.5+8 / ARM64 2008，没有作为更新包分发。随后按用户要求同步升为 0.3.6+9 / ARM64 2009，签名安装包与版本验证见 [0.3.6 记录](verification-0.3.6.md)。前次 QA 包 SHA-256：`3bde03ccbaf3fdf9341a5da00088b412d4b8631dd273b70c0f9969d73f061983`。
 
 ## 未验证范围
 

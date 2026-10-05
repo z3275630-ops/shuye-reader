@@ -38,9 +38,11 @@ List<Map<String, dynamic>> decodeArchive(Uint8List bytes) => [
         RegExp(
           r'\.(txt|epub|pdf|md|markdown|html?|docx|rtf|mobi|azw3?|cbz)$',
           caseSensitive: false,
-        ).hasMatch(f.name) &&
-        f.size <= maxImportBytes)
-      {'name': f.name, 'bytes': Uint8List.fromList(f.content)},
+        ).hasMatch(f.name))
+      if (f.size > maxImportBytes)
+        {'name': f.name, 'error': '文件超过 20 MB'}
+      else
+        {'name': f.name, 'bytes': Uint8List.fromList(f.content)},
 ];
 
 void main() async {
@@ -414,12 +416,13 @@ class _LibraryHomeState extends State<LibraryHome> {
     final errors = <String>[];
     for (final file in result.files) {
       try {
+        final archiveFile = file.name.toLowerCase().endsWith('.zip');
         if (file.size > maxImportBytes || file.path == null) {
           throw const FormatException('文件过大或无法访问');
         }
         final bytes = await File(file.path!).readAsBytes();
         final inputs = <Map<String, dynamic>>[];
-        if (file.name.toLowerCase().endsWith('.zip')) {
+        if (archiveFile) {
           final archive = await compute(decodeArchive, bytes);
           inputs.addAll(archive);
         } else {
@@ -430,6 +433,9 @@ class _LibraryHomeState extends State<LibraryHome> {
         }
         for (final input in inputs) {
           try {
+            if (input['error'] != null) {
+              throw FormatException(input['error'] as String);
+            }
             final book = await compute(parseBook, {
               ...input,
               'pattern': settings.chapterPattern,
@@ -503,10 +509,7 @@ class _LibraryHomeState extends State<LibraryHome> {
     var weekly = 0;
     final marks = <String>[];
     for (var i = 27; i >= 0; i--) {
-      final day = now
-          .subtract(Duration(days: i))
-          .toIso8601String()
-          .substring(0, 10);
+      final day = dayKey(DateTime(now.year, now.month, now.day - i));
       final seconds = stats[day] ?? 0;
       if (i < 7) weekly += seconds;
       marks.add(seconds > 0 ? '■' : '□');
@@ -1456,7 +1459,8 @@ class _LibraryHomeState extends State<LibraryHome> {
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             color: (hourlyStats[h] ?? 0) > 0
-                                ? sage.withValues(alpha: .6)
+                                ? Theme.of(context).colorScheme.primary
+                                      .withValues(alpha: .6)
                                 : Theme.of(context)
                                       .colorScheme
                                       .surfaceContainerHigh,

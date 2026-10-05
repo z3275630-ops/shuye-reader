@@ -17,6 +17,7 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
   ui.Image? snapshot;
   ui.FragmentShader? shader;
   bool busy = false;
+  final _pendingTurns = <VoidCallback>[];
   String mode = 'none';
   int direction = 1;
   late final AnimationController controller = AnimationController(
@@ -28,8 +29,11 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
     String effect, {
     int direction = 1,
   }) async {
-    if (busy) return;
-    if (effect == 'none') {
+    if (busy) {
+      _pendingTurns.add(action);
+      return;
+    }
+    if (effect == 'none' || MediaQuery.disableAnimationsOf(context)) {
       action();
       return;
     }
@@ -71,6 +75,13 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
         });
       }
       busy = false;
+      final queued = List<VoidCallback>.of(_pendingTurns);
+      _pendingTurns.clear();
+      if (mounted) {
+        for (final turn in queued) {
+          turn();
+        }
+      }
     }
   }
 
@@ -125,6 +136,8 @@ class TurnPainter extends CustomPainter {
   });
   @override
   void paint(Canvas c, Size size) {
+    c.save();
+    c.clipRect(Offset.zero & size);
     final src = Rect.fromLTWH(
       0,
       0,
@@ -139,17 +152,12 @@ class TurnPainter extends CustomPainter {
       shader!.setImageSampler(0, image);
       c.drawRect(Offset.zero & size, Paint()..shader = shader);
     } else if (mode == 'fade') {
-      // Cross-fade the outgoing page: modulate its alpha instead of tinting it
-      // white, which used to blind the screen and dissolve the old page.
+      // Image paint uses the color's alpha; its RGB does not tint the image.
       c.drawImageRect(
         image,
         src,
         dst,
-        Paint()
-          ..colorFilter = ColorFilter.mode(
-            Colors.white.withValues(alpha: 1 - progress),
-            BlendMode.dstIn,
-          ),
+        Paint()..color = Colors.white.withValues(alpha: 1 - progress),
       );
     } else {
       // Horizontal slide: the outgoing page glides away in the reading
@@ -178,15 +186,16 @@ class TurnPainter extends CustomPainter {
             Offset(shadow.right, 0),
             [
               forward
-                  ? Colors.transparent
-                  : Colors.black.withValues(alpha: .16),
-              forward
                   ? Colors.black.withValues(alpha: .16)
                   : Colors.transparent,
+              forward
+                  ? Colors.transparent
+                  : Colors.black.withValues(alpha: .16),
             ],
           ),
       );
     }
+    c.restore();
   }
 
   @override
