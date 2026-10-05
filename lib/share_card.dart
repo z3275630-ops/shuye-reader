@@ -35,11 +35,16 @@ class QuoteCard extends StatelessWidget {
       width: 360,
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
+        // Take the card surface from the active palette instead of the warm
+        // canvas constants: the text and accent above already come from
+        // applicationTheme, so a fixed background would mix two palettes once
+        // a second app theme is selected. For the warm palette this is the
+        // same value it used before.
         color: dark
-            ? ShuyeStyle.darkCanvas
+            ? colors.surface
             : template == 'minimal'
             ? Colors.white
-            : ShuyeStyle.canvas,
+            : colors.surface,
         image: template == 'paper'
             ? DecorationImage(
                 image: AssetImage(
