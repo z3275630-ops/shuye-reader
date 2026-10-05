@@ -86,6 +86,29 @@ class _PrivacyGateState extends State<PrivacyGate> with WidgetsBindingObserver {
     }
   }
 
+  // Lock screen furniture borrowed from the Claude-style reference: a large
+  // thin clock, the date, and a greeting that follows the hour.
+  String _clock() {
+    final now = DateTime.now();
+    return '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _dateLine() {
+    final now = DateTime.now();
+    const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+    return '${now.month} 月 ${now.day} 日 · 周${weekdays[now.weekday - 1]}';
+  }
+
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 6) return '夜深了，读到这一页就休息吧。';
+    if (hour < 10) return '早上好，今天的阅读在等你。';
+    if (hour < 14) return '午后，适合翻几页。';
+    if (hour < 19) return '下午好，给阅读留一点时间。';
+    if (hour < 23) return '晚上好，接着上次的地方读。';
+    return '夜深了，注意眼睛。';
+  }
+
   @override
   Widget build(BuildContext context) => Stack(
     children: [
@@ -104,17 +127,44 @@ class _PrivacyGateState extends State<PrivacyGate> with WidgetsBindingObserver {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    Text(
+                      _clock(),
+                      style: TextStyle(
+                        fontSize: 46,
+                        fontWeight: FontWeight.w300,
+                        letterSpacing: 0,
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _dateLine(),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 30),
                     ShuyeIcon(
                       Icons.lock_outline,
-                      size: 56,
+                      size: 40,
                       color: Theme.of(context).colorScheme.primary,
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 14),
                     Text(
                       '你的阅读，留给自己',
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 6),
+                    Text(
+                      _greeting(),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 26),
                     if (error != null) Text(error!),
                     FilledButton(
                       onPressed: checking ? null : unlock,
