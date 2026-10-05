@@ -24,6 +24,7 @@ const readerSchemes = {
   'sage': [Color(0xffe4ebdf), Color(0xff344333)],
   'night': [Color(0xff202521), Color(0xffbcc4b7)],
   'claude': [Color(0xfffaf9f5), Color(0xff22221f)],
+  'mist': [Color(0xfff7fafc), Color(0xff253447)],
 };
 const readerNames = {
   'paper': '暖纸',
@@ -31,6 +32,7 @@ const readerNames = {
   'sage': '青竹',
   'night': '夜读',
   'claude': 'Claude',
+  'mist': '海雾',
 };
 
 String readerFont(ReaderSettings settings) {
