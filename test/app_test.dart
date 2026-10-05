@@ -110,11 +110,11 @@ void main() {
       await tester.tap(find.text('统计'));
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
-        find.text('最近 28 天'),
+        find.text('开始阅读后，方格会逐渐亮起来。'),
         100,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.text('最近 28 天'), findsOneWidget);
+      expect(find.text('开始阅读后，方格会逐渐亮起来。'), findsOneWidget);
       await tester.tap(find.text('笔记'));
       await tester.pumpAndSettle();
       expect(find.text('把心动的句子留下来'), findsOneWidget);

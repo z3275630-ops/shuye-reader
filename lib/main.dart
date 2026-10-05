@@ -19,8 +19,10 @@ import 'shelf_layouts.dart';
 import 'privacy.dart';
 import 'typography.dart';
 import 'appearance.dart';
+import 'branding.dart';
 import 'home_dashboard.dart';
 import 'statistics_period.dart';
+import 'reading_heatmap.dart';
 import 'library_collections.dart';
 
 const ink = Color(0xff263b32);
@@ -924,16 +926,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                 if (settings.flag('bookshelf.banner', true))
                   Padding(
                     padding: const EdgeInsets.only(bottom: 20),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
-                      child: AspectRatio(
-                        aspectRatio: 2.6,
-                        child: Image.asset(
-                          'assets/art/reading-garden.webp',
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
+                    child: const ShuyeCover(),
                   ),
                 Text(
                   '给自己，一页安静。',
@@ -1349,14 +1342,6 @@ class _LibraryHomeState extends State<LibraryHome> {
 
   Widget statistics() {
     final today = DateTime.now();
-    final days = List.generate(
-      28,
-      (i) => DateTime(
-        today.year,
-        today.month,
-        today.day,
-      ).subtract(Duration(days: 27 - i)),
-    );
     String key(DateTime d) =>
         '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
     final total = stats.values.fold<int>(0, (n, s) => n + s);
@@ -1372,6 +1357,8 @@ class _LibraryHomeState extends State<LibraryHome> {
           ),
         ),
         const SizedBox(height: 24),
+        ReadingHeatmap(stats: stats),
+        const SizedBox(height: 18),
         PeriodStatistics(stats: stats),
         const SizedBox(height: 18),
         Row(
@@ -1386,7 +1373,13 @@ class _LibraryHomeState extends State<LibraryHome> {
         const SizedBox(height: 14),
         Row(
           children: [
-            Expanded(child: metric('阅读天数', '${stats.length}', '天')),
+            Expanded(
+              child: metric(
+                '阅读天数',
+                '${stats.values.where((v) => v > 0).length}',
+                '天',
+              ),
+            ),
             const SizedBox(width: 12),
             Expanded(child: metric('留下摘录', '${notes.length}', '条')),
           ],
@@ -1464,63 +1457,6 @@ class _LibraryHomeState extends State<LibraryHome> {
             ),
           ),
         ),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(22),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '最近 28 天',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 18),
-                GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 7,
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  children: days.map((d) {
-                    final seconds = stats[key(d)] ?? 0;
-                    return Tooltip(
-                      message: '${key(d)} · ${seconds ~/ 60} 分钟',
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: seconds == 0
-                              ? Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerHigh
-                              : sage.withValues(
-                                  alpha: (.25 + seconds / 1800).clamp(.25, 1),
-                                ),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Center(
-                          child: Text(
-                            '${d.day}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: seconds > 1200 ? Colors.white : ink,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  '颜色越深，阅读时间越长。',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
         const SizedBox(height: 20),
         Text(
           '只统计停留在阅读页的前台时间，短于 5 秒的片段不计入。统计在退出阅读页或进入后台后更新。删除书籍会移除对应记录。',
@@ -1537,41 +1473,7 @@ class _LibraryHomeState extends State<LibraryHome> {
   Widget preferences() => ListView(
     padding: const EdgeInsets.all(22),
     children: [
-      Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.eco_outlined,
-              size: 32,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            SizedBox(height: 10),
-            Text(
-              '书叶 SHUYE',
-              style: TextStyle(
-                fontSize: 23,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 2,
-              ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              '一本书，一段属于自己的时间。\n本地优先 · 无账号 · 无广告',
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.8,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          ],
-        ),
-      ),
+      const ShuyeIdentityCard(),
       const SizedBox(height: 24),
       Text(
         '阅读偏好',
@@ -1687,24 +1589,10 @@ class _LibraryHomeState extends State<LibraryHome> {
       const SizedBox(height: 24),
       Card(
         child: ListTile(
-          leading: Icon(Icons.info_outline),
-          title: Text('关于书叶 0.3.0'),
-          subtitle: Text('独立实现 · 非 Reeden 官方产品'),
-          onTap: () => showAboutDialog(
-            context: context,
-            applicationName: '书叶',
-            applicationVersion: '0.3.0',
-            applicationIcon: Icon(
-              Icons.eco_outlined,
-              size: 40,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            children: const [
-              Text(
-                '参考提供的阅读器分析报告，使用原创代码和原创插画实现。\n\n支持 TXT、EPUB、PDF、DOCX、HTML、Markdown、RTF、部分无加密 Kindle 及 CBZ。AI 和网盘使用你自己配置的服务；未配置时仍可完整离线阅读。\n\n卸载或清除应用数据会丢失本地书库，请定期备份。普通 JSON 备份未加密；工具箱提供密码加密备份。',
-              ),
-            ],
-          ),
+          leading: const Icon(Icons.info_outline),
+          title: const Text('关于书叶'),
+          subtitle: const Text('版本 $shuyeVersion'),
+          onTap: () => showShuyeAbout(context),
         ),
       ),
       const SizedBox(height: 22),

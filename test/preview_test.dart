@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:shuye_reader/main.dart';
+import 'package:shuye_reader/branding.dart';
 import 'package:shuye_reader/repository.dart';
 import 'package:shuye_reader/share_card.dart';
 
@@ -53,7 +54,8 @@ void main() {
         'mountain.webp',
         'poetry.webp',
         'notebook.webp',
-        'reading-garden.webp',
+        'shuye-cover.webp',
+        'shuye-mark.webp',
       ]) {
         await precacheImage(AssetImage('assets/art/$asset'), ctx);
       }
@@ -172,7 +174,24 @@ void main() {
       () async => Future<void>.delayed(const Duration(milliseconds: 150)),
     );
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('应用外观'));
+    tester
+        .state<ScrollableState>(find.byType(Scrollable).last)
+        .position
+        .jumpTo(0);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byType(ShuyeIdentityCard));
+    await tester.pumpAndSettle();
+    await capture('settings-brand');
+    await tester.scrollUntilVisible(find.text('关于书叶'), 300);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('关于书叶'));
+    await tester.pumpAndSettle();
+    expect(find.text('0.3.2'), findsOneWidget);
+    expect(find.textContaining('非 Reeden 官方'), findsNothing);
+    await capture('about');
+    await tester.tap(find.text('关闭'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('应用外观'), -300);
     await tester.pumpAndSettle();
     await tester.tap(find.text('应用外观'));
     await tester.pumpAndSettle();

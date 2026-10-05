@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'models.dart';
+import 'branding.dart';
 
 const homeSections = {
   'continue': '继续阅读',
@@ -131,17 +132,7 @@ class HomeDashboard extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        if (settings.flag('home.banner', true))
-          ClipRRect(
-            borderRadius: BorderRadius.circular(18),
-            child: AspectRatio(
-              aspectRatio: 3,
-              child: Image.asset(
-                'assets/art/reading-garden.webp',
-                fit: BoxFit.cover,
-              ),
-            ),
-          ),
+        if (settings.flag('home.banner', true)) const ShuyeCover(),
         const SizedBox(height: 18),
         Text('给自己，一页安静。', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 6),

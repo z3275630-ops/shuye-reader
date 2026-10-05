@@ -25,9 +25,9 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed lib test
       - run: flutter analyze
       - run: flutter test --concurrency=1
-      - run: flutter build apk --debug
+      - run: flutter build apk --debug --target-platform android-arm64 --split-per-abi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: shuye-development-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: shuye-development-arm64-apk
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
           retention-days: 14

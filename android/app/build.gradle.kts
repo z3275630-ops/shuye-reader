@@ -31,6 +31,14 @@ android {
         versionName = flutter.versionName
     }
 
+    packaging {
+        jniLibs {
+            // Compress native libraries for a smaller direct-download APK.
+            // Android extracts these unchanged libraries during installation.
+            useLegacyPackaging = true
+        }
+    }
+
     val signingFile = rootProject.file("key.properties")
     val signingProperties = Properties()
     if (signingFile.exists()) {

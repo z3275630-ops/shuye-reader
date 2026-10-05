@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive icons use a 108dp viewport with a 72dp visible mask. Keep the
+     supplied folded-page artwork within the circular safe area. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/shuye_launcher_foreground"
+    android:inset="14dp" />

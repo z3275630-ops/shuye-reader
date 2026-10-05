@@ -10,7 +10,8 @@
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
         android:name="${applicationName}"
-        android:icon="@drawable/shuye_icon">
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
             android:exported="true"
