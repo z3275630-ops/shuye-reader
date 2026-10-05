@@ -437,7 +437,11 @@ class _ReaderScreenState extends State<ReaderScreen>
         : settings.value('reader.animation', 'slide');
     if (pageSurface.currentState != null) {
       unawaited(
-        pageSurface.currentState!.turn(() => turnImmediate(delta), effect),
+        pageSurface.currentState!.turn(
+          () => turnImmediate(delta),
+          effect,
+          direction: delta >= 0 ? 1 : -1,
+        ),
       );
     } else {
       turnImmediate(delta);
