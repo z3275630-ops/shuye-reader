@@ -2,6 +2,19 @@
 
 这是 Flutter Android 阅读器。功能入口和实际限制见 README.md、docs/report-coverage.md；修改前先阅读相关模块及现有测试。
 
+## 新对话交接（基线：2026-10-05）
+
+- 「书叶」公有仓库：https://github.com/z3275630-ops/shuye-reader，MIT 许可。基线已发布 0.3.5+8；接手检查最新 main、未提交修改和待审 PR，保留他人的工作。
+- 已有导入、阅读、PDF / OCR、听书、笔记、备份与统计；待做及部分实现见 docs/report-coverage.md，不把调研报告当作全部已完成。
+- 最近更新白绿叠页封面、统一细线图标与控件、固定框外上方且左对齐的表单标签。热力图支持本月 / 半年 / 全年，月格无数字，周历无边缘残格。
+- 继续完善全应用功能与观感，重视弹窗、图标、对齐和间距；保持简洁、轻量、高效，优先共用组件。关于页只展示名称、版本和必要介绍，不强调「非官方」「独立实现」。
+- 基线仅一个压缩 ARM64 APK，27.34 MB（27,336,137 字节）。49 项本地测试通过；预览是电脑字体的 Flutter 渲染，真机功耗、温度等未测。本节数据是交接快照，新改动须重新验证。
+- 先读 README.md、docs/report-coverage.md、docs/ui-design.md、docs/verification.md；Windows 构建见 docs/windows-build.md。其余实现与签名约定见下文。
+
+### 其他 Agent 的 PRD 与协作
+
+后续 Agent 会提交 PRD 等文档，建议放在 docs/prd/ 并关联 Issue / PR。先核对用户要求、现有实现及需求冲突；提案不等于已实现或自动授权。确认后的工作拆成小范围 PR，写清验证与体积 / 性能影响，合并及发布按用户授权处理。流程与模板见 CONTRIBUTING.md。
+
 ## 开发与验证
 
 - 使用 Flutter 3.47.2 / Dart 3.13.2，执行 `flutter pub get --enforce-lockfile`，保持已锁定依赖。

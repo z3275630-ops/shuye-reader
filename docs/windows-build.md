@@ -16,7 +16,7 @@ New-Item -ItemType Directory -Path $env:TEMP,$env:GRADLE_USER_HOME -Force
 & 'C:\flutter\bin\flutter.bat' pub get --enforce-lockfile
 & 'C:\flutter\bin\flutter.bat' analyze
 & 'C:\flutter\bin\flutter.bat' test --concurrency=1
-& 'C:\flutter\bin\flutter.bat' build apk --release --split-per-abi
+& 'C:\flutter\bin\flutter.bat' build apk --release --target-platform android-arm64 --split-per-abi
 ```
 
 如果复制本地源码到英文工作区，排除 `.git`、`.dart_tool`、`build`、`android/.gradle` 和 `android/local.properties`，在新目录重新 `flutter pub get`。签名路径要指向真实可用的英文路径，不能只建立目录联接来规避 Java 解析后的中文路径。
