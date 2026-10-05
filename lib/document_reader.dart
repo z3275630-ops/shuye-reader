@@ -41,17 +41,23 @@ class _DocumentReaderState extends State<DocumentReader>
   int page = 1, seconds = 0;
   Timer? timer;
   bool active = true;
+  late final int libraryGeneration;
+  bool get staleLibrary => libraryGeneration != widget.repo.libraryGeneration;
   DateTime recordAt = DateTime.now();
   List<Map<String, dynamic>> strokes = [];
   @override
   void initState() {
     super.initState();
+    libraryGeneration = widget.repo.libraryGeneration;
+    widget.repo.readingFlushers.add(flush);
     bytes = base64Decode(widget.book.source!);
     WidgetsBinding.instance.addObserver(this);
     page = (widget.book.metadata['pdfPage'] as int? ?? 1);
     unawaited(loadStrokes());
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (active &&
+      if (!staleLibrary &&
+          !widget.repo.libraryChanging &&
+          active &&
           !busy &&
           document != null &&
           (ModalRoute.of(context)?.isCurrent ?? true)) {
@@ -76,6 +82,10 @@ class _DocumentReaderState extends State<DocumentReader>
   }
 
   Future<void> flush() async {
+    if (staleLibrary || widget.repo.libraryChanging) {
+      seconds = 0;
+      return;
+    }
     final n = seconds;
     seconds = 0;
     try {
@@ -95,6 +105,7 @@ class _DocumentReaderState extends State<DocumentReader>
 
   @override
   void dispose() {
+    widget.repo.readingFlushers.remove(flush);
     timer?.cancel();
     searcher?.dispose();
     WidgetsBinding.instance.removeObserver(this);
@@ -327,7 +338,7 @@ class _DocumentReaderState extends State<DocumentReader>
               initialPageNumber: page,
               params: PdfViewerParams(
                 onViewerReady: (d, c) {
-                  if (!mounted) return;
+                  if (!mounted || staleLibrary) return;
                   searcher?.dispose();
                   setState(() {
                     document = d;
@@ -338,7 +349,12 @@ class _DocumentReaderState extends State<DocumentReader>
                   unawaited(widget.repo.saveMetadata(widget.book));
                 },
                 onPageChanged: (n) {
-                  if (n == null) return;
+                  if (!mounted ||
+                      staleLibrary ||
+                      widget.repo.libraryChanging ||
+                      n == null) {
+                    return;
+                  }
                   setState(() => page = n);
                   widget.book.metadata['pdfPage'] = n;
                   widget.book.lastRead = DateTime.now().millisecondsSinceEpoch;

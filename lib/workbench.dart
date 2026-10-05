@@ -215,20 +215,32 @@ Future<void> showBookDetails(
                             Icons.add_photo_alternate_outlined,
                           ),
                           onTap: () async {
-                            final f = await FilePicker.platform.pickFiles(
-                              type: FileType.image,
-                            );
-                            if (f == null) return;
-                            final file = f.files.single;
-                            if (file.size > 3 * 1024 * 1024) {
-                              throw const FormatException('封面不能超过 3 MB');
+                            try {
+                              final f = await FilePicker.platform.pickFiles(
+                                type: FileType.image,
+                              );
+                              if (f == null) return;
+                              final file = f.files.single;
+                              if (file.size > 3 * 1024 * 1024) {
+                                throw const FormatException('封面不能超过 3 MB');
+                              }
+                              if (file.path == null) {
+                                throw const FormatException('无法读取图片，请重新选择');
+                              }
+                              final bytes = await File(file.path!)
+                                  .readAsBytes();
+                              if (bytes.length > 3 * 1024 * 1024) {
+                                throw const FormatException('封面不能超过 3 MB');
+                              }
+                              final replacement = Book.fromJson(b.toJson())
+                                ..cover = base64Encode(bytes);
+                              await repo.updateBook(replacement);
+                              b.cover = replacement.cover;
+                              await reload();
+                              if (c.mounted) Navigator.pop(c);
+                            } catch (e) {
+                              if (c.mounted) toast(c, '封面未更换：$e');
                             }
-                            b.cover = base64Encode(
-                              await File(file.path!).readAsBytes(),
-                            );
-                            await repo.updateBook(b);
-                            await reload();
-                            if (c.mounted) Navigator.pop(c);
                           },
                         ),
                       ],
@@ -1145,6 +1157,7 @@ class _WorkshopScreenState extends State<WorkshopScreen>
       repo,
       Secrets(),
     ).run(s, download: download, password: input['备份加密密码']!);
+    if (download) appAppearance.value = AppAppearance.fromSettings(s);
     if (mounted) toast(context, download ? '已恢复远端书库' : '已加密上传');
   }
 
@@ -1170,6 +1183,8 @@ class _WorkshopScreenState extends State<WorkshopScreen>
           input['备份密码']!,
         ),
       );
+      s.replaceWith(await repo.settings());
+      appAppearance.value = AppAppearance.fromSettings(s);
     } else {
       await saveBytes(
         'shuye-encrypted-backup.json',

@@ -14,13 +14,13 @@ void main() {
         ..extra['reader.background'] = 'F4EDDF'
         ..extra['reader.customFont'] = 'Imported Reader Font';
       final restored = ReaderSettings.fromJson(old.toJson());
-      expect(restored.theme, 'paper');
+      expect(restored.theme, 'follow');
       expect(readerColors(restored)[0], const Color(0xfff4eddf));
       expect(readerFont(restored), 'Imported Reader Font');
       final claude = ReaderSettings.fromJson(
         ReaderSettings(theme: 'claude').toJson(),
       );
-      expect(claude.theme, 'claude');
+      expect(claude.theme, 'follow');
       expect(readerColors(claude), [
         ShuyeStyle.canvas,
         const Color(0xff22221f),
@@ -29,7 +29,7 @@ void main() {
       expect(readerFont(ReaderSettings(font: 'sans')), ShuyeStyle.fontFamily);
       expect(
         readerColors(ReaderSettings(theme: 'night'))[0],
-        const Color(0xff202521),
+        const Color(0xff212121),
       );
     },
   );

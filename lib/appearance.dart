@@ -3,9 +3,23 @@ import 'package:flutter/material.dart';
 import 'models.dart';
 import 'theme_mist.dart';
 
-/// 可选的界面配色。`claude` 是原本的暖白纸面，`mist` 是新增的冷调海雾。
-/// 正文阅读纸色是独立设置，不随这里切换。
-const appThemes = <String, String>{'claude': '暖白', 'mist': '海雾'};
+/// Shared by navigation, library, settings and reading. Custom body colors remain optional.
+const appThemes = <String, String>{
+  'claude': 'Claude',
+  'mist': '海雾',
+  'white': '纸白',
+  'sage': '青竹',
+};
+
+void selectAppPalette(ReaderSettings settings, String id, {String? mode}) {
+  settings.extra['app.theme'] = appThemeId(id);
+  if (mode != null) settings.extra['app.themeMode'] = mode;
+  settings.extra['app.paletteVersion'] = '1';
+  settings.theme = 'follow';
+  settings.extra.remove('reader.background');
+  settings.extra.remove('reader.foreground');
+  appAppearance.value = AppAppearance.fromSettings(settings);
+}
 
 String appThemeId(String id) => appThemes.containsKey(id) ? id : 'claude';
 
@@ -66,7 +80,7 @@ abstract final class ShuyeStyle {
   static const fontFamily = 'ShuyeSerif';
   static const readerAlignment = TextAlign.justify;
   static const canvas = Color(0xfffaf9f5);
-  static const darkCanvas = Color(0xff1f1f1e);
+  static const darkCanvas = Color(0xff212121);
   static const clay = Color(0xffd97757);
   static const controlRadius = 12.0;
   static const cardRadius = 16.0;
@@ -93,20 +107,25 @@ final _themes = <String, ThemeData>{};
 /// 按配色与明暗分别缓存，切换主题时不必重建整套控件样式。
 /// 配色取自 [appAppearance]，调用点（`MaterialApp`）已经监听它，
 /// 因此用户改配色后重建会自然拿到新的 ThemeData。
-ThemeData applicationTheme(Brightness brightness) {
-  final id = appThemeId(appAppearance.value.theme);
+ThemeData applicationTheme(Brightness brightness, {String? palette}) {
+  final id = appThemeId(palette ?? appAppearance.value.theme);
   return _themes.putIfAbsent(
     '$id:${brightness.name}',
     () => _buildApplicationTheme(
       brightness,
       id == 'mist' ? mistColorScheme(brightness) : null,
+      id,
     ),
   );
 }
 
-ThemeData _buildApplicationTheme(Brightness brightness, [ColorScheme? scheme]) {
+ThemeData _buildApplicationTheme(
+  Brightness brightness, [
+  ColorScheme? scheme,
+  String id = 'claude',
+]) {
   final dark = brightness == Brightness.dark;
-  final colors =
+  var colors =
       scheme ??
       ColorScheme.fromSeed(
         seedColor: ShuyeStyle.clay,
@@ -145,7 +164,7 @@ ThemeData _buildApplicationTheme(Brightness brightness, [ColorScheme? scheme]) {
         surfaceContainerHighest: dark
             ? const Color(0xff40403b)
             : const Color(0xffe2e1d8),
-        onSurface: dark ? ShuyeStyle.canvas : const Color(0xff22221f),
+        onSurface: dark ? const Color(0xfff5f5f3) : const Color(0xff22221f),
         onSurfaceVariant: dark
             ? const Color(0xffc2c0b6)
             : const Color(0xff626057),
@@ -161,6 +180,17 @@ ThemeData _buildApplicationTheme(Brightness brightness, [ColorScheme? scheme]) {
         onInverseSurface: dark ? const Color(0xff262624) : ShuyeStyle.canvas,
         surfaceTint: Colors.transparent,
       );
+  if (!dark && (id == 'white' || id == 'sage')) {
+    colors = colors.copyWith(
+      surface: id == 'sage' ? const Color(0xffe4ebdf) : const Color(0xfffafafa),
+      onSurface: id == 'sage'
+          ? const Color(0xff28352a)
+          : const Color(0xff222222),
+      surfaceContainerLow: id == 'sage'
+          ? const Color(0xffd9e2d3)
+          : const Color(0xffeeeeee),
+    );
+  }
   final panel = dark ? colors.surfaceContainer : colors.surface;
   final border = colors.outlineVariant;
   final buttonShape = RoundedRectangleBorder(
@@ -203,8 +233,8 @@ ThemeData _buildApplicationTheme(Brightness brightness, [ColorScheme? scheme]) {
         letterSpacing: 0,
       ),
       titleMedium: text.titleMedium?.copyWith(
-        fontSize: 15,
-        fontWeight: FontWeight.w400,
+        fontSize: 16,
+        fontWeight: FontWeight.w500,
         letterSpacing: 0,
       ),
       bodyLarge: text.bodyLarge?.copyWith(
@@ -269,11 +299,11 @@ ThemeData _buildApplicationTheme(Brightness brightness, [ColorScheme? scheme]) {
       labelTextStyle: WidgetStateProperty.resolveWith(
         (states) => TextStyle(
           fontFamily: ShuyeStyle.fontFamily,
-          fontSize: 13,
-          fontWeight: FontWeight.w400,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
           color: states.contains(WidgetState.selected)
               ? colors.onSurface
-              : colors.onSurfaceVariant,
+              : colors.onSurface,
         ),
       ),
       iconTheme: WidgetStateProperty.resolveWith(
@@ -618,7 +648,7 @@ Future<void> configureAppearance(
                 ),
               ),
               const SizedBox(height: 20),
-              Text('界面配色', style: Theme.of(c).textTheme.titleMedium),
+              Text('全应用配色', style: Theme.of(c).textTheme.titleMedium),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -631,10 +661,7 @@ Future<void> configureAppearance(
                           appThemeId(settings.value('app.theme', 'claude')) ==
                           option.key,
                       onSelected: (_) async {
-                        settings.extra['app.theme'] = option.key;
-                        appAppearance.value = AppAppearance.fromSettings(
-                          settings,
-                        );
+                        selectAppPalette(settings, option.key);
                         set(() {});
                         try {
                           await save();
@@ -663,9 +690,10 @@ Future<void> configureAppearance(
                           settings.value('app.themeMode', 'system') ==
                           option.key,
                       onSelected: (_) async {
-                        settings.extra['app.themeMode'] = option.key;
-                        appAppearance.value = AppAppearance.fromSettings(
+                        selectAppPalette(
                           settings,
+                          settings.value('app.theme', 'claude'),
+                          mode: option.key,
                         );
                         set(() {});
                         try {

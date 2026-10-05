@@ -310,5 +310,18 @@ void main() {
       span: HeatmapSpan.year,
     );
     await render('heatmap-empty', Brightness.light, {});
+    await render('heatmap-empty-dark', Brightness.dark, {});
+    await render(
+      'heatmap-empty-halfyear',
+      Brightness.light,
+      {},
+      span: HeatmapSpan.halfYear,
+    );
+    await render(
+      'heatmap-empty-halfyear-dark',
+      Brightness.dark,
+      {},
+      span: HeatmapSpan.halfYear,
+    );
   }, skip: output == null);
 }

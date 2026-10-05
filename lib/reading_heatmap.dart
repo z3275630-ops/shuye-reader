@@ -184,7 +184,7 @@ class _ReadingHeatmapState extends State<ReadingHeatmap> {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final palette = dark
         ? const [
-            Color(0xff262626),
+            Color(0xff454545),
             Color(0xff4a2c1e),
             Color(0xff6b3a26),
             Color(0xff8c4a33),
@@ -193,7 +193,7 @@ class _ReadingHeatmapState extends State<ReadingHeatmap> {
             Color(0xffe8977d),
           ]
         : const [
-            Color(0xfff0efe9),
+            Color(0xffd8d7d0),
             Color(0xfff5e3db),
             Color(0xffefc9b8),
             Color(0xffe5a98f),
@@ -844,6 +844,15 @@ class ReadingHeatmapPainter extends CustomPainter {
         } else {
           fill.color = palette[readingHeatLevel(data.seconds(day))];
           canvas.drawRRect(rounded, fill);
+          if (data.seconds(day) == 0) {
+            canvas.drawRRect(
+              rounded,
+              Paint()
+                ..color = muted.withValues(alpha: .45)
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = .6,
+            );
+          }
           if (day == selected || day == data.today) {
             canvas.drawRRect(
               rounded.inflate(1),

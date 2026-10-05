@@ -10,6 +10,9 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.view.KeyEvent
 import android.view.WindowManager
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.ryanheise.audioservice.AudioServiceFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -18,6 +21,17 @@ import java.util.Locale
 class MainActivity : AudioServiceFragmentActivity() {
     private var channel: MethodChannel? = null
     private var volumeKeys = false
+    private var fullscreen = false
+    private fun applyFullscreen() {
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        if (fullscreen) controller.hide(WindowInsetsCompat.Type.systemBars())
+        else controller.show(WindowInsetsCompat.Type.systemBars())
+    }
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && fullscreen) applyFullscreen()
+    }
     private var tts: TextToSpeech? = null
     private var ttsReady = false
     override fun configureFlutterEngine(engine: FlutterEngine) {
@@ -35,9 +49,14 @@ class MainActivity : AudioServiceFragmentActivity() {
             }
         }
         channel?.setMethodCallHandler { call, result ->
-            when(call.method) {
+            try { when(call.method) {
                 "audioNotification" -> { if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 8201); result.success(null) }
                 "secure" -> {if(call.arguments == true)window.addFlags(WindowManager.LayoutParams.FLAG_SECURE) else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE);result.success(null)}
+                "fullscreen" -> {
+                    fullscreen = call.arguments == true
+                    applyFullscreen()
+                    result.success(null)
+                }
                 "configure" -> {
                     volumeKeys = call.argument<Boolean>("volumeKeys") ?: false
                     if (call.argument<Boolean>("keepOn") == true) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -71,6 +90,8 @@ class MainActivity : AudioServiceFragmentActivity() {
                 }
                 "initialLink" -> result.success(intent?.dataString)
                 else -> result.notImplemented()
+            } } catch (e: Exception) {
+                result.error("reader_platform", "手机操作未完成：${e.message ?: e.javaClass.simpleName}", null)
             }
         }
     }

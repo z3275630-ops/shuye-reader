@@ -363,10 +363,19 @@ class _LibraryHomeState extends State<LibraryHome> {
             /* The original font may be invalid on this device. */
           }
         }
-        await updateWidgets();
+        if (repo.settingsWarning != null) {
+          message(repo.settingsWarning!);
+          repo.settingsWarning = null;
+        }
+        try {
+          await updateWidgets();
+        } catch (e) {
+          message('桌面小组件暂未更新：$e');
+        }
         if (!initialLinkRead) {
+          final link = await DeviceReader.call<String>('initialLink');
           initialLinkRead = true;
-          await handleLink(await DeviceReader.call<String>('initialLink'));
+          await handleLink(link);
         }
       }
     } catch (e) {
@@ -1153,7 +1162,11 @@ class _LibraryHomeState extends State<LibraryHome> {
                             b.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontWeight: FontWeight.w400),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
                           ),
                           const SizedBox(height: 5),
                           Row(
@@ -1407,34 +1420,14 @@ class _LibraryHomeState extends State<LibraryHome> {
       children: [
         ReadingHeatmap(stats: stats),
         const SizedBox(height: 18),
-        RecentReadingTrend(stats: stats),
-        const SizedBox(height: 18),
+
         PeriodStatistics(stats: stats),
         const SizedBox(height: 18),
-        Row(
-          children: [
-            Expanded(child: metric('累计阅读', '${total ~/ 60}', '分钟')),
-            const SizedBox(width: 12),
-            Expanded(
-              child: metric('今天阅读', '${(stats[key(today)] ?? 0) ~/ 60}', '分钟'),
-            ),
-          ],
+        Text(
+          '累计 ${total ~/ 60} 分钟 · ${stats.values.where((v) => v > 0).length} 个阅读日 · ${notes.length} 条摘录',
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(
-              child: metric(
-                '阅读天数',
-                '${stats.values.where((v) => v > 0).length}',
-                '天',
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(child: metric('留下摘录', '${notes.length}', '条')),
-          ],
-        ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 18),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(22),
@@ -1477,33 +1470,26 @@ class _LibraryHomeState extends State<LibraryHome> {
                           .clamp(0, 1),
                 ),
                 const SizedBox(height: 16),
-                Text('常读时段（本次升级后开始记录）'),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 5,
-                  runSpacing: 8,
-                  children: [
-                    for (var h = 0; h < 24; h++)
-                      Tooltip(
-                        message: '$h 点：${(hourlyStats[h] ?? 0) ~/ 60} 分钟',
-                        child: Container(
-                          width: 28,
-                          height: 34,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: (hourlyStats[h] ?? 0) > 0
-                                ? Theme.of(context).colorScheme.primary
-                                      .withValues(alpha: .6)
-                                : Theme.of(context)
-                                      .colorScheme
-                                      .surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(4),
+                Text('今天已读 ${(stats[key(today)] ?? 0) ~/ 60} 分钟'),
+                const SizedBox(height: 16),
+                Text('常读时间', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                if (hourlyStats.values.every((s) => s == 0))
+                  const Text('还没有按小时的阅读记录。开始阅读后会显示你常在哪个时间读书。')
+                else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (var h = 0; h < 24; h++)
+                        if ((hourlyStats[h] ?? 0) > 0)
+                          Chip(
+                            label: Text(
+                              '${h.toString().padLeft(2, '0')}:00–${(h + 1).toString().padLeft(2, '0')}:00 · ${(hourlyStats[h] ?? 0) ~/ 60} 分钟',
+                            ),
                           ),
-                          child: Text('$h', style: TextStyle(fontSize: 10)),
-                        ),
-                      ),
-                  ],
-                ),
+                    ],
+                  ),
               ],
             ),
           ),

@@ -14,6 +14,17 @@ import 'reading_time.dart';
 class ReaderRepository {
   final Database db;
   ReaderRepository(this.db);
+  String? settingsWarning;
+  int libraryGeneration = 0;
+  bool libraryChanging = false;
+  final readingFlushers = <Future<void> Function()>{};
+  Future<void> flushReading() async {
+    for (final flush in readingFlushers.toList()) {
+      await flush();
+    }
+    await _readingTime.flush();
+  }
+
   late final _readingTime = ReadingTimeQueue((bookId, seconds, at) async {
     await db.insert('read_records', {
       'book_id': bookId,
@@ -534,9 +545,35 @@ class ReaderRepository {
       where: 'key = ?',
       whereArgs: ['reader.config'],
     );
-    return rows.isEmpty
-        ? ReaderSettings()
-        : ReaderSettings.fromJson(jsonDecode(rows.first['value'] as String));
+    if (rows.isEmpty) return ReaderSettings();
+    try {
+      return ReaderSettings.fromJson(jsonDecode(rows.first['value'] as String));
+    } catch (e) {
+      // Preserve the original corrupt setting for recovery. Book and note rows
+      // are never removed merely because the preferences cannot be decoded.
+      await db.transaction((txn) async {
+        await txn.insert('settings', {
+          'key': '_reader.config.corrupt',
+          'value': rows.first['value'],
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+        await txn.update(
+          'settings',
+          {
+            'value': jsonEncode(
+              ReaderSettings(
+                extra: {'privacy.lock': true, 'reader.configRecovered': true},
+              ).toJson(),
+            ),
+          },
+          where: 'key = ?',
+          whereArgs: ['reader.config'],
+        );
+      });
+      settingsWarning = '阅读设置损坏，已恢复默认设置；书籍和笔记保留，原设置已留存。';
+      return ReaderSettings(
+        extra: {'privacy.lock': true, 'reader.configRecovered': true},
+      );
+    }
   }
 
   Future<void> saveSettings(ReaderSettings s) async => db.insert('settings', {
@@ -544,6 +581,7 @@ class ReaderRepository {
     'value': jsonEncode(s.toJson()),
   }, conflictAlgorithm: ConflictAlgorithm.replace);
   Future<void> record(String bookId, int seconds, {DateTime? at}) async {
+    if (libraryChanging) throw StateError('书库正在恢复，请稍后重试');
     await _readingTime.record(bookId, seconds, at ?? DateTime.now());
   }
 
@@ -560,6 +598,9 @@ class ReaderRepository {
       r['hour'] as int: r['seconds'] as int,
   };
   Future<String> backup() async {
+    if (libraryChanging) throw StateError('书库正在恢复，请稍后重试');
+    await flushReading();
+    if (libraryChanging) throw StateError('书库正在恢复，请稍后重试');
     // One transaction gives a consistent snapshot of books + notes + progress.
     return db.transaction(
       (txn) async => jsonEncode({
@@ -579,6 +620,7 @@ class ReaderRepository {
   }
 
   Future<void> restore(String data) async {
+    if (libraryChanging) throw StateError('书库正在恢复，请稍后重试');
     if (data.length > 80 * 1024 * 1024) {
       throw const FormatException('备份超过 80 MB');
     }
@@ -627,7 +669,7 @@ class ReaderRepository {
           r['seconds'] is! int ||
           (r['seconds'] as int) < 0 ||
           r['day'] is! String ||
-          !RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(r['day'] as String)) {
+          !validRecordDay(r['day'] as String)) {
         throw const FormatException('阅读记录无效');
       }
     }
@@ -644,37 +686,45 @@ class ReaderRepository {
         throw const FormatException('扩展数据无效');
       }
     }
-    await db.transaction((txn) async {
-      await txn.delete('entries');
-      await txn.delete('read_records');
-      await txn.delete('notes');
-      await txn.delete('books');
-      await txn.delete('settings');
-      for (final b in books) {
-        await txn.insert('books', b.toRow());
-      }
-      for (final n in notes) {
-        await txn.insert('notes', n.toJson());
-      }
-      for (final s in settings) {
-        await txn.insert('settings', {'key': s['key'], 'value': s['value']});
-      }
-      await txn.insert('settings', {
-        'key': '_migration_seed_v1_completed',
-        'value': 'true',
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
-      for (final r in records) {
-        await txn.insert('read_records', {
-          'book_id': r['book_id'],
-          'hour': r['hour'] as int? ?? -1,
-          'day': r['day'],
-          'seconds': r['seconds'],
-        });
-      }
-      for (final e in entries) {
-        await txn.insert('entries', e);
-      }
-    });
+    await flushReading();
+    if (libraryChanging) throw StateError('书库正在恢复，请稍后重试');
+    libraryChanging = true;
+    try {
+      await db.transaction((txn) async {
+        await txn.delete('entries');
+        await txn.delete('read_records');
+        await txn.delete('notes');
+        await txn.delete('books');
+        await txn.delete('settings');
+        for (final b in books) {
+          await txn.insert('books', b.toRow());
+        }
+        for (final n in notes) {
+          await txn.insert('notes', n.toJson());
+        }
+        for (final s in settings) {
+          await txn.insert('settings', {'key': s['key'], 'value': s['value']});
+        }
+        await txn.insert('settings', {
+          'key': '_migration_seed_v1_completed',
+          'value': 'true',
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+        for (final r in records) {
+          await txn.insert('read_records', {
+            'book_id': r['book_id'],
+            'hour': r['hour'] as int? ?? -1,
+            'day': r['day'],
+            'seconds': r['seconds'],
+          });
+        }
+        for (final e in entries) {
+          await txn.insert('entries', e);
+        }
+      });
+      libraryGeneration++;
+    } finally {
+      libraryChanging = false;
+    }
   }
 
   Future<void> assignFacet(
@@ -786,4 +836,12 @@ class ReaderRepository {
   }
 
   Future<void> close() => db.close();
+}
+
+bool validRecordDay(String value) {
+  if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value)) return false;
+  final parts = value.split('-').map(int.parse).toList();
+  if (parts[0] < 1) return false;
+  final day = DateTime(parts[0], parts[1], parts[2]);
+  return day.year == parts[0] && day.month == parts[1] && day.day == parts[2];
 }

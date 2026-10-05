@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'repository.dart';
 import 'services.dart';
+import 'workbench.dart' show toast;
 
 class AudioLibrary {
   static final equalizer = AndroidEqualizer();
@@ -212,8 +213,12 @@ class _AudioScreenState extends State<AudioScreen> with WidgetsBindingObserver {
                 title: const Text('安卓均衡器'),
                 value: eq.enabled,
                 onChanged: (v) async {
-                  await eq.setEnabled(v);
-                  set(() {});
+                  try {
+                    await eq.setEnabled(v);
+                    if (c.mounted) set(() {});
+                  } catch (e) {
+                    if (c.mounted) toast(c, '均衡器设置未完成：$e');
+                  }
                 },
               ),
               for (final band in parameters.bands) ...[
@@ -228,8 +233,16 @@ class _AudioScreenState extends State<AudioScreen> with WidgetsBindingObserver {
                   min: parameters.minDecibels,
                   max: parameters.maxDecibels,
                   onChanged: (v) {
-                    unawaited(band.setGain(v));
-                    set(() {});
+                    unawaited(
+                      band
+                          .setGain(v)
+                          .then((_) {
+                            if (c.mounted) set(() {});
+                          })
+                          .catchError((Object e) {
+                            if (c.mounted) toast(c, '音频频段设置未完成：$e');
+                          }),
+                    );
                   },
                 ),
               ],
@@ -270,7 +283,10 @@ class _AudioScreenState extends State<AudioScreen> with WidgetsBindingObserver {
           Text(error ?? AudioLibrary.saveError!),
         const SizedBox(height: 12),
         TextButton.icon(
-          onPressed: () => DeviceReader.call('audioNotification'),
+          onPressed: () => run(() async {
+            await DeviceReader.call('audioNotification');
+            if (context.mounted) toast(context, '通知权限可在手机设置中查看或开启');
+          }),
           icon: const ShuyeIcon(Icons.notifications_outlined),
           label: const Text('允许播放通知'),
         ),

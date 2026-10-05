@@ -41,6 +41,9 @@ class _PrivacyGateState extends State<PrivacyGate> with WidgetsBindingObserver {
         setState(() {
           locked = privacyEnabled.value;
           loading = false;
+          if (s.flag('reader.configRecovered')) {
+            error = '阅读设置损坏，已恢复默认设置。书籍和笔记保留；为保护原书库，请先解锁。';
+          }
         });
       }
     } catch (_) {
@@ -55,7 +58,20 @@ class _PrivacyGateState extends State<PrivacyGate> with WidgetsBindingObserver {
   }
 
   void configure() {
-    unawaited(DeviceReader.call('secure', privacyEnabled.value));
+    unawaited(configureSecure());
+  }
+
+  Future<void> configureSecure() async {
+    try {
+      await DeviceReader.call('secure', privacyEnabled.value);
+    } catch (_) {
+      if (mounted && privacyEnabled.value) {
+        setState(() {
+          locked = true;
+          error = '截图保护暂未开启，请重新打开应用或检查手机设置。';
+        });
+      }
+    }
   }
 
   @override

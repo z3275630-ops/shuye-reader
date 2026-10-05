@@ -64,7 +64,8 @@ void main() {
       await repo.restore(data);
       expect((await repo.books()).any((b) => b.id == 'test-book'), isTrue);
       expect((await repo.notes()).single.comment, '笔记');
-      expect((await repo.settings()).theme, 'night');
+      expect((await repo.settings()).theme, 'follow');
+      expect((await repo.settings()).value('app.themeMode', ''), 'dark');
       expect((await repo.statistics()).values.single, 60);
     },
   );

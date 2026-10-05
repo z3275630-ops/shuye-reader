@@ -217,15 +217,30 @@ class ReaderSettings {
   String value(String key, String fallback) =>
       extra[key] as String? ?? fallback;
   ReaderSettings({
-    this.fontSize = 20,
-    this.lineHeight = 1.85,
-    this.theme = 'paper',
+    this.fontSize = 18,
+    this.lineHeight = 1.65,
+    this.theme = 'follow',
     this.font = 'serif',
     this.chapterPattern = defaultChapterPattern,
     this.purifyLines = '',
     this.cjkSpacing = true,
     Map<String, dynamic>? extra,
-  }) : extra = extra ?? {};
+  }) : extra = extra ?? {} {
+    this.extra.putIfAbsent('reader.ignoreBlank', () => true);
+  }
+  void replaceWith(ReaderSettings restored) {
+    fontSize = restored.fontSize;
+    lineHeight = restored.lineHeight;
+    theme = restored.theme;
+    font = restored.font;
+    cjkSpacing = restored.cjkSpacing;
+    chapterPattern = restored.chapterPattern;
+    purifyLines = restored.purifyLines;
+    extra
+      ..clear()
+      ..addAll(restored.extra);
+  }
+
   Map<String, dynamic> toJson() => {
     ...extra,
     'reader.fontSize': fontSize,
@@ -255,6 +270,7 @@ class ReaderSettings {
       'bookshelf.banner',
       'home.banner',
       'privacy.lock',
+      'reader.configRecovered',
     };
     const numberKeys = {
       'reader.fontSize',
@@ -284,12 +300,12 @@ class ReaderSettings {
       }
     }
     final s = ReaderSettings(
-      fontSize: (j['reader.fontSize'] as num? ?? 20).toDouble().clamp(14, 32),
-      lineHeight: (j['reader.lineHeight'] as num? ?? 1.85).toDouble().clamp(
+      fontSize: (j['reader.fontSize'] as num? ?? 18).toDouble().clamp(14, 32),
+      lineHeight: (j['reader.lineHeight'] as num? ?? 1.65).toDouble().clamp(
         1.3,
         2.4,
       ),
-      theme: j['reader.theme'] as String? ?? 'paper',
+      theme: j['reader.theme'] as String? ?? 'follow',
       font: j['reader.font'] as String? ?? 'serif',
       cjkSpacing: j['reader.typography.cjkLatinSpacing'] as bool? ?? true,
       chapterPattern:
@@ -298,8 +314,34 @@ class ReaderSettings {
       extra: Map<String, dynamic>.from(j),
     );
     validateRules(s.chapterPattern, s.purifyLines);
-    if (!['paper', 'white', 'sage', 'night', 'claude'].contains(s.theme)) {
-      s.theme = 'paper';
+    if (![
+      'follow',
+      'paper',
+      'white',
+      'sage',
+      'night',
+      'claude',
+      'mist',
+    ].contains(s.theme)) {
+      s.theme = 'follow';
+    }
+    // One-time migration: Claude is now the default throughout the application.
+    // Preserve non-default typography and custom fonts/colors.
+    if (!s.extra.containsKey('app.paletteVersion')) {
+      s.extra['app.theme'] = ['mist', 'sage', 'white'].contains(s.theme)
+          ? s.theme
+          : s.theme == 'night'
+          ? 'claude'
+          : s.value('app.theme', 'claude');
+      if (s.theme == 'night') s.extra['app.themeMode'] = 'dark';
+      s.theme = 'follow';
+      if (s.fontSize == 20 &&
+          s.lineHeight == 1.85 &&
+          s.value('reader.customFont', '').isEmpty) {
+        s.fontSize = 18;
+        s.lineHeight = 1.65;
+      }
+      s.extra['app.paletteVersion'] = '1';
     }
     if (!['serif', 'sans'].contains(s.font)) s.font = 'serif';
     return s;

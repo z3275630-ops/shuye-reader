@@ -168,7 +168,7 @@ class PeriodStatistics extends StatefulWidget {
 }
 
 class _PeriodStatisticsState extends State<PeriodStatistics> {
-  ReadingPeriod period = ReadingPeriod.month;
+  ReadingPeriod period = ReadingPeriod.week;
   DateTime anchor = DateTime.now();
   DateTime shift(int direction) => switch (period) {
     ReadingPeriod.day => DateTime(
@@ -187,7 +187,6 @@ class _PeriodStatisticsState extends State<PeriodStatistics> {
   };
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     final (start, end) = periodBounds(period, anchor);
     final selected = statsInPeriod(widget.stats, period, anchor);
     final total = selected.values.fold<int>(0, (a, b) => a + b);
@@ -224,6 +223,8 @@ class _PeriodStatisticsState extends State<PeriodStatistics> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text('阅读时长', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
             Wrap(
               spacing: 6,
               runSpacing: 6,
@@ -270,8 +271,18 @@ class _PeriodStatisticsState extends State<PeriodStatistics> {
               spacing: 24,
               runSpacing: 12,
               children: [
-                Text(
-                  '阅读 ${total ~/ 60} 分钟',
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: total > 0 && total < 60
+                            ? '少于1'
+                            : '${total ~/ 60}',
+                        style: Theme.of(context).textTheme.headlineLarge,
+                      ),
+                      const TextSpan(text: ' 分钟'),
+                    ],
+                  ),
                   key: const ValueKey('period-total'),
                 ),
                 Text('阅读 $active 天', key: const ValueKey('period-days')),
@@ -282,52 +293,149 @@ class _PeriodStatisticsState extends State<PeriodStatistics> {
                 padding: EdgeInsets.only(top: 12),
                 child: Text('这个时段还没有阅读记录。'),
               ),
-            if (buckets.isNotEmpty) ...[
+            if (buckets.isNotEmpty && total > 0) ...[
               const SizedBox(height: 16),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
+              ReadingDurationChart(
+                values: [for (final b in buckets) b.$2],
+                labels: [
+                  for (final b in buckets)
+                    period == ReadingPeriod.week
+                        ? [
+                            '周一',
+                            '周二',
+                            '周三',
+                            '周四',
+                            '周五',
+                            '周六',
+                            '周日',
+                          ][b.$1.weekday - 1]
+                        : period == ReadingPeriod.year
+                        ? '${b.$1.month}月'
+                        : '${b.$1.day}日',
+                ],
+                details: [
+                  for (final b in buckets)
+                    period == ReadingPeriod.year
+                        ? '${b.$1.year}年${b.$1.month}月'
+                        : dayKey(b.$1),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Actual seconds only; zeros stay on the baseline, never fabricated bars.
+class ReadingDurationChart extends StatefulWidget {
+  final List<int> values;
+  final List<String> labels, details;
+  const ReadingDurationChart({
+    super.key,
+    required this.values,
+    required this.labels,
+    required this.details,
+  });
+  @override
+  State<ReadingDurationChart> createState() => _ReadingDurationChartState();
+}
+
+class _ReadingDurationChartState extends State<ReadingDurationChart> {
+  int? selected;
+  @override
+  void didUpdateWidget(ReadingDurationChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.details.join() != widget.details.join()) selected = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final maximum = widget.values.fold<int>(1, (a, b) => a > b ? a : b);
+    String duration(int seconds) =>
+        seconds < 60 ? '$seconds 秒' : '${seconds ~/ 60} 分钟';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '单位：分钟 · 最高 ${duration(maximum)}',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 8),
+        LayoutBuilder(
+          builder: (context, box) => SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: (widget.values.length * 32.0).clamp(
+                box.maxWidth,
+                double.infinity,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  for (final bucket in buckets)
-                    Tooltip(
-                      message:
-                          '${period == ReadingPeriod.year ? '${bucket.$1.month} 月' : dayKey(bucket.$1)} · ${bucket.$2 ~/ 60} 分钟',
-                      child: Container(
-                        width: 36,
-                        height: 48,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: bucket.$2 > 0
-                              ? colors.primaryContainer
-                              : colors.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '${period == ReadingPeriod.year ? bucket.$1.month : bucket.$1.day}',
-                              style: const TextStyle(fontSize: 11),
-                            ),
-                            Text(
-                              '${bucket.$2 ~/ 60}分',
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: colors.onSurfaceVariant,
+                  for (var i = 0; i < widget.values.length; i++)
+                    Expanded(
+                      child: Semantics(
+                        button: true,
+                        selected: selected == i,
+                        label:
+                            '${widget.details[i]}，${duration(widget.values[i])}',
+                        child: InkWell(
+                          key: ValueKey('duration-bar-$i'),
+                          onTap: () => setState(() => selected = i),
+                          child: Column(
+                            children: [
+                              SizedBox(
+                                height: 100,
+                                child: Align(
+                                  alignment: Alignment.bottomCenter,
+                                  child: FractionallySizedBox(
+                                    widthFactor: .55,
+                                    child: Container(
+                                      height: widget.values[i] == 0
+                                          ? 1
+                                          : (100.0 * widget.values[i] / maximum)
+                                                .clamp(3, 100),
+                                      decoration: BoxDecoration(
+                                        color: widget.values[i] == 0
+                                            ? colors.outlineVariant
+                                            : colors.primary,
+                                        borderRadius:
+                                            const BorderRadius.vertical(
+                                              top: Radius.circular(3),
+                                            ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 8),
+                              Text(
+                                widget.labels[i],
+                                style: Theme.of(context).textTheme.bodySmall,
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                 ],
               ),
-              const SizedBox(height: 8),
-              const Text('长按方格查看时长，空白日期不预填数据。', style: TextStyle(fontSize: 11)),
-            ],
-          ],
+            ),
+          ),
         ),
-      ),
+        const SizedBox(height: 12),
+        Text(
+          selected == null
+              ? '点按柱形查看时长；左右滑动查看完整日期。'
+              : '${widget.details[selected!]} · ${duration(widget.values[selected!])}',
+          key: const ValueKey('duration-detail'),
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
     );
   }
 }

@@ -22,7 +22,7 @@ const readerSchemes = {
   'paper': [Color(0xfff4eddf), Color(0xff3f392e)],
   'white': [Color(0xfffafafa), Color(0xff303330)],
   'sage': [Color(0xffe4ebdf), Color(0xff344333)],
-  'night': [Color(0xff202521), Color(0xffbcc4b7)],
+  'night': [Color(0xff212121), Color(0xfff5f5f3)],
   'claude': [Color(0xfffaf9f5), Color(0xff22221f)],
   'mist': [Color(0xfff7fafc), Color(0xff253447)],
 };
@@ -82,7 +82,20 @@ List<Color> readerColors(ReaderSettings settings, {DateTime? at}) {
   final hour = (at ?? DateTime.now()).hour;
   final night =
       settings.flag('reader.nightSchedule') && (hour >= 20 || hour < 6);
-  final base = readerSchemes[night ? 'night' : settings.theme]!;
+  final appearance = AppAppearance.fromSettings(settings);
+  final dark =
+      appearance.mode == 'dark' ||
+      (appearance.mode == 'system' &&
+          ui.PlatformDispatcher.instance.platformBrightness == Brightness.dark);
+  final shared = applicationTheme(
+    dark ? Brightness.dark : Brightness.light,
+    palette: appearance.theme,
+  ).colorScheme;
+  final base = night
+      ? readerSchemes['night']!
+      : settings.theme == 'follow'
+      ? [shared.surface, shared.onSurface]
+      : readerSchemes[settings.theme] ?? readerSchemes['claude']!;
   Color custom(String key, Color fallback) {
     final hex = settings.value(key, '');
     return RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(hex)
@@ -170,18 +183,47 @@ Future<void> showReaderSettings(
                   Wrap(
                     spacing: 10,
                     children: readerSchemes.entries
+                        .where((e) => e.key != 'paper')
                         .map(
                           (e) => ChoiceChip(
                             label: Text(readerNames[e.key]!),
-                            selected: s.theme == e.key,
+                            selected: s.theme == 'follow'
+                                ? (e.key == 'night'
+                                      ? s.value('app.themeMode', 'system') ==
+                                            'dark'
+                                      : s.value('app.themeMode', 'system') !=
+                                                'dark' &&
+                                            AppAppearance.fromSettings(s)
+                                                    .theme ==
+                                                e.key)
+                                : s.theme == e.key,
                             avatar: CircleAvatar(
                               backgroundColor: e.value[0],
                               radius: 8,
                             ),
-                            onSelected: (_) => change(() => s.theme = e.key),
+                            onSelected: (_) => change(
+                              () => selectAppPalette(
+                                s,
+                                e.key == 'night' ? 'claude' : e.key,
+                                mode: e.key == 'night' ? 'dark' : 'light',
+                              ),
+                            ),
                           ),
                         )
                         .toList(),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '配色同步应用到首页、书架、设置与正文。',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  TextButton(
+                    onPressed: () => change(() {
+                      s.fontSize = 18;
+                      s.lineHeight = 1.65;
+                      s.extra['reader.ignoreBlank'] = true;
+                    }),
+                    child: const Text('使用 Claude 正文间距'),
                   ),
                   const SizedBox(height: 16),
                   Text('书叶衬线字体', style: Theme.of(ctx).textTheme.titleMedium),
@@ -338,7 +380,21 @@ class _ReaderScreenState extends State<ReaderScreen>
   Timer? timer;
   bool active = true, dialogOpen = false, saving = false;
   bool autoPaging = false, speaking = false, shield = false, immersive = false;
+  late final int libraryGeneration;
+  bool? routeCurrent;
+  bool get staleLibrary => libraryGeneration != repo.libraryGeneration;
   bool showingSpread = false;
+  bool endNotified = false;
+  void toggleChrome() {
+    if (!mounted) return;
+    if (pages.isNotEmpty) initialOffset = sourceOffset(pages[page].start);
+    setState(() {
+      immersive = !immersive;
+      layoutKey = '';
+    });
+    unawaited(DeviceReader.setFullscreen(immersive));
+  }
+
   int autoSeconds = 0, reminderSeconds = 0;
   DateTime recordAt = DateTime.now();
   List<String> speechChunks = [];
@@ -352,13 +408,17 @@ class _ReaderScreenState extends State<ReaderScreen>
   @override
   void initState() {
     super.initState();
+    libraryGeneration = repo.libraryGeneration;
+    repo.readingFlushers.add(flushTime);
     chapter = book.chapter;
     initialOffset = book.offset;
     book.lastRead = DateTime.now().millisecondsSinceEpoch;
     WidgetsBinding.instance.addObserver(this);
     HardwareKeyboard.instance.addHandler(handlePhysicalKey);
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (active &&
+      if (!staleLibrary &&
+          !repo.libraryChanging &&
+          active &&
           !dialogOpen &&
           !shield &&
           (ModalRoute.of(context)?.isCurrent ?? true)) {
@@ -403,7 +463,13 @@ class _ReaderScreenState extends State<ReaderScreen>
     unawaited(DeviceReader.configure(settings));
     DeviceReader.initialize();
     deviceEvents = DeviceReader.events.stream.listen((call) async {
-      if (call.method == 'turn' && active && !dialogOpen && !shield) {
+      if (!mounted) return;
+      if (call.method == 'deviceError') message('屏幕设置未完成：${call.arguments}');
+      if (call.method == 'turn' &&
+          active &&
+          !dialogOpen &&
+          !shield &&
+          (ModalRoute.of(context)?.isCurrent ?? true)) {
         turn(call.arguments as int);
       }
       if (call.method == 'ttsDone' && speaking && active && !dialogOpen) {
@@ -426,17 +492,41 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final current = ModalRoute.of(context)?.isCurrent ?? true;
+    if (routeCurrent == current) return;
+    routeCurrent = current;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(
+          DeviceReader.setFullscreen(
+            immersive && (ModalRoute.of(context)?.isCurrent ?? true),
+          ),
+        );
+      }
+    });
+  }
+
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     active = state == AppLifecycleState.resumed;
+    if (active && ModalRoute.of(context)?.isCurrent == true) {
+      unawaited(DeviceReader.setFullscreen(immersive));
+    }
     if (!active) {
       speaking = false;
-      unawaited(DeviceReader.call('stopSpeech'));
+      unawaited(DeviceReader.stopSpeech());
       unawaited(flushTime());
       unawaited(persist());
     }
   }
 
   Future<void> flushTime() async {
+    if (staleLibrary || repo.libraryChanging) {
+      seconds = 0;
+      return;
+    }
     final elapsed = seconds;
     seconds = 0;
     try {
@@ -447,6 +537,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> persist() async {
+    if (staleLibrary || repo.libraryChanging) return;
     try {
       await repo.saveProgress(book);
     } catch (e) {
@@ -456,11 +547,13 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   @override
   void dispose() {
+    repo.readingFlushers.remove(flushTime);
     HardwareKeyboard.instance.removeHandler(handlePhysicalKey);
     timer?.cancel();
     unawaited(deviceEvents?.cancel());
-    unawaited(DeviceReader.call('stopSpeech'));
+    unawaited(DeviceReader.stopSpeech());
     unawaited(DeviceReader.configure(settings, reading: false));
+    unawaited(DeviceReader.setFullscreen(false));
     WidgetsBinding.instance.removeObserver(this);
     unawaited(flushTime());
     unawaited(persist());
@@ -476,6 +569,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   bool handlePhysicalKey(KeyEvent event) {
     if (event is! KeyDownEvent ||
         !active ||
+        !(ModalRoute.of(context)?.isCurrent ?? true) ||
         dialogOpen ||
         shield ||
         selected.isNotEmpty ||
@@ -528,6 +622,15 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   void turn(int delta) {
+    if (!mounted || staleLibrary || pages.isEmpty) return;
+    final step = showingSpread ? 2 : 1;
+    if ((delta < 0 && chapter == 0 && page - step < 0) ||
+        (delta > 0 &&
+            chapter == book.chapters.length - 1 &&
+            page + step >= pages.length)) {
+      turnImmediate(delta);
+      return;
+    }
     if (settings.flag('reader.sound') && !settings.flag('reader.eink')) {
       unawaited(SystemSound.play(SystemSoundType.click));
     }
@@ -548,12 +651,14 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   void turnImmediate(int delta) {
+    if (staleLibrary || !mounted) return;
     if (pages.isEmpty) return;
     autoSeconds = 0;
     final step = showingSpread ? 2 : 1;
     delta *= step;
     selected = '';
     if (page + delta >= 0 && page + delta < pages.length) {
+      endNotified = false;
       setState(() => page += delta);
       updateProgress();
     } else if (delta > 0 && chapter < book.chapters.length - 1) {
@@ -564,11 +669,22 @@ class _ReaderScreenState extends State<ReaderScreen>
       if (delta > 0) updateProgress();
       autoPaging = false;
       speaking = false;
-      message(delta > 0 ? '已到全书最后一页' : '已到全书第一页');
+      if (delta > 0 && !endNotified && mounted) {
+        endNotified = true;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('已读到全书末页'),
+            duration: Duration(milliseconds: 900),
+            showCloseIcon: true,
+            persist: false,
+          ),
+        );
+      }
     }
   }
 
   void jump(int to, {int offset = 0}) {
+    endNotified = false;
     setState(() {
       chapter = to;
       initialOffset = offset;
@@ -620,6 +736,14 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> tools(String action) async {
+    try {
+      await toolAction(action);
+    } catch (e) {
+      message('阅读操作未完成：$e');
+    }
+  }
+
+  Future<void> toolAction(String action) async {
     final quote = selected.isEmpty && pages.isNotEmpty
         ? text.substring(pages[page].start, pages[page].end)
         : selected;
@@ -647,7 +771,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       return;
     }
     if (action == 'immersive') {
-      setState(() => immersive = !immersive);
+      toggleChrome();
       return;
     }
     dialogOpen = true;
@@ -729,7 +853,13 @@ class _ReaderScreenState extends State<ReaderScreen>
                 children: [
                   ListTile(
                     title: const Text('系统语音设置'),
-                    onTap: () => DeviceReader.call('speechSettings'),
+                    onTap: () async {
+                      try {
+                        await DeviceReader.call('speechSettings');
+                      } catch (e) {
+                        if (context.mounted) message('无法打开语音设置：$e');
+                      }
+                    },
                   ),
                   for (final v in voices)
                     ListTile(
@@ -982,6 +1112,17 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (staleLibrary) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('书库已恢复')),
+        body: Center(
+          child: FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('返回后重新打开书籍'),
+          ),
+        ),
+      );
+    }
     final scheme = readerColors(settings);
     final style = TextStyle(
       color: scheme[1],
@@ -991,7 +1132,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       fontFeatures: settings.flag('reader.punctuation')
           ? [const ui.FontFeature.enable('palt')]
           : null,
-      letterSpacing: .35,
+      letterSpacing: 0,
     );
     return Theme(
       data: Theme.of(context).copyWith(
@@ -1055,7 +1196,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                         ),
                       const PopupMenuItem(
                         value: 'immersive',
-                        child: Text('沉浸阅读（双击返回）'),
+                        child: Text('全屏阅读（点中间恢复工具栏）'),
                       ),
                       const PopupMenuItem(
                         value: 'shield',
@@ -1196,10 +1337,14 @@ class _ReaderScreenState extends State<ReaderScreen>
                             final slice = pages[page];
                             return ReaderTapSurface(
                               canTurn: () => selected.isEmpty,
-                              onDoubleTap: () =>
-                                  setState(() => immersive = !immersive),
+                              onDoubleTap: toggleChrome,
                               onTap: (location) {
                                 if (selected.isNotEmpty) return;
+                                if (location.dx >= box.maxWidth * .3 &&
+                                    location.dx <= box.maxWidth * .7) {
+                                  toggleChrome();
+                                  return;
+                                }
                                 if (settings.flag('reader.oneHand')) {
                                   turn(1);
                                 } else if (settings.flag(
@@ -1397,15 +1542,16 @@ class _ReaderScreenState extends State<ReaderScreen>
                         ),
                       ),
                     ),
-                    ReaderFooter(
-                      page: page + 1,
-                      pages: pages.length,
-                      progress: book.progress,
-                      ink: scheme[1],
-                      outline: outline,
-                      previous: () => turn(-1),
-                      next: () => turn(1),
-                    ),
+                    if (!immersive)
+                      ReaderFooter(
+                        page: page + 1,
+                        pages: pages.length,
+                        progress: book.progress,
+                        ink: scheme[1],
+                        outline: outline,
+                        previous: () => turn(-1),
+                        next: () => turn(1),
+                      ),
                   ],
                 ),
               ),

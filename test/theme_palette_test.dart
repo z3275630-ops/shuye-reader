@@ -14,13 +14,14 @@ import 'preview_fonts.dart';
 void main() {
   setUp(() => appAppearance.value = const AppAppearance());
   tearDown(() => appAppearance.value = const AppAppearance());
-  test('palette restores, unknown palette falls back, reader paper stays independent', () {
+  test('palette restores, unknown palette falls back, reader follows the shared palette', () {
     final settings = ReaderSettings();
     settings.extra['app.theme'] = 'mist';
     settings.theme = 'night';
     final restored = ReaderSettings.fromJson(settings.toJson());
-    expect(AppAppearance.fromSettings(restored).theme, 'mist');
-    expect(restored.theme, 'night');
+    expect(AppAppearance.fromSettings(restored).theme, 'claude');
+    expect(restored.theme, 'follow');
+    expect(restored.value('app.themeMode', ''), 'dark');
     restored.extra['app.theme'] = 'unknown';
     expect(AppAppearance.fromSettings(restored).theme, 'claude');
   });
@@ -116,12 +117,12 @@ void main() {
         await tester.pumpAndSettle();
         expect(saves, 1);
         expect(settings.value('app.theme', ''), 'mist');
-        expect(settings.theme, 'night');
+        expect(settings.theme, 'follow');
         final chip = tester.widget<ChoiceChip>(
           find.widgetWithText(ChoiceChip, '海雾'),
         );
         expect(chip.selected, isTrue);
-        await tester.tap(find.text('暖白'));
+        await tester.tap(find.text('Claude'));
         await tester.pumpAndSettle();
         expect(settings.value('app.theme', ''), 'claude');
         expect(tester.takeException(), isNull);

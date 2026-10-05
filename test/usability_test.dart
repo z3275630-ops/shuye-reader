@@ -326,6 +326,10 @@ void main() {
     await tester.pump(const Duration(seconds: 6));
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
+    final oldPage = book.metadata['pdfPage'];
+    viewer.params.onPageChanged!(2);
+    await tester.pump();
+    expect(book.metadata['pdfPage'], oldPage);
     expect(repo.recordedSeconds, 6);
     expect(tester.takeException(), isNull);
   });
@@ -510,6 +514,12 @@ class _ReadyController extends PdfViewerController {
 
 class _Repository implements ReaderRepository {
   int recordedSeconds = 0;
+  @override
+  final readingFlushers = <Future<void> Function()>{};
+  @override
+  int libraryGeneration = 0;
+  @override
+  bool libraryChanging = false;
   @override
   Future<List<Map<String, dynamic>>> entries(
     String kind, {

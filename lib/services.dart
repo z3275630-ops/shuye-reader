@@ -37,14 +37,34 @@ class DeviceReader {
     }
   }
 
+  static Future<void> setFullscreen(bool fullscreen) async {
+    try {
+      await call('fullscreen', fullscreen);
+    } on PlatformException catch (e) {
+      events.add(MethodCall('deviceError', e.message ?? '全屏设置未完成'));
+    }
+  }
+
+  static Future<void> stopSpeech() async {
+    try {
+      await call('stopSpeech');
+    } on PlatformException catch (e) {
+      events.add(MethodCall('deviceError', e.message ?? '停止朗读未完成'));
+    }
+  }
+
   static Future<void> configure(ReaderSettings s, {bool reading = true}) async {
     DeviceReader.reading = reading;
-    await call('configure', {
-      'keepOn': reading && s.flag('reader.keepOn', true),
-      'volumeKeys': reading && s.flag('reader.volumeKeys'),
-      'brightness': reading ? s.number('reader.brightness', -1) : -1,
-      'orientation': reading ? s.value('reader.orientation', 'auto') : 'auto',
-    });
+    try {
+      await call('configure', {
+        'keepOn': reading && s.flag('reader.keepOn', true),
+        'volumeKeys': reading && s.flag('reader.volumeKeys'),
+        'brightness': reading ? s.number('reader.brightness', -1) : -1,
+        'orientation': reading ? s.value('reader.orientation', 'auto') : 'auto',
+      });
+    } on PlatformException catch (e) {
+      events.add(MethodCall('deviceError', e.message ?? '屏幕设置未完成'));
+    }
   }
 }
 
@@ -350,6 +370,7 @@ class SyncService {
           restored.extra[e.key] = e.value;
         }
         await repo.saveSettings(restored);
+        s.replaceWith(restored);
       } else {
         await repo.saveSettings(s);
       }
