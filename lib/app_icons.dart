@@ -221,6 +221,7 @@ final _geometry = <IconData, String>{
   Icons.translate: 'M3 5 L15 5 M9 3 L9 5 M12 5 C11 10 7 13 3 15 M5 8 C7 12 10 14 13 15 M13 21 L18 11 L23 21 M15 17 L21 17',
   Icons.fingerprint: 'M5 9 C5 1 19 1 19 9 M3 15 L3 11 M21 11 L21 15 M8 20 C9 17 7 12 8 9 C10 5 16 6 16 10 L16 16 M11 21 L12 11 M19 20 L19 18',
   Icons.visibility_off_outlined: 'M3 3 L21 21 M9 5 C15 3 19 7 22 12 L18 16 M15 19 C9 21 5 17 2 12 L6 8 M10 10 L14 14',
+  Icons.visibility_outlined: 'M2 12 C7 3 17 3 22 12 C17 21 7 21 2 12 Z M15 12 C15 16 9 16 9 12 C9 8 15 8 15 12 Z',
   Icons.play_circle: 'M12 3 C17 3 21 7 21 12 C21 17 17 21 12 21 C7 21 3 17 3 12 C3 7 7 3 12 3 Z M10 8 L16 12 L10 16 Z',
   Icons.pause_circle: 'M12 3 C17 3 21 7 21 12 C21 17 17 21 12 21 C7 21 3 17 3 12 C3 7 7 3 12 3 Z M9 8 L9 16 M15 8 L15 16',
   Icons.format_quote: 'M4 6 L10 6 L10 14 L7 18 M4 6 L4 12 L10 12 M14 6 L20 6 L20 14 L17 18 M14 6 L14 12 L20 12',

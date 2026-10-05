@@ -173,24 +173,30 @@ Future<void> advancedReaderSettings(
                     final data = await editFields(c, '高亮词语', {
                       '正文': s.value('reader.highlights', ''),
                     });
-                    if (data != null) update('reader.highlights', data['正文']);
+                    if (c.mounted && data != null) {
+                      update('reader.highlights', data['正文']);
+                    }
                   },
                 ),
                 ListTile(
                   title: const Text('自定义纸色与文字颜色'),
                   subtitle: const Text('十六进制颜色，例如 F4EDDF、3F392E'),
                   onTap: () async {
-                    final data = await editFields(c, '自定义主题', {
-                      '纸色': s.value('reader.background', ''),
-                      '文字': s.value('reader.foreground', ''),
-                    });
-                    if (data == null) return;
-                    for (final v in data.values) {
-                      if (v.isNotEmpty &&
-                          !RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(v)) {
-                        throw const FormatException('颜色需为 6 位十六进制');
-                      }
-                    }
+                    String? validateColor(String value) =>
+                        value.isEmpty ||
+                            RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(value)
+                        ? null
+                        : '请输入 6 位颜色，例如 F4EDDF；留空恢复默认。';
+                    final data = await editFields(
+                      c,
+                      '自定义主题',
+                      {
+                        '纸色': s.value('reader.background', ''),
+                        '文字': s.value('reader.foreground', ''),
+                      },
+                      validators: {'纸色': validateColor, '文字': validateColor},
+                    );
+                    if (!c.mounted || data == null) return;
                     update('reader.background', data['纸色']);
                     update('reader.foreground', data['文字']);
                   },

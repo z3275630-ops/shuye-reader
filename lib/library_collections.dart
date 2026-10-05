@@ -1,4 +1,4 @@
-import 'form_field.dart';
+import 'edit_dialog.dart';
 import 'app_icons.dart';
 
 import 'package:flutter/material.dart';
@@ -68,35 +68,14 @@ class _LibraryCollectionsState extends State<LibraryCollections> {
   }
 
   Future<String?> nameDialog(String title, {String initial = ''}) async {
-    final controller = TextEditingController(text: initial);
-    final value = await showDialog<String>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(title),
-        content: LabeledField(
-          label: '名称',
-          child: TextField(
-            controller: controller,
-            maxLength: 120,
-            autofocus: true,
-            decoration: const InputDecoration(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(c, controller.text.trim()),
-            child: const Text('保存'),
-          ),
-        ],
-      ),
+    final result = await editFields(
+      context,
+      title,
+      {'名称': initial},
+      maxLengths: const {'名称': 120},
+      autofocus: true,
     );
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    controller.dispose();
-    return value;
+    return result?['名称'];
   }
 
   Future<void> create() async {

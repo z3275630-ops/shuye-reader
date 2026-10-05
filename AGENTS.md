@@ -11,9 +11,11 @@
 - 基线仅一个压缩 ARM64 APK，27.34 MB（27,336,137 字节）。49 项本地测试通过；预览是电脑字体的 Flutter 渲染，真机功耗、温度等未测。本节数据是交接快照，新改动须重新验证。
 - 先读 README.md、docs/report-coverage.md、docs/ui-design.md、docs/verification.md；Windows 构建见 docs/windows-build.md。其余实现与签名约定见下文。
 
+最新主线改进与验证见 `docs/verification-usability.md`；正式发布基线仍为 0.3.5。
+
 ### 其他 Agent 的 PRD 与协作
 
-后续 Agent 会提交 PRD 等文档，建议放在 docs/prd/ 并关联 Issue / PR。先核对用户要求、现有实现及需求冲突；提案不等于已实现或自动授权。确认后的工作拆成小范围 PR，写清验证与体积 / 性能影响，合并及发布按用户授权处理。流程与模板见 CONTRIBUTING.md。
+后续 Agent 会提交 PRD 等文档，建议放在 docs/prd/ 并关联 Issue / PR。先核对用户要求、现有实现及需求冲突；提案不等于已实现或自动授权。主 Agent 直接推进 main，以小范围提交记录实现与验证；其他 Agent 提交 PR，由主 Agent 核对需求、冲突和测试后衔接。写清验证与体积 / 性能影响，正式发布按用户授权处理。流程与模板见 CONTRIBUTING.md。
 
 ## 开发与验证
 

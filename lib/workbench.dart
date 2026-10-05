@@ -1,4 +1,6 @@
-import 'form_field.dart';
+import 'edit_dialog.dart';
+
+export 'edit_dialog.dart';
 import 'app_icons.dart';
 
 import 'dart:async';
@@ -39,79 +41,6 @@ void toast(BuildContext ctx, String text) {
   if (ctx.mounted) {
     ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(text)));
   }
-}
-
-Future<Map<String, String>?> editFields(
-  BuildContext ctx,
-  String title,
-  Map<String, String> fields, {
-  Set<String> passwords = const {},
-  String? description,
-}) async {
-  final controllers = {
-    for (final e in fields.entries) e.key: TextEditingController(text: e.value),
-  };
-  final result = await showDialog<Map<String, String>>(
-    context: ctx,
-    builder: (ctx) => AlertDialog(
-      title: Text(title),
-      content: SizedBox(
-        width: 480,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (description != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Text(
-                    description,
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                ),
-              for (final e in controllers.entries)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: LabeledField(
-                    label: e.key,
-                    child: TextField(
-                      controller: e.value,
-                      obscureText: passwords.contains(e.key),
-                      maxLines: passwords.contains(e.key)
-                          ? 1
-                          : (e.key.contains('正文') ||
-                                    e.key.contains('提示词') ||
-                                    e.key.contains('说明')
-                                ? 5
-                                : 1),
-                      decoration: InputDecoration(),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(ctx, {
-            for (final e in controllers.entries) e.key: e.value.text.trim(),
-          }),
-          child: const Text('保存'),
-        ),
-      ],
-    ),
-  );
-  // Wait until the dialog's reverse animation releases its text fields.
-  await Future<void>.delayed(const Duration(milliseconds: 300));
-  for (final c in controllers.values) {
-    c.dispose();
-  }
-  return result;
 }
 
 Future<void> saveBytes(

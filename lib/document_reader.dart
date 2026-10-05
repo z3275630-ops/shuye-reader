@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import 'models.dart';
+import 'pdf_controls.dart';
 import 'reader.dart';
 import 'repository.dart';
 import 'workbench.dart';
@@ -33,7 +34,7 @@ class DocumentReader extends StatefulWidget {
 class _DocumentReaderState extends State<DocumentReader>
     with WidgetsBindingObserver {
   final controller = PdfViewerController();
-  late final PdfTextSearcher searcher;
+  PdfTextSearcher? searcher;
   late final Uint8List bytes;
   PdfDocument? document;
   bool night = false, drawing = false, busy = false;
@@ -48,10 +49,9 @@ class _DocumentReaderState extends State<DocumentReader>
     bytes = base64Decode(widget.book.source!);
     WidgetsBinding.instance.addObserver(this);
     page = (widget.book.metadata['pdfPage'] as int? ?? 1);
-    searcher = PdfTextSearcher(controller);
     unawaited(loadStrokes());
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (active && !busy) {
+      if (active && !busy && document != null) {
         final now = DateTime.now();
         if (now.hour != recordAt.hour || now.day != recordAt.day) {
           unawaited(flush());
@@ -86,7 +86,7 @@ class _DocumentReaderState extends State<DocumentReader>
   @override
   void dispose() {
     timer?.cancel();
-    searcher.dispose();
+    searcher?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     unawaited(flush());
     super.dispose();
@@ -167,72 +167,63 @@ class _DocumentReaderState extends State<DocumentReader>
   Future<void> outline() async {
     if (document == null) return;
     final nodes = await document!.loadOutline();
-    final flattened = <PdfOutlineNode>[];
-    void add(List<PdfOutlineNode> n) {
-      for (final node in n) {
-        flattened.add(node);
-        add(node.children);
-      }
-    }
-
-    add(nodes);
     if (!mounted) return;
-    await showModalBottomSheet<void>(
+    final selected = await showModalBottomSheet<int>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (c) => SafeArea(
-        child: ListView(
-          children: [
-            const ListTile(title: Text('PDF 目录与缩略图')),
-            if (flattened.isEmpty)
-              const ListTile(title: Text('文件未提供目录，可用页码跳转')),
-            for (final n in flattened)
-              ListTile(
-                title: Text(n.title),
-                trailing: Text('${n.dest?.pageNumber ?? ''}'),
-                onTap: () {
-                  if (n.dest != null) {
-                    unawaited(
-                      controller.goToPage(pageNumber: n.dest!.pageNumber),
-                    );
-                  }
-                  Navigator.pop(c);
-                },
-              ),
-            for (final p in document!.pages)
-              SizedBox(
-                height: 180,
-                child: InkWell(
-                  onTap: () {
-                    unawaited(controller.goToPage(pageNumber: p.pageNumber));
-                    Navigator.pop(c);
-                  },
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: PdfPageView(
-                          document: document,
-                          pageNumber: p.pageNumber,
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Text('第 ${p.pageNumber} 页'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
+        child: SizedBox(
+          height: MediaQuery.sizeOf(c).height * .78,
+          child: PdfContentsPanel(
+            pageCount: document!.pages.length,
+            currentPage: page,
+            outline: nodes,
+            thumbnail: (_, n) => PdfPageView(
+              document: document,
+              pageNumber: n,
+              maximumDpi: 72,
+              decoration: const BoxDecoration(color: Colors.white),
+            ),
+            onSelected: (n) => Navigator.pop(c, n),
+          ),
         ),
       ),
     );
+    if (mounted && selected != null && controller.isReady) {
+      await controller.goToPage(pageNumber: selected);
+    }
   }
 
   Future<void> search() async {
-    final data = await editFields(context, 'PDF 搜索', {'关键词': ''});
-    if (data == null || data['关键词']!.isEmpty) return;
-    searcher.startTextSearch(data['关键词']!);
+    if (searcher == null) return;
+    final data = await editFields(context, 'PDF 搜索', {
+      '关键词': searcher?.pattern?.toString() ?? '',
+    });
+    if (!mounted || data == null || data['关键词']!.isEmpty) return;
+    searcher?.startTextSearch(data['关键词']!, searchImmediately: true);
+  }
+
+  Future<void> jump() async {
+    final count = document?.pages.length;
+    if (count == null || !controller.isReady) return;
+    final data = await editFields(
+      context,
+      '跳转页码',
+      {'页码': '$page'},
+      description: '请输入 1–$count 之间的页码。',
+      keyboardTypes: const {'页码': TextInputType.number},
+      validators: {
+        '页码': (value) {
+          final n = int.tryParse(value);
+          return n != null && n >= 1 && n <= count
+              ? null
+              : '请输入 1–$count 之间的整数。';
+        },
+      },
+    );
+    if (!mounted || data == null || !controller.isReady) return;
+    await controller.goToPage(pageNumber: int.parse(data['页码']!));
   }
 
   @override
@@ -246,10 +237,13 @@ class _DocumentReaderState extends State<DocumentReader>
       actions: [
         IconButton(
           tooltip: 'PDF 搜索',
-          onPressed: search,
+          onPressed: !busy && searcher != null
+              ? () => unawaited(run(search))
+              : null,
           icon: const ShuyeIcon(Icons.search),
         ),
         PopupMenuButton<String>(
+          enabled: !busy && document != null,
           onSelected: (v) {
             switch (v) {
               case 'night':
@@ -318,12 +312,18 @@ class _DocumentReaderState extends State<DocumentReader>
                 : const ColorFilter.mode(Colors.transparent, BlendMode.dst),
             child: PdfViewer.data(
               bytes,
-              sourceName: widget.book.title,
+              sourceName: 'shuye-pdf:${widget.book.id}',
               controller: controller,
               initialPageNumber: page,
               params: PdfViewerParams(
                 onViewerReady: (d, c) {
-                  document = d;
+                  if (!mounted) return;
+                  searcher?.dispose();
+                  setState(() {
+                    document = d;
+                    searcher = PdfTextSearcher(c);
+                    page = page.clamp(1, d.pages.length);
+                  });
                   widget.book.metadata['pdfPages'] = d.pages.length;
                   unawaited(widget.repo.saveMetadata(widget.book));
                 },
@@ -353,41 +353,33 @@ class _DocumentReaderState extends State<DocumentReader>
                     ),
                   ),
                 ],
-                pagePaintCallbacks: [searcher.pageTextMatchPaintCallback],
+                pagePaintCallbacks: [
+                  (canvas, rect, p) =>
+                      searcher?.pageTextMatchPaintCallback(canvas, rect, p),
+                ],
               ),
             ),
           ),
         ),
         SafeArea(
           top: false,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              IconButton(
-                tooltip: '上一页',
-                onPressed: () => controller.goToPage(
-                  pageNumber: (page - 1).clamp(1, document?.pages.length ?? 1),
-                ),
-                icon: const ShuyeIcon(Icons.chevron_left),
+              PdfPageNavigation(
+                page: page,
+                pageCount: document?.pages.length,
+                previous: !busy && controller.isReady
+                    ? () => controller.goToPage(pageNumber: page - 1)
+                    : null,
+                next: !busy && controller.isReady
+                    ? () => controller.goToPage(pageNumber: page + 1)
+                    : null,
+                jump: !busy && controller.isReady
+                    ? () => unawaited(run(jump))
+                    : null,
               ),
-              Text('$page / ${document?.pages.length ?? '…'} 页'),
-              IconButton(
-                tooltip: '下一页',
-                onPressed: () => controller.goToPage(
-                  pageNumber: (page + 1).clamp(1, document?.pages.length ?? 1),
-                ),
-                icon: const ShuyeIcon(Icons.chevron_right),
-              ),
-              IconButton(
-                tooltip: '上个搜索结果',
-                onPressed: () => searcher.goToPrevMatch(),
-                icon: const ShuyeIcon(Icons.keyboard_arrow_up),
-              ),
-              IconButton(
-                tooltip: '下个搜索结果',
-                onPressed: () => searcher.goToNextMatch(),
-                icon: const ShuyeIcon(Icons.keyboard_arrow_down),
-              ),
+              if (searcher != null) PdfSearchResults(searcher: searcher!),
             ],
           ),
         ),
