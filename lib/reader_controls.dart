@@ -127,7 +127,7 @@ Future<void> advancedReaderSettings(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
               children: [
-                Text('阅读控制', style: Theme.of(c).textTheme.headlineSmall),
+                const Text('阅读控制', style: ShuyeStyle.panelTitle),
                 SettingsSection(
                   title: '翻页与屏幕',
                   children: [

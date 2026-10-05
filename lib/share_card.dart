@@ -36,10 +36,10 @@ class QuoteCard extends StatelessWidget {
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
         color: dark
-            ? ShuyeStyle.darkCanvas
+            ? colors.surface
             : template == 'minimal'
             ? Colors.white
-            : ShuyeStyle.canvas,
+            : colors.surface,
         image: template == 'paper'
             ? DecorationImage(
                 image: AssetImage(

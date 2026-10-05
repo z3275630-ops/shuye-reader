@@ -105,7 +105,7 @@ class HomeDashboard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w400,
                     fontSize: 17,
                   ),
                 ),
@@ -259,7 +259,7 @@ class HomeDashboard extends StatelessWidget {
                           metric.$2,
                           style: const TextStyle(
                             fontSize: 18,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                       ],
@@ -343,7 +343,7 @@ Future<void> configureHome(
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                Text('首页布局', style: Theme.of(c).textTheme.headlineSmall),
+                const Text('首页布局', style: ShuyeStyle.panelTitle),
                 const SizedBox(height: 8),
                 const Text('长按拖动卡片排序，点击显示或隐藏。调整会自动保存。'),
                 ReorderableListView(

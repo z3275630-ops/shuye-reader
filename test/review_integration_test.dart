@@ -390,63 +390,72 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    for (final brightness in Brightness.values) {
-      final s = ReaderSettings();
-      final key = GlobalKey();
-      await tester.pumpWidget(
-        RepaintBoundary(
-          key: key,
-          child: MaterialApp(
-            debugShowCheckedModeBanner: false,
-            theme: applicationTheme(brightness),
-            builder: (c, child) => MediaQuery(
-              data: MediaQuery.of(c)
-                  .copyWith(textScaler: const TextScaler.linear(1.5)),
-              child: child!,
-            ),
-            home: Scaffold(
-              body: Builder(
-                builder: (c) => Column(
-                  children: [
-                    TextButton(
-                      onPressed: () => showReaderSettings(c, s, () async {}),
-                      child: const Text('排版'),
-                    ),
-                    TextButton(
-                      onPressed: () => advancedReaderSettings(c, s, () {}),
-                      child: const Text('控制'),
-                    ),
-                  ],
+    for (final largeText in [false, true]) {
+      tester.view.physicalSize = largeText
+          ? const Size(320, 640)
+          : const Size(390, 844);
+      for (final brightness in Brightness.values) {
+        final s = ReaderSettings();
+        final key = GlobalKey();
+        await tester.pumpWidget(
+          RepaintBoundary(
+            key: key,
+            child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: applicationTheme(brightness),
+              builder: (c, child) => MediaQuery(
+                data: MediaQuery.of(
+                  c,
+                ).copyWith(textScaler: TextScaler.linear(largeText ? 1.5 : 1)),
+                child: child!,
+              ),
+              home: Scaffold(
+                body: Builder(
+                  builder: (c) => Column(
+                    children: [
+                      TextButton(
+                        onPressed: () => showReaderSettings(c, s, () async {}),
+                        child: const Text('排版'),
+                      ),
+                      TextButton(
+                        onPressed: () => advancedReaderSettings(c, s, () {}),
+                        child: const Text('控制'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      );
-      Future<void> capture(String name) async {
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
-        await tester.runAsync(() async {
-          final boundary =
-              key.currentContext!.findRenderObject() as RenderRepaintBoundary;
-          final image = await boundary.toImage(pixelRatio: 2);
-          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-          await File('$output/$name-${brightness.name}.png')
-              .writeAsBytes(bytes!.buffer.asUint8List());
-          image.dispose();
-        });
-      }
+        );
+        Future<void> capture(String name) async {
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          await tester.runAsync(() async {
+            final boundary =
+                key.currentContext!.findRenderObject() as RenderRepaintBoundary;
+            final image = await boundary.toImage(pixelRatio: 2);
+            final bytes = await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
+            await File(
+              '$output/$name-${brightness.name}${largeText ? '-large' : ''}.png',
+            ).writeAsBytes(bytes!.buffer.asUint8List());
+            image.dispose();
+          });
+        }
 
-      await tester.tap(find.text('排版'));
-      await capture('reading-preview');
-      Navigator.of(
-        tester.element(find.byKey(const ValueKey('reader-settings-preview'))),
-      ).pop();
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('控制'));
-      await capture('reading-controls');
-      Navigator.of(tester.element(find.text('阅读控制'))).pop();
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('排版'));
+        await capture('reading-preview');
+        Navigator.of(
+          tester.element(find.byKey(const ValueKey('reader-settings-preview'))),
+        ).pop();
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('控制'));
+        await capture('reading-controls');
+        Navigator.of(tester.element(find.text('阅读控制'))).pop();
+        await tester.pumpAndSettle();
+      }
     }
   }, skip: output == null);
 }

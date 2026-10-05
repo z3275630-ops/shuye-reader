@@ -246,7 +246,7 @@ class _ReadingHeatmapState extends State<ReadingHeatmap> {
                   child: Text(
                     '阅读热力图',
                     style: Theme.of(context).textTheme.titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w600),
+                        ?.copyWith(fontWeight: FontWeight.w400),
                   ),
                 ),
               ],
@@ -423,7 +423,7 @@ class _ReadingHeatmapState extends State<ReadingHeatmap> {
                       key: const ValueKey('heatmap-selected-duration'),
                       style: TextStyle(
                         fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w400,
                         color: colors.primary,
                       ),
                     ),
@@ -451,7 +451,7 @@ class _ReadingHeatmapState extends State<ReadingHeatmap> {
                             item.$2,
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w400,
                               fontSize: 16,
                             ),
                           ),

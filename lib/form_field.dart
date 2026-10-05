@@ -17,7 +17,7 @@ class LabeledField extends StatelessWidget {
           label,
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
             fontSize: 13,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w400,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),

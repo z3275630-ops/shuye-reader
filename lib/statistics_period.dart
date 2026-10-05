@@ -4,6 +4,128 @@ import 'package:flutter/material.dart';
 
 import 'home_dashboard.dart';
 
+// Construct natural dates rather than subtracting 24-hour durations (DST).
+List<(DateTime, int)> recentReadingDays(Map<String, int> stats, DateTime now) =>
+    List.generate(7, (i) {
+      final date = DateTime(now.year, now.month, now.day - 6 + i);
+      return (date, (stats[dayKey(date)] ?? 0).clamp(0, 1 << 53));
+    });
+
+class RecentReadingTrend extends StatefulWidget {
+  final Map<String, int> stats;
+  final DateTime? today;
+  const RecentReadingTrend({super.key, required this.stats, this.today});
+  @override
+  State<RecentReadingTrend> createState() => _RecentReadingTrendState();
+}
+
+class _RecentReadingTrendState extends State<RecentReadingTrend> {
+  String? selected;
+  String duration(int seconds) => seconds == 0
+      ? '无阅读记录'
+      : seconds < 60
+      ? '$seconds 秒'
+      : '${seconds ~/ 60} 分钟';
+  @override
+  Widget build(BuildContext context) {
+    final days = recentReadingDays(
+      widget.stats,
+      widget.today ?? DateTime.now(),
+    );
+    final maximum = days.fold<int>(
+      0,
+      (value, day) => value > day.$2 ? value : day.$2,
+    );
+    final chosen =
+        days.where((d) => dayKey(d.$1) == selected).firstOrNull ?? days.last;
+    final colors = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('近七天', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 6),
+            Text(
+              '柱高表示阅读时长，点按查看当天记录。',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                for (final day in days)
+                  Expanded(
+                    child: Semantics(
+                      button: true,
+                      selected: day == chosen,
+                      label: '${dayKey(day.$1)}，${duration(day.$2)}',
+                      child: InkWell(
+                        key: ValueKey('recent-day-${dayKey(day.$1)}'),
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => setState(() => selected = dayKey(day.$1)),
+                        child: ExcludeSemantics(
+                          child: Column(
+                            children: [
+                              SizedBox(
+                                height: 72,
+                                child: Align(
+                                  alignment: Alignment.bottomCenter,
+                                  child: FractionallySizedBox(
+                                    widthFactor: .5,
+                                    child: Container(
+                                      height: day.$2 == 0
+                                          ? 3
+                                          : (72 * day.$2 / maximum).clamp(
+                                              3,
+                                              72,
+                                            ),
+                                      decoration: BoxDecoration(
+                                        color: day.$2 == 0
+                                            ? colors.outlineVariant
+                                            : day == chosen
+                                            ? colors.primary
+                                            : colors.onSurfaceVariant,
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                day == days.last
+                                    ? '今'
+                                    : '一二三四五六日'[day.$1.weekday - 1],
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: day == chosen
+                                      ? colors.primary
+                                      : colors.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${dayKey(chosen.$1)} · ${duration(chosen.$2)}',
+              key: const ValueKey('recent-day-detail'),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 enum ReadingPeriod { day, week, month, year, all }
 
 (DateTime, DateTime) periodBounds(ReadingPeriod period, DateTime anchor) {
@@ -130,7 +252,7 @@ class _PeriodStatisticsState extends State<PeriodStatistics> {
                   child: Text(
                     label,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    style: const TextStyle(fontWeight: FontWeight.w400),
                   ),
                 ),
                 if (period != ReadingPeriod.all)

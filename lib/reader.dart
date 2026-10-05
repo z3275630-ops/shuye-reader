@@ -24,6 +24,7 @@ const readerSchemes = {
   'sage': [Color(0xffe4ebdf), Color(0xff344333)],
   'night': [Color(0xff202521), Color(0xffbcc4b7)],
   'claude': [Color(0xfffaf9f5), Color(0xff22221f)],
+  'mist': [Color(0xfff7fafc), Color(0xff253447)],
 };
 const readerNames = {
   'paper': '暖纸',
@@ -31,7 +32,45 @@ const readerNames = {
   'sage': '青竹',
   'night': '夜读',
   'claude': 'Claude',
+  'mist': '海雾',
 };
+
+TextSelectionThemeData readerSelectionTheme(List<Color> scheme) {
+  final paper = scheme[0], ink = scheme[1];
+  double contrast(Color a, Color b) {
+    final x = a.computeLuminance(), y = b.computeLuminance();
+    return (math.max(x, y) + .05) / (math.min(x, y) + .05);
+  }
+
+  final dark = paper.computeLuminance() < .2;
+  final clay = applicationTheme(dark ? Brightness.dark : Brightness.light)
+      .colorScheme
+      .primary;
+  final handle = contrast(clay, paper) >= 3
+      ? clay
+      : contrast(ink, paper) >= 3
+      ? ink
+      : paper.computeLuminance() > .179
+      ? Colors.black
+      : Colors.white;
+  // Highlight the actual paper without sacrificing foreground readability.
+  // The translucent range and the opaque handles have different roles.
+  var alpha = dark ? .28 : .18;
+  if (contrast(ink, paper) >= 4.5) {
+    while (contrast(
+          ink,
+          Color.alphaBlend(ink.withValues(alpha: alpha), paper),
+        ) <
+        4.5) {
+      alpha *= .8;
+    }
+  }
+  return TextSelectionThemeData(
+    cursorColor: handle,
+    selectionHandleColor: handle,
+    selectionColor: ink.withValues(alpha: alpha),
+  );
+}
 
 String readerFont(ReaderSettings settings) {
   final custom = settings.value('reader.customFont', '');
@@ -85,10 +124,7 @@ Future<void> showReaderSettings(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '让文字，刚刚好。',
-                    style: Theme.of(ctx).textTheme.headlineSmall,
-                  ),
+                  Text('让文字，刚刚好。', style: ShuyeStyle.panelTitle),
                   const SizedBox(height: 22),
                   Container(
                     key: const ValueKey('reader-settings-preview'),
@@ -322,7 +358,10 @@ class _ReaderScreenState extends State<ReaderScreen>
     WidgetsBinding.instance.addObserver(this);
     HardwareKeyboard.instance.addHandler(handlePhysicalKey);
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (active && !dialogOpen && !shield) {
+      if (active &&
+          !dialogOpen &&
+          !shield &&
+          (ModalRoute.of(context)?.isCurrent ?? true)) {
         final now = DateTime.now();
         if (now.hour != recordAt.hour ||
             now.day != recordAt.day ||
@@ -966,6 +1005,7 @@ class _ReaderScreenState extends State<ReaderScreen>
           surfaceTintColor: Colors.transparent,
         ),
         iconTheme: IconThemeData(color: scheme[1]),
+        textSelectionTheme: readerSelectionTheme(scheme),
       ),
       child: Scaffold(
         appBar: immersive
@@ -975,7 +1015,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                   book.title,
                   style: const TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
                 actions: [
@@ -1357,40 +1397,14 @@ class _ReaderScreenState extends State<ReaderScreen>
                         ),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            tooltip: '章节目录',
-                            onPressed: outline,
-                            icon: const ShuyeIcon(
-                              Icons.format_list_bulleted,
-                              size: 22,
-                            ),
-                          ),
-                          const Spacer(),
-                          IconButton(
-                            tooltip: '上一页',
-                            onPressed: () => turn(-1),
-                            icon: const ShuyeIcon(Icons.chevron_left),
-                          ),
-                          Text(
-                            '${page + 1} / ${pages.length} 页',
-                            style: TextStyle(fontSize: 12, color: scheme[1]),
-                          ),
-                          IconButton(
-                            tooltip: '下一页',
-                            onPressed: () => turn(1),
-                            icon: const ShuyeIcon(Icons.chevron_right),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '${(book.progress * 100).round()}%',
-                            style: TextStyle(fontSize: 11, color: scheme[1]),
-                          ),
-                        ],
-                      ),
+                    ReaderFooter(
+                      page: page + 1,
+                      pages: pages.length,
+                      progress: book.progress,
+                      ink: scheme[1],
+                      outline: outline,
+                      previous: () => turn(-1),
+                      next: () => turn(1),
                     ),
                   ],
                 ),
@@ -1398,4 +1412,66 @@ class _ReaderScreenState extends State<ReaderScreen>
       ),
     );
   }
+}
+
+/// Fixed touch targets with wrapping labels for small screens and large text.
+class ReaderFooter extends StatelessWidget {
+  final int page, pages;
+  final double progress;
+  final Color ink;
+  final VoidCallback outline, previous, next;
+  const ReaderFooter({
+    super.key,
+    required this.page,
+    required this.pages,
+    required this.progress,
+    required this.ink,
+    required this.outline,
+    required this.previous,
+    required this.next,
+  });
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+    child: Row(
+      children: [
+        IconButton(
+          tooltip: '章节目录',
+          onPressed: outline,
+          icon: const ShuyeIcon(Icons.format_list_bulleted, size: 22),
+        ),
+        Expanded(
+          child: Row(
+            children: [
+              IconButton(
+                tooltip: '上一页',
+                onPressed: previous,
+                icon: const ShuyeIcon(Icons.chevron_left),
+              ),
+              Expanded(
+                child: Text(
+                  '$page / $pages 页',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: ink),
+                ),
+              ),
+              IconButton(
+                tooltip: '下一页',
+                onPressed: next,
+                icon: const ShuyeIcon(Icons.chevron_right),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          width: 48,
+          child: Text(
+            '${(progress * 100).round()}%',
+            textAlign: TextAlign.right,
+            style: TextStyle(fontSize: 11, color: ink),
+          ),
+        ),
+      ],
+    ),
+  );
 }

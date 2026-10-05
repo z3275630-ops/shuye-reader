@@ -1,4 +1,5 @@
 import 'app_icons.dart';
+import 'appearance.dart';
 
 import 'dart:async';
 
@@ -106,13 +107,14 @@ class _PrivacyGateState extends State<PrivacyGate> with WidgetsBindingObserver {
                   children: [
                     ShuyeIcon(
                       Icons.lock_outline,
-                      size: 56,
+                      size: 40,
                       color: Theme.of(context).colorScheme.primary,
                     ),
                     const SizedBox(height: 20),
                     Text(
                       '你的阅读，留给自己',
-                      style: Theme.of(context).textTheme.headlineSmall,
+                      style: ShuyeStyle.panelTitle,
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 20),
                     if (error != null) Text(error!),

@@ -106,7 +106,7 @@ class _ToolCatalogState extends State<ToolCatalog> {
                                 Text(
                                   a.title,
                                   style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w400,
                                   ),
                                 ),
                                 const SizedBox(height: 6),

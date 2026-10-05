@@ -51,7 +51,10 @@ class _DocumentReaderState extends State<DocumentReader>
     page = (widget.book.metadata['pdfPage'] as int? ?? 1);
     unawaited(loadStrokes());
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (active && !busy && document != null) {
+      if (active &&
+          !busy &&
+          document != null &&
+          (ModalRoute.of(context)?.isCurrent ?? true)) {
         final now = DateTime.now();
         if (now.hour != recordAt.hour ||
             now.day != recordAt.day ||

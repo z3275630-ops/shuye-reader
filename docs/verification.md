@@ -1,4 +1,4 @@
-主线本机签名版本已升为 0.3.8+11，见 [最新版本与安装包验证](verification-0.3.8.md)；此前记录见 [0.3.7](verification-0.3.7.md)、[0.3.6](verification-0.3.6.md)。下文保留 GitHub 已发布 0.3.5 的历史验证。
+主线本机签名版本已升为 0.3.9+12，见 [最新版本与安装包验证](verification-0.3.9.md)；此前记录见 [0.3.8](verification-0.3.8.md)、[0.3.7](verification-0.3.7.md)、[0.3.6](verification-0.3.6.md)。下文保留 GitHub 已发布 0.3.5 的历史验证。
 
 # 验证记录 · 0.3.5 · 2026-10-05
 

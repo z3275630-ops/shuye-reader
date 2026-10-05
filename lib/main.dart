@@ -94,9 +94,12 @@ class ShuyeApp extends StatelessWidget {
       themeMode: appearance.themeMode,
       builder: (c, child) => MediaQuery(
         data: MediaQuery.of(c).copyWith(
-          textScaler: TextScaler.linear(
-            MediaQuery.textScalerOf(c).scale(1) * appearance.scale,
-          ),
+          textScaler: appearance.scale == 1
+              ? MediaQuery.textScalerOf(c)
+              : ApplicationTextScaler(
+                  MediaQuery.textScalerOf(c),
+                  appearance.scale,
+                ),
         ),
         child: PrivacyGate(repo: repository, child: child!),
       ),
@@ -168,7 +171,7 @@ class BookCover extends StatelessWidget {
                     fontSize: 23,
                     height: 1.4,
                     fontFamily: ShuyeStyle.fontFamily,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -233,7 +236,7 @@ class BookCover extends StatelessWidget {
                   fontSize: 19,
                   height: 1.4,
                   color: ink,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
               const Spacer(),
@@ -291,9 +294,11 @@ class _LibraryHomeState extends State<LibraryHome> {
   Map<String, int> stats = {};
   Map<int, int> hourlyStats = {};
   int tab = 4, filter = 0;
-  bool loading = true, busy = false, grid = true;
+  bool loading = true, busy = false, grid = true, _opening = false;
   String query = '';
   String noteQuery = '';
+  final TextEditingController queryController = TextEditingController();
+  final TextEditingController noteQueryController = TextEditingController();
   ReaderRepository get repo => widget.repository;
   @override
   void initState() {
@@ -309,6 +314,8 @@ class _LibraryHomeState extends State<LibraryHome> {
 
   @override
   void dispose() {
+    queryController.dispose();
+    noteQueryController.dispose();
     unawaited(deviceEvents?.cancel());
     super.dispose();
   }
@@ -468,22 +475,33 @@ class _LibraryHomeState extends State<LibraryHome> {
     }
   });
   Future<void> openBook(Book book, [Note? note]) async {
-    book = await repo.book(book.id);
-    if (!mounted) return;
-    if (note != null) {
-      book.chapter = note.chapter;
-      book.offset = note.offset;
+    // Hold through loading and the first frame of the new route. Later widget
+    // links may open another book while a reader is already visible.
+    if (_opening) return;
+    _opening = true;
+    late final Future<void> navigated;
+    try {
+      book = await repo.book(book.id);
+      if (!mounted) return;
+      if (note != null) {
+        book.chapter = note.chapter;
+        book.offset = note.offset;
+      }
+      navigated = Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => book.format == 'PDF'
+              ? DocumentReader(book: book, repo: repo, settings: settings)
+              : book.format == 'CBZ'
+              ? ComicReader(book: book, repo: repo)
+              : ReaderScreen(book: book, repository: repo, settings: settings),
+        ),
+      );
+      await WidgetsBinding.instance.endOfFrame;
+    } finally {
+      _opening = false;
     }
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => book.format == 'PDF'
-            ? DocumentReader(book: book, repo: repo, settings: settings)
-            : book.format == 'CBZ'
-            ? ComicReader(book: book, repo: repo)
-            : ReaderScreen(book: book, repository: repo, settings: settings),
-      ),
-    );
-    await reload();
+    await navigated;
+    if (mounted) await reload();
   }
 
   Future<void> updateWidgets() async {
@@ -752,7 +770,7 @@ class _LibraryHomeState extends State<LibraryHome> {
             ['书架', '我的摘录', '阅读足迹', '设置', '书叶'][tab],
             style: const TextStyle(
               letterSpacing: 0,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w400,
             ),
           ),
         ],
@@ -1012,7 +1030,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                                     recent.title,
                                     style: TextStyle(
                                       fontSize: 18,
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: FontWeight.w400,
                                     ),
                                   ),
                                   const SizedBox(height: 8),
@@ -1040,6 +1058,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                     ),
                   ),
                 TextField(
+                  controller: queryController,
                   onChanged: (v) => setState(() => query = v),
                   decoration: const InputDecoration(
                     hintText: '找一本书，或一位作者',
@@ -1134,7 +1153,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                             b.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontWeight: FontWeight.w600),
+                            style: TextStyle(fontWeight: FontWeight.w400),
                           ),
                           const SizedBox(height: 5),
                           Row(
@@ -1226,6 +1245,7 @@ class _LibraryHomeState extends State<LibraryHome> {
         Padding(
           padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
           child: TextField(
+            controller: noteQueryController,
             decoration: const InputDecoration(
               hintText: '搜索摘录、想法或标签',
               prefixIcon: ShuyeIcon(Icons.search),
@@ -1235,7 +1255,12 @@ class _LibraryHomeState extends State<LibraryHome> {
         ),
         Expanded(
           child: matching.isEmpty
-              ? empty(Icons.bookmark_border, '把心动的句子留下来', '阅读时长按选择正文，点击摘录按钮保存。')
+              ? empty(
+                  Icons.bookmark_border,
+                  noteQuery.isEmpty ? '把心动的句子留下来' : '没有找到匹配的摘录',
+                  noteQuery.isEmpty ? '阅读时长按选择正文，点击摘录按钮保存。' : '试试其他关键词或标签。',
+                  compact: true,
+                )
               : ListView.separated(
                   padding: const EdgeInsets.all(22),
                   itemCount: matching.length,
@@ -1382,6 +1407,8 @@ class _LibraryHomeState extends State<LibraryHome> {
       children: [
         ReadingHeatmap(stats: stats),
         const SizedBox(height: 18),
+        RecentReadingTrend(stats: stats),
+        const SizedBox(height: 18),
         PeriodStatistics(stats: stats),
         const SizedBox(height: 18),
         Row(
@@ -1483,7 +1510,7 @@ class _LibraryHomeState extends State<LibraryHome> {
         ),
         const SizedBox(height: 20),
         Text(
-          '只统计停留在阅读页的前台时间，短于 5 秒的片段不计入。统计在退出阅读页或进入后台后更新。删除书籍会移除对应记录。',
+          '只统计停留在阅读页的前台时间，短于 5 秒的有效记录也计入。统计在退出阅读页或进入后台后更新。删除书籍会移除对应记录。',
           style: TextStyle(
             fontSize: 12,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1652,7 +1679,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                   style: TextStyle(
                     fontSize: 32,
                     color: Theme.of(context).colorScheme.onSurface,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
                 TextSpan(
@@ -1669,23 +1696,30 @@ class _LibraryHomeState extends State<LibraryHome> {
       ),
     ),
   );
-  Widget empty(IconData icon, String title, String subtitle) => Center(
+  Widget empty(
+    IconData icon,
+    String title,
+    String subtitle, {
+    bool compact = false,
+  }) => Center(
     child: Padding(
       padding: const EdgeInsets.all(30),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ShuyeIcon(
-            icon,
-            size: 52,
-            color: Theme.of(context).colorScheme.primary.withValues(alpha: .5),
-          ),
-          const SizedBox(height: 18),
+          if (!compact)
+            ShuyeIcon(
+              icon,
+              size: 52,
+              color: Theme.of(context).colorScheme.primary
+                  .withValues(alpha: .5),
+            ),
+          if (!compact) const SizedBox(height: 18),
           Text(
             title,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 18,
+              fontSize: compact ? 15 : 18,
               color: Theme.of(context).colorScheme.onSurface,
             ),
           ),

@@ -513,7 +513,7 @@ Future<void> showAiAssistant(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('阅读助手', style: Theme.of(c).textTheme.headlineSmall),
+                const Text('阅读助手', style: ShuyeStyle.panelTitle),
                 const SizedBox(height: 8),
                 if (MediaQuery.viewInsetsOf(c).bottom == 0)
                   Text(

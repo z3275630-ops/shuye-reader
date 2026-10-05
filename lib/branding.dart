@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'appearance.dart';
 
-const shuyeVersion = '0.3.8';
+const shuyeVersion = '0.3.9';
 const shuyeCoverAsset = 'assets/art/shuye-cover.webp';
 const shuyeMarkAsset = 'assets/art/shuye-mark.webp';
 
@@ -60,7 +60,7 @@ class ShuyeIdentityCard extends StatelessWidget {
                     Text(
                       '书叶',
                       style: Theme.of(context).textTheme.titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                          ?.copyWith(fontWeight: FontWeight.w400),
                     ),
                     const SizedBox(height: 4),
                     Text(

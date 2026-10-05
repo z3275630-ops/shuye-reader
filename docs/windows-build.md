@@ -24,3 +24,11 @@ New-Item -ItemType Directory -Path $env:TEMP,$env:GRADLE_USER_HOME -Force
 如果依赖下载被网络阻断，可在自己指定的 `GRADLE_USER_HOME/gradle.properties` 配置当前可用的本地 HTTP 代理。代理地址取决于本机配置，不应写进项目或提交 Git。连接恢复后再构建；不要关闭 TLS 验证。
 
 GitHub Actions 使用 Linux runner，不使用这些本机路径、密码或代理配置。
+
+## 多 Agent 共用本机
+
+每个 Agent 必须使用独立 checkout / 构建副本、项目 build、.dart_tool 和 TEMP / TMP；只切换同一目录的分支不能隔离文件。不要在同一副本同时运行 Flutter 测试、截图与 APK 构建，避免原生测试资源文件锁。SDK 启动锁或 Gradle 缓存锁出现等待时先等，不删除锁、清缓存、升级 SDK 或结束其他 Agent 的进程。
+
+0.3.9 主 Agent 的验证副本为 `C:/tmp/shuye-main-039-20261005`，临时文件为 `C:/tmp/shuye-temp-039`；正式源码仍以原仓库 main 为准。这些是本轮保留目录，不供其他 Agent 同时使用；后续任务另选独立目录。共享 PUB_CACHE / Gradle 依赖缓存有各自的锁，不能靠清理缓存解决别人的正在运行的构建。
+
+追加修复后的回归副本为 `C:/tmp/shuye-main-039-verify-20261005`、临时目录 `C:/tmp/shuye-verify-temp-039`，与 APK 构建分别运行；源码与依赖锁、字体在交付前核对一致。不要把旧构建副本当作正式源码。

@@ -1,13 +1,26 @@
 import 'package:flutter/material.dart';
 
 import 'models.dart';
+import 'theme_mist.dart';
+
+/// 可选的界面配色。`claude` 是原本的暖白纸面，`mist` 是新增的冷调海雾。
+/// 正文阅读纸色是独立设置，不随这里切换。
+const appThemes = <String, String>{'claude': '暖白', 'mist': '海雾'};
+
+String appThemeId(String id) => appThemes.containsKey(id) ? id : 'claude';
 
 class AppAppearance {
   final String mode;
+  final String theme;
   final double scale;
-  const AppAppearance({this.mode = 'system', this.scale = 1});
+  const AppAppearance({
+    this.mode = 'system',
+    this.theme = 'claude',
+    this.scale = 1,
+  });
   factory AppAppearance.fromSettings(ReaderSettings s) => AppAppearance(
     mode: s.value('app.themeMode', 'system'),
+    theme: appThemeId(s.value('app.theme', 'claude')),
     scale: s.number('app.textScale', 1).clamp(.85, 1.5),
   );
   ThemeMode get themeMode => switch (mode) {
@@ -17,12 +30,35 @@ class AppAppearance {
   };
   @override
   bool operator ==(Object other) =>
-      other is AppAppearance && other.mode == mode && other.scale == scale;
+      other is AppAppearance &&
+      other.mode == mode &&
+      other.theme == theme &&
+      other.scale == scale;
   @override
-  int get hashCode => Object.hash(mode, scale);
+  int get hashCode => Object.hash(mode, theme, scale);
 }
 
 final appAppearance = ValueNotifier(const AppAppearance());
+
+// Preserve Android's size-dependent accessibility scaling, then apply the
+// user's app preference. Sampling scale(1) turns nonlinear scaling into a
+// single, potentially much larger multiplier for headings.
+class ApplicationTextScaler extends TextScaler {
+  final TextScaler system;
+  final double multiplier;
+  const ApplicationTextScaler(this.system, this.multiplier);
+  @override
+  double scale(double fontSize) => system.scale(fontSize) * multiplier;
+  @override
+  double get textScaleFactor => scale(14) / 14;
+  @override
+  bool operator ==(Object other) =>
+      other is ApplicationTextScaler &&
+      other.system == system &&
+      other.multiplier == multiplier;
+  @override
+  int get hashCode => Object.hash(system, multiplier);
+}
 
 // Mobile reader adaptation. Keep the palette and geometry in one place;
 // reader paper, imported fonts and cover artwork have their own settings.
@@ -35,6 +71,12 @@ abstract final class ShuyeStyle {
   static const controlRadius = 12.0;
   static const cardRadius = 16.0;
   static const sheetRadius = 24.0;
+  static const panelTitle = TextStyle(
+    fontSize: 20,
+    fontWeight: FontWeight.w400,
+    height: 1.3,
+    letterSpacing: 0,
+  );
   static const controlMotion = Duration(milliseconds: 100);
 }
 
@@ -46,13 +88,26 @@ AnimationStyle applicationMotion(BuildContext context) =>
         reverseDuration: Duration(milliseconds: 150),
       );
 
-final _themes = <Brightness, ThemeData>{};
-ThemeData applicationTheme(Brightness brightness) =>
-    _themes.putIfAbsent(brightness, () => _buildApplicationTheme(brightness));
+final _themes = <String, ThemeData>{};
 
-ThemeData _buildApplicationTheme(Brightness brightness) {
+/// 按配色与明暗分别缓存，切换主题时不必重建整套控件样式。
+/// 配色取自 [appAppearance]，调用点（`MaterialApp`）已经监听它，
+/// 因此用户改配色后重建会自然拿到新的 ThemeData。
+ThemeData applicationTheme(Brightness brightness) {
+  final id = appThemeId(appAppearance.value.theme);
+  return _themes.putIfAbsent(
+    '$id:${brightness.name}',
+    () => _buildApplicationTheme(
+      brightness,
+      id == 'mist' ? mistColorScheme(brightness) : null,
+    ),
+  );
+}
+
+ThemeData _buildApplicationTheme(Brightness brightness, [ColorScheme? scheme]) {
   final dark = brightness == Brightness.dark;
   final colors =
+      scheme ??
       ColorScheme.fromSeed(
         seedColor: ShuyeStyle.clay,
         brightness: brightness,
@@ -67,7 +122,8 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
             ? const Color(0xfff0d3c6)
             : const Color(0xff56362a),
         secondary: dark ? const Color(0xffc2c0b6) : const Color(0xff57564f),
-        tertiary: dark ? const Color(0xff9fc5f4) : const Color(0xff184e95),
+        // Warm focus; use the deeper clay to preserve text contrast as well.
+        tertiary: dark ? const Color(0xffe5aa92) : const Color(0xff99513b),
         onTertiary: dark ? const Color(0xff121212) : Colors.white,
         onSecondary: dark ? const Color(0xff262624) : Colors.white,
         secondaryContainer: dark
@@ -94,9 +150,13 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
             ? const Color(0xffc2c0b6)
             : const Color(0xff626057),
         outline: dark ? const Color(0xff929088) : const Color(0xff87857d),
+        // Light hairlines sit on a much brighter canvas than the dark ones, so
+        // #d6d4cb only reached 1.41:1 there while the dark value reaches 2.03:1
+        // against #1f1f1e. The documented strategy layers with 0.5-0.7dp lines
+        // instead of shadows, so give the light side a comparable weight.
         outlineVariant: dark
             ? const Color(0xff50504a)
-            : const Color(0xffd6d4cb),
+            : const Color(0xffc5c2b6),
         inverseSurface: dark ? ShuyeStyle.canvas : const Color(0xff30302e),
         onInverseSurface: dark ? const Color(0xff262624) : ShuyeStyle.canvas,
         surfaceTint: Colors.transparent,
@@ -121,7 +181,7 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
       headlineLarge: text.headlineLarge?.copyWith(
         fontFamily: ShuyeStyle.fontFamily,
         fontSize: 34,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w400,
         letterSpacing: 0,
       ),
       headlineMedium: text.headlineMedium?.copyWith(
@@ -132,19 +192,19 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
       ),
       headlineSmall: text.headlineSmall?.copyWith(
         fontFamily: ShuyeStyle.fontFamily,
-        fontSize: 24,
-        fontWeight: FontWeight.w500,
-        height: 1.4,
+        fontSize: 22,
+        fontWeight: FontWeight.w400,
+        height: 1.35,
         letterSpacing: 0,
       ),
       titleLarge: text.titleLarge?.copyWith(
         fontSize: 20,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w400,
         letterSpacing: 0,
       ),
       titleMedium: text.titleMedium?.copyWith(
-        fontSize: 16,
-        fontWeight: FontWeight.w500,
+        fontSize: 15,
+        fontWeight: FontWeight.w400,
         letterSpacing: 0,
       ),
       bodyLarge: text.bodyLarge?.copyWith(
@@ -153,14 +213,18 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
         letterSpacing: 0,
       ),
       bodyMedium: text.bodyMedium?.copyWith(
-        fontSize: 15,
-        height: 1.6,
+        fontSize: 14,
+        height: 1.5,
         letterSpacing: 0,
       ),
-      bodySmall: text.bodySmall?.copyWith(fontSize: 13, height: 1.5),
+      bodySmall: text.bodySmall?.copyWith(
+        fontSize: 13,
+        height: 1.5,
+        letterSpacing: .2,
+      ),
       labelLarge: text.labelLarge?.copyWith(
         fontSize: 14,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w400,
         letterSpacing: 0,
       ),
     ),
@@ -179,8 +243,8 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
       titleTextStyle: TextStyle(
         fontFamily: ShuyeStyle.fontFamily,
         color: colors.onSurface,
-        fontSize: 19,
-        fontWeight: FontWeight.w600,
+        fontSize: 18,
+        fontWeight: FontWeight.w400,
       ),
     ),
     cardTheme: CardThemeData(
@@ -206,9 +270,7 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
         (states) => TextStyle(
           fontFamily: ShuyeStyle.fontFamily,
           fontSize: 13,
-          fontWeight: states.contains(WidgetState.selected)
-              ? FontWeight.w600
-              : FontWeight.w400,
+          fontWeight: FontWeight.w400,
           color: states.contains(WidgetState.selected)
               ? colors.onSurface
               : colors.onSurfaceVariant,
@@ -236,7 +298,7 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
         fontFamily: ShuyeStyle.fontFamily,
         color: colors.onSurface,
         fontSize: 19,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w400,
       ),
       contentTextStyle: TextStyle(
         fontFamily: ShuyeStyle.fontFamily,
@@ -280,7 +342,7 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
       titleTextStyle: TextStyle(
         fontFamily: ShuyeStyle.fontFamily,
         color: colors.onSurface,
-        fontSize: 16,
+        fontSize: 15,
         height: 1.35,
       ),
       subtitleTextStyle: TextStyle(
@@ -288,6 +350,7 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
         color: colors.onSurfaceVariant,
         fontSize: 13,
         height: 1.45,
+        letterSpacing: .2,
       ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
@@ -531,7 +594,7 @@ Future<void> configureAppearance(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('应用外观', style: Theme.of(c).textTheme.headlineSmall),
+              Text('应用外观', style: ShuyeStyle.panelTitle),
               const SizedBox(height: 12),
               const Text('调整界面配色和文字；正文仍使用自己的阅读纸色。'),
               const SizedBox(height: 20),
@@ -555,6 +618,36 @@ Future<void> configureAppearance(
                 ),
               ),
               const SizedBox(height: 20),
+              Text('界面配色', style: Theme.of(c).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final option in appThemes.entries)
+                    ChoiceChip(
+                      label: Text(option.value),
+                      selected:
+                          appThemeId(settings.value('app.theme', 'claude')) ==
+                          option.key,
+                      onSelected: (_) async {
+                        settings.extra['app.theme'] = option.key;
+                        appAppearance.value = AppAppearance.fromSettings(
+                          settings,
+                        );
+                        set(() {});
+                        try {
+                          await save();
+                        } catch (_) {
+                          if (c.mounted) set(() => error = '保存失败，请重试。');
+                        }
+                      },
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text('明暗', style: Theme.of(c).textTheme.titleMedium),
+              const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,

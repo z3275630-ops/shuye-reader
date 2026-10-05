@@ -34,7 +34,7 @@ Future<void> configureShelf(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('布置你的书架', style: Theme.of(c).textTheme.headlineSmall),
+                const Text('布置你的书架', style: ShuyeStyle.panelTitle),
                 const SizedBox(height: 16),
                 if (cover != null)
                   ShelfPreview(books: books, settings: s, cover: cover),
