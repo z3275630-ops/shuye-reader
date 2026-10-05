@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 960" role="img" aria-label="书叶品牌配图概念：翻页化叶">
+  <rect width="1440" height="960" rx="56" fill="#D97757"/>
+  <circle cx="1080" cy="248" r="138" fill="#9BAA86"/>
+  <g fill="#FAF9F5" stroke="#141413" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M128 748 C260 642 430 631 650 704 C683 715 704 734 714 756 C724 734 747 715 780 704 C1005 632 1170 646 1302 742 C1137 728 966 741 795 800 C762 811 735 828 714 848 C692 828 666 811 632 800 C455 740 291 727 128 748 Z"/>
+    <path d="M714 758 C683 640 640 552 568 484 C618 451 685 472 724 533 C767 451 842 343 1028 260 C1044 348 1014 434 950 493 C876 560 799 637 714 758 Z"/>
+  </g>
+  <g fill="none" stroke="#141413" stroke-width="19" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M152 752 C320 705 477 720 631 779"/>
+    <path d="M184 805 C337 763 487 777 630 827"/>
+    <path d="M1275 750 C1113 706 953 720 796 779"/>
+    <path d="M1241 805 C1091 763 944 777 799 827"/>
+    <path d="M714 759 C752 610 820 452 986 301"/>
+  </g>
+  <g fill="none" stroke="#141413" stroke-width="18" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-20 390 C120 354 244 222 332 207 C390 197 425 222 480 232 C544 244 572 244 604 278 C630 305 641 356 673 386"/>
+    <path d="M302 352 C366 342 421 348 459 371 C482 385 500 397 516 416"/>
+    <path d="M380 333 C397 300 418 281 445 269 C463 282 477 302 489 326"/>
+  </g>
+</svg>
