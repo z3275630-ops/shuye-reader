@@ -217,9 +217,11 @@ class _AlternativeShelfState extends State<AlternativeShelf> {
                                   '${b.author} · ${(b.progress * 100).round()}%',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 10,
-                                    color: Colors.black54,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
                                   ),
                                 ),
                               ],
