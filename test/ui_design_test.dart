@@ -1,3 +1,5 @@
+import 'package:shuye_reader/form_field.dart';
+
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -109,9 +111,12 @@ class _DesignHarnessState extends State<DesignHarness> {
                   builder: (c) => AlertDialog(
                     scrollable: true,
                     title: const Text('编辑书籍'),
-                    content: TextField(
-                      controller: widget.controller,
-                      decoration: const InputDecoration(labelText: '书名'),
+                    content: LabeledField(
+                      label: '书名',
+                      child: TextField(
+                        controller: widget.controller,
+                        decoration: const InputDecoration(),
+                      ),
                     ),
                     actions: [
                       TextButton(
@@ -208,7 +213,20 @@ void main() {
         await tester.ensureVisible(find.text('编辑书籍'));
         await tester.tap(find.text('编辑书籍'));
         await tester.pumpAndSettle();
+        final labelBefore = tester.getRect(find.text('书名'));
+        final fieldBefore = tester.getRect(find.byType(TextField));
+        expect(labelBefore.left, closeTo(fieldBefore.left, .1));
+        expect(fieldBefore.top - labelBefore.bottom, closeTo(8, .1));
+        expect(
+          tester.getSemantics(find.byType(EditableText)).label,
+          contains('书名'),
+        );
         await tester.enterText(find.byType(TextField), '山间来信');
+        await tester.pumpAndSettle();
+        final labelAfter = tester.getRect(find.text('书名'));
+        final fieldAfter = tester.getRect(find.byType(TextField));
+        expect(labelAfter.left, closeTo(fieldAfter.left, .1));
+        expect(fieldAfter.top - labelAfter.bottom, closeTo(8, .1));
         await tester.tap(find.text('保存'));
         await tester.pumpAndSettle();
         expect(saved, '山间来信');

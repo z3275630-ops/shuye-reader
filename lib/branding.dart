@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-const shuyeVersion = '0.3.4';
+const shuyeVersion = '0.3.5';
 const shuyeCoverAsset = 'assets/art/shuye-cover.webp';
 const shuyeMarkAsset = 'assets/art/shuye-mark.webp';
 

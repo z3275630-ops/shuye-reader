@@ -186,7 +186,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('关于书叶'));
     await tester.pumpAndSettle();
-    expect(find.text('0.3.4'), findsOneWidget);
+    expect(find.text('0.3.5'), findsOneWidget);
     expect(find.textContaining('非 Reeden 官方'), findsNothing);
     await capture('about');
     await tester.tap(find.text('关闭'));

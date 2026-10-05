@@ -1,3 +1,4 @@
+import 'form_field.dart';
 import 'app_icons.dart';
 
 import 'dart:async';
@@ -71,17 +72,20 @@ Future<Map<String, String>?> editFields(
               for (final e in controllers.entries)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: TextField(
-                    controller: e.value,
-                    obscureText: passwords.contains(e.key),
-                    maxLines: passwords.contains(e.key)
-                        ? 1
-                        : (e.key.contains('正文') ||
-                                  e.key.contains('提示词') ||
-                                  e.key.contains('说明')
-                              ? 5
-                              : 1),
-                    decoration: InputDecoration(labelText: e.key),
+                  child: LabeledField(
+                    label: e.key,
+                    child: TextField(
+                      controller: e.value,
+                      obscureText: passwords.contains(e.key),
+                      maxLines: passwords.contains(e.key)
+                          ? 1
+                          : (e.key.contains('正文') ||
+                                    e.key.contains('提示词') ||
+                                    e.key.contains('说明')
+                                ? 5
+                                : 1),
+                      decoration: InputDecoration(),
+                    ),
                   ),
                 ),
             ],

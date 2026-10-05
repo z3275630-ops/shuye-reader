@@ -1,3 +1,4 @@
+import 'form_field.dart';
 import 'app_icons.dart';
 
 import 'package:flutter/material.dart';
@@ -72,11 +73,14 @@ class _LibraryCollectionsState extends State<LibraryCollections> {
       context: context,
       builder: (c) => AlertDialog(
         title: Text(title),
-        content: TextField(
-          controller: controller,
-          maxLength: 120,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: '名称'),
+        content: LabeledField(
+          label: '名称',
+          child: TextField(
+            controller: controller,
+            maxLength: 120,
+            autofocus: true,
+            decoration: const InputDecoration(),
+          ),
         ),
         actions: [
           TextButton(

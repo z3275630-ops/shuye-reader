@@ -24,3 +24,4 @@
 - 新增代码采用项目 MIT 许可，第三方声明见 THIRD_PARTY_NOTICES.md；不要以项目许可覆盖上游许可。
 - 全应用样式集中于 lib/appearance.dart，图标使用 lib/app_icons.dart 的 ShuyeIcon。优先共用样式，避免重复实现和新图标 / 字体包。
 - 美化不添加持续动画、装饰性定时器、后台任务或模糊叠层。记录 release APK 实际体积；设备发热与帧耗时没有真机测量不能宣称已验证。
+- 表单字段名使用 lib/form_field.dart 的 LabeledField，固定在输入框上方并与框左边缘对齐。输入框内只放内容或提示，不使用浮动 labelText；下拉选择同样处理，保留控件语义名称。

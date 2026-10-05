@@ -1,3 +1,5 @@
+import 'form_field.dart';
+
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -98,16 +100,19 @@ Future<void> advancedReaderSettings(
           String title,
           Map<String, String> values,
           String fallback,
-        ) => DropdownButtonFormField<String>(
-          initialValue: values.containsKey(s.value(key, fallback))
-              ? s.value(key, fallback)
-              : fallback,
-          decoration: InputDecoration(labelText: title),
-          items: [
-            for (final e in values.entries)
-              DropdownMenuItem(value: e.key, child: Text(e.value)),
-          ],
-          onChanged: (v) => update(key, v),
+        ) => LabeledField(
+          label: title,
+          child: DropdownButtonFormField<String>(
+            initialValue: values.containsKey(s.value(key, fallback))
+                ? s.value(key, fallback)
+                : fallback,
+            decoration: InputDecoration(),
+            items: [
+              for (final e in values.entries)
+                DropdownMenuItem(value: e.key, child: Text(e.value)),
+            ],
+            onChanged: (v) => update(key, v),
+          ),
         );
         return SafeArea(
           child: SizedBox(

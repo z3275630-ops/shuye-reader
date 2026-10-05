@@ -1,3 +1,4 @@
+import 'form_field.dart';
 import 'app_icons.dart';
 
 import 'package:flutter/material.dart';
@@ -31,18 +32,21 @@ Future<void> configureShelf(
               children: [
                 const Text('布置你的书架', style: TextStyle(fontSize: 22)),
                 const SizedBox(height: 20),
-                DropdownButtonFormField<String>(
-                  initialValue: s.value('bookshelf.sort', 'recent'),
-                  decoration: const InputDecoration(labelText: '书架排序'),
-                  items: const [
-                    DropdownMenuItem(value: 'recent', child: Text('最近阅读')),
-                    DropdownMenuItem(value: 'added', child: Text('最近导入')),
-                    DropdownMenuItem(value: 'title', child: Text('书名')),
-                    DropdownMenuItem(value: 'author', child: Text('作者')),
-                    DropdownMenuItem(value: 'progress', child: Text('阅读进度')),
-                    DropdownMenuItem(value: 'rating', child: Text('评分')),
-                  ],
-                  onChanged: (v) => set(() => s.extra['bookshelf.sort'] = v),
+                LabeledField(
+                  label: '书架排序',
+                  child: DropdownButtonFormField<String>(
+                    initialValue: s.value('bookshelf.sort', 'recent'),
+                    decoration: const InputDecoration(),
+                    items: const [
+                      DropdownMenuItem(value: 'recent', child: Text('最近阅读')),
+                      DropdownMenuItem(value: 'added', child: Text('最近导入')),
+                      DropdownMenuItem(value: 'title', child: Text('书名')),
+                      DropdownMenuItem(value: 'author', child: Text('作者')),
+                      DropdownMenuItem(value: 'progress', child: Text('阅读进度')),
+                      DropdownMenuItem(value: 'rating', child: Text('评分')),
+                    ],
+                    onChanged: (v) => set(() => s.extra['bookshelf.sort'] = v),
+                  ),
                 ),
                 const SizedBox(height: 20),
                 Wrap(

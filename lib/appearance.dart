@@ -228,6 +228,7 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
+      floatingLabelBehavior: FloatingLabelBehavior.never,
       filled: true,
       fillColor: dark ? colors.surfaceContainerHigh : colors.surface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),

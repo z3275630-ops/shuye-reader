@@ -1,3 +1,4 @@
+import 'form_field.dart';
 import 'app_icons.dart';
 
 import 'dart:convert';
@@ -661,19 +662,24 @@ class _LibraryHomeState extends State<LibraryHome> {
                     style: TextStyle(fontSize: 13),
                   ),
                   const SizedBox(height: 18),
-                  TextField(
-                    controller: chapter,
-                    maxLines: 3,
-                    decoration: const InputDecoration(labelText: 'TXT 分章正则'),
+                  LabeledField(
+                    label: 'TXT 分章正则',
+                    child: TextField(
+                      controller: chapter,
+                      maxLines: 3,
+                      decoration: const InputDecoration(),
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  TextField(
-                    controller: purify,
-                    minLines: 3,
-                    maxLines: 6,
-                    decoration: const InputDecoration(
-                      labelText: '净化规则 · 每行一条',
-                      hintText: '关注公众号\n本书首发',
+                  LabeledField(
+                    label: '净化规则 · 每行一条',
+                    child: TextField(
+                      controller: purify,
+                      minLines: 3,
+                      maxLines: 6,
+                      decoration: const InputDecoration(
+                        hintText: '关注公众号\n本书首发',
+                      ),
                     ),
                   ),
                   if (error != null)
