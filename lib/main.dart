@@ -685,7 +685,12 @@ class _LibraryHomeState extends State<LibraryHome> {
                   if (error != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 12),
-                      child: Text(error!, style: TextStyle(color: Colors.red)),
+                      child: Text(
+                        error!,
+                        style: TextStyle(
+                          color: Theme.of(ctx).colorScheme.error,
+                        ),
+                      ),
                     ),
                 ],
               ),
@@ -1153,7 +1158,6 @@ class _LibraryHomeState extends State<LibraryHome> {
                           LinearProgressIndicator(
                             value: b.progress,
                             minHeight: 2,
-                            backgroundColor: const Color(0xffe4e5dc),
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ],
