@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="书叶 App 图标概念：书页生长成叶片">
+  <rect width="1024" height="1024" rx="220" fill="#D97757"/>
+  <g fill="#FAF9F5" stroke="#141413" stroke-width="34" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M95 730 C190 650 310 642 480 710 C500 720 511 738 512 760 C514 736 526 720 548 708 C705 636 835 650 930 724 C820 711 690 720 557 774 C538 782 523 793 512 806 C500 793 485 782 466 774 C337 721 205 712 95 730 Z"/>
+    <path d="M512 758 C470 644 425 574 360 514 C407 488 470 510 512 565 C542 504 596 420 707 348 C735 410 720 486 671 537 C619 590 561 651 512 758 Z"/>
+  </g>
+  <g fill="none" stroke="#141413" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M111 733 C220 693 339 702 469 757"/>
+    <path d="M135 774 C246 739 355 748 468 792"/>
+    <path d="M913 731 C799 692 682 701 554 757"/>
+    <path d="M888 773 C777 739 669 748 556 792"/>
+    <path d="M511 758 C540 639 584 520 674 390"/>
+    <path d="M388 516 C430 540 476 583 507 640"/>
+  </g>
+</svg>
