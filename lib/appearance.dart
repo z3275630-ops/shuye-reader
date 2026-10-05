@@ -24,33 +24,225 @@ class AppAppearance {
 
 final appAppearance = ValueNotifier(const AppAppearance());
 
-ThemeData applicationTheme(Brightness brightness) {
+final _themes = <Brightness, ThemeData>{};
+ThemeData applicationTheme(Brightness brightness) =>
+    _themes.putIfAbsent(brightness, () => _buildApplicationTheme(brightness));
+
+ThemeData _buildApplicationTheme(Brightness brightness) {
   final dark = brightness == Brightness.dark;
   final colors = ColorScheme.fromSeed(
     seedColor: const Color(0xff58735f),
     brightness: brightness,
     surface: dark ? const Color(0xff171d19) : const Color(0xfff7f6f1),
   );
+  final panel = dark ? colors.surfaceContainer : Colors.white;
+  final border = colors.outlineVariant.withValues(alpha: .45);
+  final buttonShape = RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(12),
+  );
+  final text = ThemeData(brightness: brightness).textTheme
+      .apply(bodyColor: colors.onSurface, displayColor: colors.onSurface);
   return ThemeData(
     useMaterial3: true,
     colorScheme: colors,
     scaffoldBackgroundColor: colors.surface,
+    textTheme: text.copyWith(
+      titleLarge: text.titleLarge?.copyWith(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0,
+      ),
+      titleMedium: text.titleMedium?.copyWith(
+        fontSize: 15,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0,
+      ),
+      bodyMedium: text.bodyMedium?.copyWith(height: 1.45, letterSpacing: 0),
+      labelLarge: text.labelLarge?.copyWith(
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0,
+      ),
+    ),
+    iconTheme: IconThemeData(size: 22, color: colors.onSurfaceVariant),
     appBarTheme: AppBarTheme(
       backgroundColor: colors.surface,
       foregroundColor: colors.onSurface,
       surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      titleTextStyle: TextStyle(
+        fontFamily: 'Roboto',
+        color: colors.onSurface,
+        fontSize: 19,
+        fontWeight: FontWeight.w600,
+      ),
     ),
     cardTheme: CardThemeData(
-      color: dark ? colors.surfaceContainer : Colors.white,
+      color: panel,
       elevation: 0,
       margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      surfaceTintColor: Colors.transparent,
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      height: 74,
+      elevation: 0,
+      surfaceTintColor: Colors.transparent,
+      indicatorColor: colors.secondaryContainer,
+      indicatorShape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      labelTextStyle: WidgetStateProperty.resolveWith(
+        (states) => TextStyle(
+          fontFamily: 'Roboto',
+          fontSize: 12,
+          fontWeight: states.contains(WidgetState.selected)
+              ? FontWeight.w600
+              : FontWeight.w400,
+          color: states.contains(WidgetState.selected)
+              ? colors.primary
+              : colors.onSurfaceVariant,
+        ),
+      ),
+      iconTheme: WidgetStateProperty.resolveWith(
+        (states) => IconThemeData(
+          size: 23,
+          color: states.contains(WidgetState.selected)
+              ? colors.primary
+              : colors.onSurfaceVariant,
+        ),
+      ),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: panel,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide(color: border),
+      ),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      titleTextStyle: TextStyle(
+        fontFamily: 'Roboto',
+        color: colors.onSurface,
+        fontSize: 19,
+        fontWeight: FontWeight.w600,
+      ),
+      contentTextStyle: TextStyle(
+        fontFamily: 'Roboto',
+        color: colors.onSurfaceVariant,
+        fontSize: 14,
+        height: 1.55,
+      ),
+      actionsPadding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+    ),
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: panel,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      modalElevation: 0,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      dragHandleSize: const Size(32, 3),
+      dragHandleColor: colors.outlineVariant,
+    ),
+    popupMenuTheme: PopupMenuThemeData(
+      color: panel,
+      surfaceTintColor: Colors.transparent,
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: border),
+      ),
+      textStyle: TextStyle(
+        fontFamily: 'Roboto',
+        fontSize: 14,
+        color: colors.onSurface,
+      ),
+    ),
+    listTileTheme: ListTileThemeData(
+      iconColor: colors.onSurfaceVariant,
+      horizontalTitleGap: 14,
+      minLeadingWidth: 24,
+      titleTextStyle: TextStyle(
+        fontFamily: 'Roboto',
+        color: colors.onSurface,
+        fontSize: 15,
+        height: 1.35,
+      ),
+      subtitleTextStyle: TextStyle(
+        fontFamily: 'Roboto',
+        color: colors.onSurfaceVariant,
+        fontSize: 12,
+        height: 1.45,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(64, 44),
+        shape: buttonShape,
+        elevation: 0,
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(64, 44),
+        shape: buttonShape,
+        side: BorderSide(color: colors.outlineVariant),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        minimumSize: const Size(48, 44),
+        shape: buttonShape,
+      ),
+    ),
+    chipTheme: ChipThemeData(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      side: BorderSide(color: colors.outlineVariant),
+      labelStyle: TextStyle(
+        fontFamily: 'Roboto',
+        fontSize: 13,
+        color: colors.onSurface,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 0,
+    ),
+    dividerTheme: DividerThemeData(color: border, thickness: .7, space: 20),
+    progressIndicatorTheme: ProgressIndicatorThemeData(color: colors.primary),
+    tooltipTheme: TooltipThemeData(
+      decoration: BoxDecoration(
+        color: colors.inverseSurface,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      textStyle: TextStyle(
+        fontFamily: 'Roboto',
+        color: colors.onInverseSurface,
+        fontSize: 12,
+      ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: dark ? colors.surfaceContainerHigh : Colors.white,
+      fillColor: dark ? colors.surfaceContainerHigh : colors.surface,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      hintStyle: TextStyle(
+        fontFamily: 'Roboto',
+        color: colors.onSurfaceVariant,
+        fontSize: 14,
+      ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: colors.primary),
       ),
     ),
   );

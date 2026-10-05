@@ -1,3 +1,5 @@
+import 'app_icons.dart';
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -234,7 +236,11 @@ class _ReadingHeatmapState extends State<ReadingHeatmap> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.grid_view_rounded, size: 20, color: colors.primary),
+                ShuyeIcon(
+                  Icons.grid_view_rounded,
+                  size: 20,
+                  color: colors.primary,
+                ),
                 const SizedBox(width: 9),
                 Flexible(
                   child: Text(
@@ -282,7 +288,7 @@ class _ReadingHeatmapState extends State<ReadingHeatmap> {
                     onPressed: canGoBack
                         ? () => change(span, previous.year, previous.month)
                         : null,
-                    icon: const Icon(Icons.chevron_left),
+                    icon: const ShuyeIcon(Icons.chevron_left),
                   ),
                 Expanded(
                   child: Text(
@@ -300,7 +306,7 @@ class _ReadingHeatmapState extends State<ReadingHeatmap> {
                     onPressed: canGoForward
                         ? () => change(span, next.year, next.month)
                         : null,
-                    icon: const Icon(Icons.chevron_right),
+                    icon: const ShuyeIcon(Icons.chevron_right),
                   ),
               ],
             ),
@@ -346,7 +352,7 @@ class _ReadingHeatmapState extends State<ReadingHeatmap> {
                   IconButton(
                     tooltip: '颜色说明',
                     visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.info_outline, size: 16),
+                    icon: const ShuyeIcon(Icons.info_outline, size: 16),
                     onPressed: () => showDialog<void>(
                       context: context,
                       builder: (c) => AlertDialog(

@@ -1,3 +1,5 @@
+import 'app_icons.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -132,13 +134,13 @@ class _ReadingPresetsState extends State<ReadingPresets> {
         IconButton(
           tooltip: '导入阅读方案',
           onPressed: import,
-          icon: const Icon(Icons.file_open_outlined),
+          icon: const ShuyeIcon(Icons.file_open_outlined),
         ),
       ],
     ),
     floatingActionButton: FloatingActionButton(
       onPressed: save,
-      child: const Icon(Icons.add),
+      child: const ShuyeIcon(Icons.add),
     ),
     body: ListView(
       padding: const EdgeInsets.all(20),
@@ -152,7 +154,7 @@ class _ReadingPresetsState extends State<ReadingPresets> {
           Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
-              leading: const Icon(Icons.palette_outlined),
+              leading: const ShuyeIcon(Icons.palette_outlined),
               title: Text(e.key),
               onTap: () => apply({
                 'reader.eink': false,

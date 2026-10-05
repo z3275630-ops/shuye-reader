@@ -1,3 +1,5 @@
+import 'app_icons.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -199,7 +201,7 @@ Future<void> showBookDetails(
               subtitle: Text('${b.author} · ${b.format} · ${b.words} 字'),
             ),
             ListTile(
-              leading: const Icon(Icons.edit_outlined),
+              leading: const ShuyeIcon(Icons.edit_outlined),
               title: const Text('编辑书籍资料'),
               subtitle: const Text('分类、标签、评分、书单和阅读目标'),
               onTap: () async {
@@ -235,7 +237,7 @@ Future<void> showBookDetails(
               },
             ),
             ListTile(
-              leading: const Icon(Icons.photo_outlined),
+              leading: const ShuyeIcon(Icons.photo_outlined),
               title: const Text('更换封面'),
               onTap: () async {
                 await showModalBottomSheet<void>(
@@ -275,7 +277,7 @@ Future<void> showBookDetails(
                         ),
                         ListTile(
                           title: const Text('从手机选择图片'),
-                          leading: const Icon(
+                          leading: const ShuyeIcon(
                             Icons.add_photo_alternate_outlined,
                           ),
                           onTap: () async {
@@ -302,7 +304,7 @@ Future<void> showBookDetails(
               },
             ),
             ListTile(
-              leading: const Icon(Icons.people_outline),
+              leading: const ShuyeIcon(Icons.people_outline),
               title: const Text('人物与关系'),
               onTap: () => Navigator.push(
                 sheet,
@@ -318,7 +320,7 @@ Future<void> showBookDetails(
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.translate),
+              leading: const ShuyeIcon(Icons.translate),
               title: const Text('生词本'),
               onTap: () => Navigator.push(
                 sheet,
@@ -334,7 +336,7 @@ Future<void> showBookDetails(
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.edit_note),
+              leading: const ShuyeIcon(Icons.edit_note),
               title: const Text('编辑当前章节'),
               onTap: () async {
                 final ch = b.chapters[b.chapter];
@@ -353,7 +355,7 @@ Future<void> showBookDetails(
               },
             ),
             ListTile(
-              leading: const Icon(Icons.file_download_outlined),
+              leading: const ShuyeIcon(Icons.file_download_outlined),
               title: const Text('导出 EPUB'),
               onTap: () async {
                 try {
@@ -364,7 +366,7 @@ Future<void> showBookDetails(
               },
             ),
             ListTile(
-              leading: const Icon(Icons.text_snippet_outlined),
+              leading: const ShuyeIcon(Icons.text_snippet_outlined),
               title: const Text('导出 TXT'),
               onTap: () => saveBytes(
                 '${b.title}.txt',
@@ -374,7 +376,7 @@ Future<void> showBookDetails(
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.restart_alt),
+              leading: const ShuyeIcon(Icons.restart_alt),
               title: const Text('重新读一遍'),
               onTap: () async {
                 await repo.putEntry('readingRounds', {
@@ -448,7 +450,7 @@ class _EntryScreenState extends State<EntryScreen> {
         if (widget.kind == 'characters')
           IconButton(
             tooltip: '人物关系图',
-            icon: const Icon(Icons.account_tree_outlined),
+            icon: const ShuyeIcon(Icons.account_tree_outlined),
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -460,7 +462,7 @@ class _EntryScreenState extends State<EntryScreen> {
     ),
     floatingActionButton: FloatingActionButton(
       onPressed: edit,
-      child: const Icon(Icons.add),
+      child: const ShuyeIcon(Icons.add),
     ),
     body: Column(
       children: [
@@ -469,7 +471,7 @@ class _EntryScreenState extends State<EntryScreen> {
           child: TextField(
             decoration: const InputDecoration(
               hintText: '搜索',
-              prefixIcon: Icon(Icons.search),
+              prefixIcon: ShuyeIcon(Icons.search),
             ),
             onChanged: (v) => setState(() => search = v),
           ),
@@ -498,7 +500,7 @@ class _EntryScreenState extends State<EntryScreen> {
                           onTap: () => edit(e),
                           trailing: IconButton(
                             tooltip: '删除记录',
-                            icon: const Icon(Icons.delete_outline),
+                            icon: const ShuyeIcon(Icons.delete_outline),
                             onPressed: () async {
                               await widget.repo.removeEntry(e['id'] as String);
                               await load();
@@ -623,7 +625,7 @@ Future<void> showAiAssistant(
                             if (c.mounted) set(() => busy = false);
                           }
                         },
-                  icon: const Icon(Icons.auto_awesome),
+                  icon: const ShuyeIcon(Icons.auto_awesome),
                   label: Text(busy ? '正在思考…' : '发送'),
                 ),
                 Expanded(
@@ -648,7 +650,7 @@ Future<void> showAiAssistant(
                         if (c.mounted) toast(c, '保存未完成：$e');
                       }
                     },
-                    icon: const Icon(Icons.fact_check_outlined),
+                    icon: const ShuyeIcon(Icons.fact_check_outlined),
                     label: const Text('保存为书评建议'),
                   ),
               ],
@@ -935,7 +937,7 @@ class _WorkshopScreenState extends State<WorkshopScreen>
                 onTap: () => Navigator.pop(c, p),
               ),
             ListTile(
-              leading: const Icon(Icons.add),
+              leading: const ShuyeIcon(Icons.add),
               title: const Text('新增配置'),
               onTap: () => Navigator.pop(c, <String, dynamic>{'add': true}),
             ),
@@ -1247,7 +1249,7 @@ class _WorkshopScreenState extends State<WorkshopScreen>
               ListTile(
                 title: Text(e['title']!),
                 subtitle: Text(e['author']!),
-                leading: const Icon(Icons.download),
+                leading: const ShuyeIcon(Icons.download),
                 onTap: () async {
                   try {
                     final url = secureEndpoint(e['url']!);

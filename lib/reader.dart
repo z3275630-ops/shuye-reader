@@ -1,3 +1,5 @@
+import 'app_icons.dart';
+
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:convert';
@@ -107,7 +109,7 @@ Future<void> showReaderSettings(
                     style: TextStyle(fontSize: 11, color: Colors.black54),
                   ),
                   ListTile(
-                    leading: const Icon(Icons.tune),
+                    leading: const ShuyeIcon(Icons.tune),
                     title: const Text('更多阅读控制'),
                     subtitle: const Text('翻页、亮度、自动阅读、听书、双页和主题'),
                     onTap: () => advancedReaderSettings(ctx, s, () {
@@ -691,7 +693,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                     ),
                     title: Text(book.chapters[i].title),
                     trailing: i == chapter
-                        ? const Icon(Icons.bookmark, size: 18)
+                        ? const ShuyeIcon(Icons.bookmark, size: 18)
                         : null,
                     onTap: () {
                       Navigator.pop(ctx);
@@ -734,7 +736,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                     autofocus: true,
                     decoration: const InputDecoration(
                       hintText: '搜索整本书 · 至少 2 个字',
-                      prefixIcon: Icon(Icons.search),
+                      prefixIcon: ShuyeIcon(Icons.search),
                     ),
                     onSubmitted: (q) {
                       final found =
@@ -970,12 +972,15 @@ class _ReaderScreenState extends State<ReaderScreen>
                   IconButton(
                     tooltip: '全文搜索',
                     onPressed: search,
-                    icon: const Icon(Icons.search, size: 21),
+                    icon: const ShuyeIcon(Icons.search, size: 21),
                   ),
                   IconButton(
                     tooltip: '摘录与笔记',
                     onPressed: addNote,
-                    icon: const Icon(Icons.bookmark_add_outlined, size: 21),
+                    icon: const ShuyeIcon(
+                      Icons.bookmark_add_outlined,
+                      size: 21,
+                    ),
                   ),
                   IconButton(
                     tooltip: '阅读设置',
@@ -993,7 +998,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                       dialogOpen = false;
                       await DeviceReader.configure(settings);
                     },
-                    icon: const Icon(Icons.palette_outlined, size: 21),
+                    icon: const ShuyeIcon(Icons.palette_outlined, size: 21),
                   ),
                 ],
               ),
@@ -1296,7 +1301,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                           IconButton(
                             tooltip: '章节目录',
                             onPressed: outline,
-                            icon: const Icon(
+                            icon: const ShuyeIcon(
                               Icons.format_list_bulleted,
                               size: 22,
                             ),
@@ -1305,7 +1310,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                           IconButton(
                             tooltip: '上一页',
                             onPressed: () => turn(-1),
-                            icon: const Icon(Icons.chevron_left),
+                            icon: const ShuyeIcon(Icons.chevron_left),
                           ),
                           Text(
                             '${page + 1} / ${pages.length} 页',
@@ -1314,7 +1319,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                           IconButton(
                             tooltip: '下一页',
                             onPressed: () => turn(1),
-                            icon: const Icon(Icons.chevron_right),
+                            icon: const ShuyeIcon(Icons.chevron_right),
                           ),
                           const Spacer(),
                           Text(

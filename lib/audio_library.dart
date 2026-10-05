@@ -1,3 +1,5 @@
+import 'app_icons.dart';
+
 import 'dart:async';
 import 'dart:io';
 
@@ -246,7 +248,7 @@ class _AudioScreenState extends State<AudioScreen> with WidgetsBindingObserver {
         IconButton(
           tooltip: '均衡器',
           onPressed: busy ? null : () => run(equalizer),
-          icon: const Icon(Icons.equalizer),
+          icon: const ShuyeIcon(Icons.equalizer),
         ),
       ],
     ),
@@ -254,7 +256,7 @@ class _AudioScreenState extends State<AudioScreen> with WidgetsBindingObserver {
       padding: const EdgeInsets.all(24),
       children: [
         if (busy) const LinearProgressIndicator(),
-        const Icon(
+        const ShuyeIcon(
           Icons.headphones_outlined,
           size: 72,
           color: Color(0xff58735f),
@@ -269,12 +271,12 @@ class _AudioScreenState extends State<AudioScreen> with WidgetsBindingObserver {
         const SizedBox(height: 12),
         TextButton.icon(
           onPressed: () => DeviceReader.call('audioNotification'),
-          icon: const Icon(Icons.notifications_outlined),
+          icon: const ShuyeIcon(Icons.notifications_outlined),
           label: const Text('允许播放通知'),
         ),
         FilledButton.icon(
           onPressed: busy ? null : () => run(pick),
-          icon: const Icon(Icons.add),
+          icon: const ShuyeIcon(Icons.add),
           label: const Text('导入音频'),
         ),
         StreamBuilder<Duration>(
@@ -327,7 +329,7 @@ class _AudioScreenState extends State<AudioScreen> with WidgetsBindingObserver {
                       if (mounted) setState(() => error = '播放失败：$e');
                     }
                   },
-            icon: Icon(
+            icon: ShuyeIcon(
               s.data?.playing == true ? Icons.pause_circle : Icons.play_circle,
             ),
           ),
@@ -393,7 +395,7 @@ class _AudioScreenState extends State<AudioScreen> with WidgetsBindingObserver {
             trailing: IconButton(
               tooltip: '移除音频',
               onPressed: busy ? null : () => run(() => remove(item)),
-              icon: const Icon(Icons.delete_outline),
+              icon: const ShuyeIcon(Icons.delete_outline),
             ),
           ),
       ],

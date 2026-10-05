@@ -1,3 +1,5 @@
+import 'app_icons.dart';
+
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
@@ -42,6 +44,11 @@ List<Map<String, dynamic>> decodeArchive(Uint8List bytes) => [
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks([
+      '书叶',
+    ], await rootBundle.loadString('LICENSE'));
+  });
   try {
     await ChineseConverter.load();
     if (Platform.isAndroid) {
@@ -127,7 +134,7 @@ class BookCover extends StatelessWidget {
           Positioned(
             right: -18,
             bottom: -28,
-            child: Icon(
+            child: ShuyeIcon(
               Icons.eco_outlined,
               size: 120,
               color: Colors.white.withValues(alpha: .12),
@@ -536,12 +543,12 @@ class _LibraryHomeState extends State<LibraryHome> {
           children: [
             ListTile(title: Text(book.title)),
             ListTile(
-              leading: Icon(Icons.edit_outlined),
+              leading: ShuyeIcon(Icons.edit_outlined),
               title: Text('书籍资料与管理'),
               onTap: () => Navigator.pop(c, 'edit'),
             ),
             ListTile(
-              leading: Icon(Icons.delete_outline),
+              leading: ShuyeIcon(Icons.delete_outline),
               title: Text('移除书籍'),
               onTap: () => Navigator.pop(c, 'delete'),
             ),
@@ -717,7 +724,7 @@ class _LibraryHomeState extends State<LibraryHome> {
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
+          ShuyeIcon(
             Icons.eco_outlined,
             color: Theme.of(context).colorScheme.primary,
           ),
@@ -740,12 +747,12 @@ class _LibraryHomeState extends State<LibraryHome> {
                   );
                   await reload();
                 },
-                icon: Icon(Icons.dashboard_customize_outlined),
+                icon: ShuyeIcon(Icons.dashboard_customize_outlined),
               ),
               IconButton(
                 tooltip: '导入书籍',
                 onPressed: busy ? null : importBooks,
-                icon: Icon(Icons.add),
+                icon: ShuyeIcon(Icons.add),
               ),
             ]
           : tab == 0
@@ -753,7 +760,7 @@ class _LibraryHomeState extends State<LibraryHome> {
               IconButton(
                 tooltip: '整理书库',
                 onPressed: openCollections,
-                icon: Icon(Icons.folder_outlined),
+                icon: ShuyeIcon(Icons.folder_outlined),
               ),
               PopupMenuButton<String>(
                 tooltip: '书架选项',
@@ -777,7 +784,7 @@ class _LibraryHomeState extends State<LibraryHome> {
               IconButton(
                 tooltip: '导入书籍',
                 onPressed: busy ? null : importBooks,
-                icon: Icon(Icons.add),
+                icon: ShuyeIcon(Icons.add),
               ),
             ]
           : tab == 1
@@ -785,7 +792,7 @@ class _LibraryHomeState extends State<LibraryHome> {
               IconButton(
                 tooltip: '导出 Markdown 笔记',
                 onPressed: busy ? null : () => exportData(markdown: true),
-                icon: Icon(Icons.ios_share_outlined),
+                icon: ShuyeIcon(Icons.ios_share_outlined),
               ),
             ]
           : null,
@@ -813,26 +820,26 @@ class _LibraryHomeState extends State<LibraryHome> {
           setState(() => tab = const [4, 0, 1, 2, 3][i]),
       destinations: const [
         NavigationDestination(
-          icon: Icon(Icons.home_outlined),
-          selectedIcon: Icon(Icons.home),
+          icon: ShuyeIcon(Icons.home_outlined),
+          selectedIcon: ShuyeIcon(Icons.home),
           label: '首页',
         ),
         NavigationDestination(
-          icon: Icon(Icons.auto_stories_outlined),
-          selectedIcon: Icon(Icons.auto_stories),
+          icon: ShuyeIcon(Icons.auto_stories_outlined),
+          selectedIcon: ShuyeIcon(Icons.auto_stories),
           label: '书架',
         ),
         NavigationDestination(
-          icon: Icon(Icons.bookmarks_outlined),
-          selectedIcon: Icon(Icons.bookmarks),
+          icon: ShuyeIcon(Icons.bookmarks_outlined),
+          selectedIcon: ShuyeIcon(Icons.bookmarks),
           label: '笔记',
         ),
         NavigationDestination(
-          icon: Icon(Icons.bar_chart_outlined),
-          selectedIcon: Icon(Icons.bar_chart),
+          icon: ShuyeIcon(Icons.bar_chart_outlined),
+          selectedIcon: ShuyeIcon(Icons.bar_chart),
           label: '统计',
         ),
-        NavigationDestination(icon: Icon(Icons.tune), label: '设置'),
+        NavigationDestination(icon: ShuyeIcon(Icons.tune), label: '设置'),
       ],
     ),
   );
@@ -1002,7 +1009,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                                 ],
                               ),
                             ),
-                            Icon(
+                            ShuyeIcon(
                               Icons.arrow_forward_rounded,
                               color: Theme.of(context).colorScheme.primary,
                             ),
@@ -1015,7 +1022,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                   onChanged: (v) => setState(() => query = v),
                   decoration: const InputDecoration(
                     hintText: '找一本书，或一位作者',
-                    prefixIcon: Icon(Icons.search, size: 21),
+                    prefixIcon: ShuyeIcon(Icons.search, size: 21),
                     contentPadding: EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
@@ -1173,7 +1180,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                       trailing: IconButton(
                         tooltip: '书籍管理',
                         onPressed: () => bookMenu(b),
-                        icon: Icon(Icons.more_horiz),
+                        icon: ShuyeIcon(Icons.more_horiz),
                       ),
                     ),
                   ),
@@ -1202,7 +1209,7 @@ class _LibraryHomeState extends State<LibraryHome> {
           child: TextField(
             decoration: const InputDecoration(
               hintText: '搜索摘录、想法或标签',
-              prefixIcon: Icon(Icons.search),
+              prefixIcon: ShuyeIcon(Icons.search),
             ),
             onChanged: (v) => setState(() => noteQuery = v),
           ),
@@ -1249,11 +1256,14 @@ class _LibraryHomeState extends State<LibraryHome> {
                                       saveSettings: () =>
                                           repo.saveSettings(settings),
                                     ),
-                                    icon: Icon(Icons.ios_share, size: 16),
+                                    icon: ShuyeIcon(Icons.ios_share, size: 16),
                                   ),
                                   IconButton(
                                     tooltip: '编辑笔记',
-                                    icon: Icon(Icons.edit_outlined, size: 16),
+                                    icon: ShuyeIcon(
+                                      Icons.edit_outlined,
+                                      size: 16,
+                                    ),
                                     onPressed: () => operation(() async {
                                       final data = await editFields(
                                         context,
@@ -1292,7 +1302,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                                         await reload();
                                       }
                                     }),
-                                    icon: Icon(Icons.close, size: 16),
+                                    icon: ShuyeIcon(Icons.close, size: 16),
                                   ),
                                 ],
                               ),
@@ -1407,7 +1417,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                           await reload();
                         }
                       }),
-                      icon: Icon(Icons.edit_outlined),
+                      icon: ShuyeIcon(Icons.edit_outlined),
                     ),
                   ],
                 ),
@@ -1481,10 +1491,10 @@ class _LibraryHomeState extends State<LibraryHome> {
         child: Column(
           children: [
             ListTile(
-              leading: Icon(Icons.palette_outlined),
+              leading: ShuyeIcon(Icons.palette_outlined),
               title: Text('字体与纸色'),
               subtitle: Text('字号、行距、字体、中西文间距'),
-              trailing: Icon(Icons.chevron_right),
+              trailing: ShuyeIcon(Icons.chevron_right),
               onTap: () async {
                 await showReaderSettings(
                   context,
@@ -1495,17 +1505,17 @@ class _LibraryHomeState extends State<LibraryHome> {
               },
             ),
             ListTile(
-              leading: Icon(Icons.filter_alt_outlined),
+              leading: ShuyeIcon(Icons.filter_alt_outlined),
               title: Text('分章与净化规则'),
               subtitle: Text('识别章节，隐藏正文中的广告行'),
-              trailing: Icon(Icons.chevron_right),
+              trailing: ShuyeIcon(Icons.chevron_right),
               onTap: editRules,
             ),
             ListTile(
-              leading: Icon(Icons.handyman_outlined),
+              leading: ShuyeIcon(Icons.handyman_outlined),
               title: Text('阅读工具箱'),
               subtitle: Text('AI、听书、识字、在线书库、字体和加密同步'),
-              trailing: Icon(Icons.chevron_right),
+              trailing: ShuyeIcon(Icons.chevron_right),
               onTap: () async {
                 await Navigator.push(
                   context,
@@ -1518,7 +1528,7 @@ class _LibraryHomeState extends State<LibraryHome> {
               },
             ),
             ListTile(
-              leading: Icon(Icons.dashboard_customize_outlined),
+              leading: ShuyeIcon(Icons.dashboard_customize_outlined),
               title: Text('书架装修'),
               subtitle: Text('五种布局、列数、间距和置顶横幅'),
               onTap: shelfSettings,
@@ -1539,17 +1549,17 @@ class _LibraryHomeState extends State<LibraryHome> {
         child: Column(
           children: [
             ListTile(
-              leading: Icon(Icons.folder_outlined),
+              leading: ShuyeIcon(Icons.folder_outlined),
               title: Text('整理书库'),
               subtitle: Text('标签、分类、书单和作者'),
-              trailing: Icon(Icons.chevron_right),
+              trailing: ShuyeIcon(Icons.chevron_right),
               onTap: openCollections,
             ),
             ListTile(
-              leading: Icon(Icons.palette_outlined),
+              leading: ShuyeIcon(Icons.palette_outlined),
               title: Text('应用外观'),
               subtitle: Text('跟随系统、深浅色和界面文字大小'),
-              trailing: Icon(Icons.chevron_right),
+              trailing: ShuyeIcon(Icons.chevron_right),
               onTap: () async {
                 await configureAppearance(
                   context,
@@ -1560,19 +1570,19 @@ class _LibraryHomeState extends State<LibraryHome> {
               },
             ),
             ListTile(
-              leading: Icon(Icons.save_alt),
+              leading: ShuyeIcon(Icons.save_alt),
               title: Text('导出完整备份'),
               subtitle: Text('书籍、进度、笔记、设置和统计 · JSON'),
               onTap: busy ? null : () => exportData(),
             ),
             ListTile(
-              leading: Icon(Icons.restore),
+              leading: ShuyeIcon(Icons.restore),
               title: Text('从备份恢复'),
               subtitle: Text('替换当前书库，请先保存现有数据'),
               onTap: busy ? null : restore,
             ),
             ListTile(
-              leading: Icon(Icons.ios_share),
+              leading: ShuyeIcon(Icons.ios_share),
               title: Text('导出全部笔记'),
               subtitle: Text('Markdown 格式，可在笔记工具中打开'),
               onTap: busy ? null : () => exportData(markdown: true),
@@ -1583,7 +1593,7 @@ class _LibraryHomeState extends State<LibraryHome> {
       const SizedBox(height: 24),
       Card(
         child: ListTile(
-          leading: const Icon(Icons.info_outline),
+          leading: const ShuyeIcon(Icons.info_outline),
           title: const Text('关于书叶'),
           subtitle: const Text('版本 $shuyeVersion'),
           onTap: () => showShuyeAbout(context),
@@ -1645,7 +1655,7 @@ class _LibraryHomeState extends State<LibraryHome> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
+          ShuyeIcon(
             icon,
             size: 52,
             color: Theme.of(context).colorScheme.primary.withValues(alpha: .5),

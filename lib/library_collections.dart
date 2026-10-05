@@ -1,3 +1,5 @@
+import 'app_icons.dart';
+
 import 'package:flutter/material.dart';
 
 import 'models.dart';
@@ -215,14 +217,14 @@ class _LibraryCollectionsState extends State<LibraryCollections> {
             : IconButton(
                 tooltip: '返回分组',
                 onPressed: () => setState(() => selected = null),
-                icon: const Icon(Icons.arrow_back),
+                icon: const ShuyeIcon(Icons.arrow_back),
               ),
         actions: [
           if (selected == null)
             IconButton(
               tooltip: '新建分组',
               onPressed: busy ? null : () => run(create),
-              icon: const Icon(Icons.add),
+              icon: const ShuyeIcon(Icons.add),
             ),
           if (selected != null && selected!.isNotEmpty)
             PopupMenuButton<String>(
@@ -280,7 +282,7 @@ class _LibraryCollectionsState extends State<LibraryCollections> {
                     key: ValueKey(field),
                     onChanged: (v) => setState(() => query = v),
                     decoration: InputDecoration(
-                      prefixIcon: const Icon(Icons.search),
+                      prefixIcon: const ShuyeIcon(Icons.search),
                       hintText: '搜索${libraryFacets[field]}',
                     ),
                   ),
@@ -294,7 +296,7 @@ class _LibraryCollectionsState extends State<LibraryCollections> {
                     Card(
                       margin: const EdgeInsets.only(bottom: 10),
                       child: ListTile(
-                        leading: const Icon(Icons.folder_outlined),
+                        leading: const ShuyeIcon(Icons.folder_outlined),
                         title: Text(
                           group.key.isEmpty
                               ? '未设置${libraryFacets[field]}'

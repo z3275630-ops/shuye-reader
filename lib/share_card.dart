@@ -1,3 +1,5 @@
+import 'app_icons.dart';
+
 import 'package:flutter/material.dart';
 
 const shareTemplates = {
@@ -73,7 +75,7 @@ class QuoteCard extends StatelessWidget {
             const SizedBox(height: 24),
             Divider(color: accent.withValues(alpha: .4)),
           ] else
-            Icon(Icons.format_quote, color: accent, size: 36),
+            ShuyeIcon(Icons.format_quote, color: accent, size: 36),
           const SizedBox(height: 20),
           Text(text, style: TextStyle(fontSize: 18, height: 1.8, color: fg)),
           if (quote.runes.length > 800) ...[

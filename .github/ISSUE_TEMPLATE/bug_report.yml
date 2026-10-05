@@ -1,0 +1,39 @@
+name: 问题反馈
+description: 反馈可复现的问题，帮助定位和修复
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: 请先检查已有 Issue。截图与日志请隐藏书籍全文、笔记、账号、服务地址和密钥；安全问题请阅读 SECURITY.md。
+  - type: input
+    id: version
+    attributes:
+      label: 书叶版本
+      placeholder: 例如 0.3.4；正式安装包或自行构建
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: 设备与系统
+      placeholder: 手机型号、Android 版本；使用电脑测试请说明
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: 从哪个页面开始，依次进行了什么操作？
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: 预期与实际表现
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 截图、脱敏日志及补充信息
+      description: 导入问题可说明文件格式与大小，不必上传受版权保护的书籍。

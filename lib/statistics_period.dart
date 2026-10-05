@@ -1,3 +1,5 @@
+import 'app_icons.dart';
+
 import 'package:flutter/material.dart';
 
 import 'home_dashboard.dart';
@@ -122,7 +124,7 @@ class _PeriodStatisticsState extends State<PeriodStatistics> {
                   IconButton(
                     tooltip: '上一时段',
                     onPressed: () => setState(() => anchor = shift(-1)),
-                    icon: const Icon(Icons.chevron_left),
+                    icon: const ShuyeIcon(Icons.chevron_left),
                   ),
                 Expanded(
                   child: Text(
@@ -137,7 +139,7 @@ class _PeriodStatisticsState extends State<PeriodStatistics> {
                     onPressed: forward
                         ? null
                         : () => setState(() => anchor = shift(1)),
-                    icon: const Icon(Icons.chevron_right),
+                    icon: const ShuyeIcon(Icons.chevron_right),
                   ),
               ],
             ),

@@ -1,0 +1,23 @@
+name: 改进建议
+description: 提出具体使用场景或界面、功能改进
+title: "[建议] "
+body:
+  - type: textarea
+    id: scenario
+    attributes:
+      label: 使用场景与当前问题
+      description: 说明什么时候遇到困难，以及当前如何处理。
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 希望怎样改进
+      description: 可附参考图；请注明出处，不要提交他人的完整代码或私有数据。
+    validations:
+      required: true
+  - type: textarea
+    id: cost
+    attributes:
+      label: 兼容、性能和体积方面的考虑
+      description: 不清楚可留空，不需要猜测数据。

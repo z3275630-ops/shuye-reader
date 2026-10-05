@@ -8,6 +8,13 @@
 
 书叶是一款 Android 本地阅读器，支持阅读、听书、摘录与记录阅读足迹。书籍和笔记保存在本机。
 
+## 0.3.4：统一界面与开源协作
+
+- 全应用共用弹窗、底部面板、菜单、按钮、列表、输入框和文字样式；正文保留个人排版设置。
+- 应用层 105 处图标调用统一为内置轻量矢量图标；底栏使用同样的细线图形，以颜色和背景提示选中状态。
+- 没有新增图标库、图片或字体包，没有装饰性后台任务、持续动画和模糊叠层；主题与路径缓存复用。性能约定及预览方法见 [界面说明](docs/ui-design.md)。
+- 补充 MIT 项目许可证、第三方说明、贡献指南、行为约定、安全报告和 PR / Issue 模板。
+
 ## 0.3.3：本月日历与热力图排版
 
 - 默认显示本月七列纯色热力图，格子内不放数字，点按后在下方查看日期与时长；今天以小圆点标记。支持往月切换、跨年与闰年，未来日期不能选中，不计入统计。
@@ -56,7 +63,7 @@
 
 ## 安装与更新
 
-从 [v0.3.3 下载页](https://github.com/z3275630-ops/shuye-reader/releases/tag/v0.3.3) 下载唯一的 `shuye-0.3.3.apk`（ARM64）。仓库现为公有。`SHA256SUMS.txt` 为文件校验，`upgrade-guide.md` 为更新说明，无需安装。
+从 [v0.3.4 下载页](https://github.com/z3275630-ops/shuye-reader/releases/tag/v0.3.4) 下载唯一的 `shuye-0.3.4.apk`（ARM64）。仓库现为公有。`SHA256SUMS.txt` 为文件校验，`upgrade-guide.md` 为更新说明，无需安装。
 
 只打入当前手机需要的 ARM64 运行库，并无损压缩原生库。压缩改变下载体积；安装时系统提取原生库，不能将 APK 大小当作安装后的总占用。
 
@@ -93,7 +100,7 @@ flutter pub get --enforce-lockfile
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test --concurrency=1
-flutter build apk --debug
+flutter build apk --debug --target-platform android-arm64 --split-per-abi
 ```
 
 正式版需自行提供 `android/key.properties`：
@@ -121,3 +128,9 @@ flutter build apk --release --target-platform android-arm64 --split-per-abi
 - [服务配置说明](docs/services.md)
 
 原报告作为需求资料，原始 APK 真伪、隐私与性能推断未重新验证；对象池、反汇编产物和第三方阅读内容未纳入仓库。
+
+## 开源与参与
+
+项目自身代码采用 [MIT 许可证](LICENSE)，第三方组件及资源保留各自许可，见 [第三方说明](THIRD_PARTY_NOTICES.md)。源码、Android 工程、资源和自动测试均在公有仓库中；签名材料与个人书库不公开。
+
+人工开发者与 Agent 均可 Fork 后提交 PR，或使用 [Issue 模板](https://github.com/z3275630-ops/shuye-reader/issues/new/choose) 反馈问题与建议。开始前阅读 [贡献指南](CONTRIBUTING.md)、[AGENTS.md](AGENTS.md) 和 [协作约定](CODE_OF_CONDUCT.md)；安全问题使用 [私有报告](SECURITY.md)。正式发布由维护者签名，第三方调试包无法覆盖正式版本。

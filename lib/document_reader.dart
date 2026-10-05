@@ -1,3 +1,5 @@
+import 'app_icons.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -245,7 +247,7 @@ class _DocumentReaderState extends State<DocumentReader>
         IconButton(
           tooltip: 'PDF 搜索',
           onPressed: search,
-          icon: const Icon(Icons.search),
+          icon: const ShuyeIcon(Icons.search),
         ),
         PopupMenuButton<String>(
           onSelected: (v) {
@@ -366,7 +368,7 @@ class _DocumentReaderState extends State<DocumentReader>
                 onPressed: () => controller.goToPage(
                   pageNumber: (page - 1).clamp(1, document?.pages.length ?? 1),
                 ),
-                icon: const Icon(Icons.chevron_left),
+                icon: const ShuyeIcon(Icons.chevron_left),
               ),
               Text('$page / ${document?.pages.length ?? '…'} 页'),
               IconButton(
@@ -374,17 +376,17 @@ class _DocumentReaderState extends State<DocumentReader>
                 onPressed: () => controller.goToPage(
                   pageNumber: (page + 1).clamp(1, document?.pages.length ?? 1),
                 ),
-                icon: const Icon(Icons.chevron_right),
+                icon: const ShuyeIcon(Icons.chevron_right),
               ),
               IconButton(
                 tooltip: '上个搜索结果',
                 onPressed: () => searcher.goToPrevMatch(),
-                icon: const Icon(Icons.keyboard_arrow_up),
+                icon: const ShuyeIcon(Icons.keyboard_arrow_up),
               ),
               IconButton(
                 tooltip: '下个搜索结果',
                 onPressed: () => searcher.goToNextMatch(),
-                icon: const Icon(Icons.keyboard_arrow_down),
+                icon: const ShuyeIcon(Icons.keyboard_arrow_down),
               ),
             ],
           ),

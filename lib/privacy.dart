@@ -1,3 +1,5 @@
+import 'app_icons.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -102,7 +104,7 @@ class _PrivacyGateState extends State<PrivacyGate> with WidgetsBindingObserver {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
+                    const ShuyeIcon(
                       Icons.lock_outline,
                       size: 56,
                       color: Color(0xff58735f),

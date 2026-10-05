@@ -1,3 +1,5 @@
+import 'app_icons.dart';
+
 import 'package:flutter/material.dart';
 
 class ToolAction {
@@ -51,7 +53,7 @@ class _ToolCatalogState extends State<ToolCatalog> {
         TextField(
           onChanged: (v) => setState(() => query = v),
           decoration: const InputDecoration(
-            prefixIcon: Icon(Icons.search),
+            prefixIcon: ShuyeIcon(Icons.search),
             hintText: '搜索工具，如字体、备份、AI',
           ),
         ),
@@ -96,7 +98,7 @@ class _ToolCatalogState extends State<ToolCatalog> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
+                                ShuyeIcon(
                                   a.icon,
                                   color: Theme.of(c).colorScheme.primary,
                                 ),

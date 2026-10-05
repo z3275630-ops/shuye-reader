@@ -1,3 +1,5 @@
+import 'app_icons.dart';
+
 import 'package:flutter/material.dart';
 
 import 'models.dart';
@@ -240,7 +242,7 @@ class _AlternativeShelfState extends State<AlternativeShelf> {
             subtitle: Text(
               '${b.author} · ${b.metadata['category'] ?? b.format} · ${(b.progress * 100).round()}%',
             ),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const ShuyeIcon(Icons.chevron_right),
             onTap: () => widget.open(b),
             onLongPress: () => widget.menu(b),
           ),

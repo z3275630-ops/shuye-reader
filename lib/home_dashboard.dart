@@ -1,3 +1,5 @@
+import 'app_icons.dart';
+
 import 'package:flutter/material.dart';
 
 import 'models.dart';
@@ -125,7 +127,7 @@ class HomeDashboard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          const Icon(Icons.chevron_right),
+          const ShuyeIcon(Icons.chevron_right),
         ],
       ),
     );
@@ -223,7 +225,7 @@ class HomeDashboard extends StatelessWidget {
               action: IconButton(
                 tooltip: '设置每日目标',
                 onPressed: goal,
-                icon: const Icon(Icons.edit_outlined),
+                icon: const ShuyeIcon(Icons.edit_outlined),
               ),
             ),
             'overview' => panel(
@@ -266,7 +268,7 @@ class HomeDashboard extends StatelessWidget {
               action: IconButton(
                 tooltip: '查看阅读统计',
                 onPressed: statistics,
-                icon: const Icon(Icons.chevron_right),
+                icon: const ShuyeIcon(Icons.chevron_right),
               ),
             ),
             _ => panel(
@@ -284,7 +286,7 @@ class HomeDashboard extends StatelessWidget {
               action: IconButton(
                 tooltip: '查看全部书籍',
                 onPressed: shelf,
-                icon: const Icon(Icons.chevron_right),
+                icon: const ShuyeIcon(Icons.chevron_right),
               ),
             ),
           },
@@ -296,12 +298,12 @@ class HomeDashboard extends StatelessWidget {
           children: [
             OutlinedButton.icon(
               onPressed: shelf,
-              icon: const Icon(Icons.auto_stories_outlined),
+              icon: const ShuyeIcon(Icons.auto_stories_outlined),
               label: const Text('我的书架'),
             ),
             OutlinedButton.icon(
               onPressed: tools,
-              icon: const Icon(Icons.handyman_outlined),
+              icon: const ShuyeIcon(Icons.handyman_outlined),
               label: const Text('阅读工具箱'),
             ),
           ],
@@ -355,7 +357,7 @@ Future<void> configureHome(
                     for (final key in order)
                       ListTile(
                         key: ValueKey(key),
-                        leading: const Icon(Icons.drag_handle),
+                        leading: const ShuyeIcon(Icons.drag_handle),
                         title: Text(homeSections[key]!),
                         trailing: IconButton(
                           tooltip: '隐藏${homeSections[key]}',
@@ -363,7 +365,7 @@ Future<void> configureHome(
                             set(() => order.remove(key));
                             persist();
                           },
-                          icon: const Icon(Icons.visibility_off_outlined),
+                          icon: const ShuyeIcon(Icons.visibility_off_outlined),
                         ),
                       ),
                   ],
