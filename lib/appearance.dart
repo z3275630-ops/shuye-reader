@@ -67,7 +67,10 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
             ? const Color(0xfff0d3c6)
             : const Color(0xff56362a),
         secondary: dark ? const Color(0xffc2c0b6) : const Color(0xff57564f),
-        tertiary: dark ? const Color(0xff9fc5f4) : const Color(0xff184e95),
+        // Terracotta is the only chromatic accent: the M3 default tertiary
+        // would leak blue into text cursors, selection handles and focus
+        // borders (textSelectionTheme + inputDecorationTheme below use it).
+        tertiary: dark ? const Color(0xffd97757) : const Color(0xffc96442),
         onTertiary: dark ? const Color(0xff121212) : Colors.white,
         onSecondary: dark ? const Color(0xff262624) : Colors.white,
         secondaryContainer: dark
