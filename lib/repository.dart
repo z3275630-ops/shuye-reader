@@ -160,9 +160,12 @@ class ReaderRepository {
     );
     if (marker.isEmpty && await File(oldPath).exists()) {
       final old = await open(path: oldPath, factory: databaseFactory);
+      var migrationFailed = false;
       try {
         final snapshot = await old.backup();
-        await encrypted.restore(snapshot);
+        // The local library can be larger than a user-picked backup file, so the
+        // migration is allowed to skip the interactive size limit.
+        await encrypted.restore(snapshot, internal: true);
         final before = jsonDecode(snapshot) as Map<String, dynamic>;
         final after =
             jsonDecode(await encrypted.backup()) as Map<String, dynamic>;
@@ -200,8 +203,22 @@ class ReaderRepository {
           'key': '_encrypted_migration_done',
           'value': 'true',
         }, conflictAlgorithm: ConflictAlgorithm.replace);
+      } on FormatException {
+        // Migration data itself was rejected, for example a snapshot beyond the
+        // size limit; fall back to the plain database below.
+        migrationFailed = true;
+      } on StateError {
+        // Upgrade verification failed; fall back to the plain database below.
+        migrationFailed = true;
       } finally {
         await old.close();
+      }
+      if (migrationFailed) {
+        // Keep the app usable instead of failing startup: reopen the plain
+        // database, leave the migration marker unwritten and the plain file in
+        // place, so the next launch retries the migration. Failures of the
+        // encrypted database itself are not caught here.
+        return open(path: oldPath, factory: databaseFactory);
       }
       await databaseFactory.deleteDatabase(oldPath);
     } else if (marker.isEmpty) {
@@ -578,8 +595,15 @@ class ReaderRepository {
     );
   }
 
-  Future<void> restore(String data) async {
-    if (data.length > 80 * 1024 * 1024) {
+  // [internal] is only for the SQLCipher migration, which moves the whole local
+  // library rather than a user-picked file, so it skips the size limit below.
+  // Every other caller keeps the default and behaves exactly as before.
+  Future<void> restore(String data, {bool internal = false}) async {
+    // Measured in UTF-8 bytes to match the byte-based file checks in the UI
+    // (main.dart, workbench.dart). This is stricter than the previous UTF-16
+    // code-unit count for non-ASCII payloads, so it can reject earlier.
+    // Internal callers skip the check and never pay the encoding cost.
+    if (!internal && utf8.encode(data).length > 80 * 1024 * 1024) {
       throw const FormatException('备份超过 80 MB');
     }
     final j = jsonDecode(data) as Map<String, dynamic>;
