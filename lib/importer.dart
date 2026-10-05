@@ -158,12 +158,74 @@ Book _parseBook(Map<String, dynamic> request) {
 }
 
 Archive checkedZip(Uint8List bytes) {
+  const maxTotal = 60 * 1024 * 1024;
   final zip = ZipDecoder().decodeBytes(bytes, verify: true);
-  if (zip.length > 4000 ||
-      zip.fold<int>(0, (n, f) => n + f.size) > 60 * 1024 * 1024) {
+  if (zip.length > 4000 || zip.fold<int>(0, (n, f) => n + f.size) > maxTotal) {
     throw const FormatException('压缩包内容过大');
   }
+  // The sizes above come from the ZIP central directory, which the file author
+  // can forge, and this archive version never verifies CRCs on decode. Inflate
+  // every entry into a budgeted sink and count the bytes that really come out.
+  // The budget is the remaining archive total, not the per-file limit, so a
+  // single oversized file still reaches the per-book failure list that
+  // decodeArchive builds instead of rejecting the whole archive.
+  var total = 0;
+  for (final f in zip.where((f) => f.isFile)) {
+    final sink = _BudgetedOutput(maxTotal - total);
+    try {
+      f.decompress(sink);
+    } on FormatException {
+      rethrow;
+    } catch (_) {
+      // Encrypted or corrupt entries; keep the failure type the import flow
+      // reports per file.
+      throw const FormatException('压缩包内容已损坏或已加密');
+    }
+    // Replace the declared size with the measured one so the per-file limit in
+    // decodeArchive cannot be bypassed by editing the central directory.
+    f.size = sink.length;
+    total += sink.length;
+  }
   return zip;
+}
+
+/// Counts written bytes and discards them, so inflating a forged ZIP entry
+/// aborts as soon as its real size exceeds the budget instead of allocating it.
+class _BudgetedOutput extends OutputStream {
+  _BudgetedOutput(this.budget) : super(byteOrder: ByteOrder.littleEndian);
+
+  final int budget;
+  int _length = 0;
+
+  @override
+  int get length => _length;
+
+  void _count(int bytes) {
+    _length += bytes;
+    if (_length > budget) throw const FormatException('压缩包内容过大');
+  }
+
+  @override
+  void writeByte(int value) => _count(1);
+
+  @override
+  void writeBytes(List<int> bytes, {int? length}) =>
+      _count(length ?? bytes.length);
+
+  @override
+  void writeStream(InputStream stream) => _count(stream.length);
+
+  @override
+  void writeBackReference(int distance, int count) => _count(count);
+
+  @override
+  void clear() => _length = 0;
+
+  @override
+  void flush() {}
+
+  @override
+  Uint8List subset(int start, [int? end]) => Uint8List(0);
 }
 
 int naturalCompare(String a, String b) {
@@ -252,6 +314,12 @@ String decodePalmDoc(Uint8List bytes) {
   return htmlText(html.parse(text));
 }
 
+/// Decodes text without letting one corrupt byte ruin a whole book: a BOM is
+/// trusted first, a NUL-heavy stream is read as BOM-less UTF-16, then strict
+/// UTF-8 wins. Only when strict UTF-8 fails is the damage measured: sparse
+/// damage is repaired locally, and GBK stays the last resort for legacy
+/// Chinese files, because a single stray byte used to send an entire UTF-8
+/// book through the GBK path and silently store mojibake.
 String decodeText(Uint8List bytes) {
   if (bytes.length >= 2 &&
       ((bytes[0] == 0xff && bytes[1] == 0xfe) ||
@@ -264,11 +332,81 @@ String decodeText(Uint8List bytes) {
         data.getUint16(i, little ? Endian.little : Endian.big),
     ]);
   }
-  try {
-    return utf8.decode(bytes).replaceFirst('\ufeff', '');
-  } on FormatException {
-    return gbk_bytes.decode(bytes);
+  var data = bytes;
+  if (data.length >= 3 &&
+      data[0] == 0xef &&
+      data[1] == 0xbb &&
+      data[2] == 0xbf) {
+    data = Uint8List.sublistView(data, 3);
   }
+  final utf16 = _decodeUtf16WithoutBom(data);
+  if (utf16 != null) return utf16;
+  try {
+    return utf8.decode(data);
+  } on FormatException {
+    final repaired = utf8.decode(data, allowMalformed: true);
+    final damaged = '\ufffd'.allMatches(repaired).length;
+    // Sparse damage means the file is UTF-8 with a few bad bytes: a stray
+    // 0xFF in the middle, or a multi-byte character cut off at the end, where
+    // strict decoding only fails inside the last bytes of the file. The ratio
+    // is deliberately strict: legacy GBK text is decoded as malformed UTF-8
+    // with damage spread over its high bytes, and a mostly-ASCII file with a
+    // few GBK characters must still reach the GBK decoder below rather than
+    // being repaired into U+FFFD.
+    if (damaged <= 4 &&
+        (damaged * 100 <= data.length || _validUtf8Prefix(data))) {
+      return repaired;
+    }
+    final gbk = gbk_bytes.decode(data);
+    var blanks = 0;
+    for (final unit in gbk.codeUnits) {
+      if (unit == 0) blanks++;
+    }
+    if (blanks * 10 > gbk.length) {
+      throw const FormatException('无法识别文件编码，请另存为 UTF-8 后重试');
+    }
+    return gbk;
+  }
+}
+
+/// Detects BOM-less UTF-16 before the UTF-8 attempt: such text keeps a NUL byte
+/// in almost every other byte, which strict UTF-8 accepts as valid input but
+/// turns into unusable text.
+String? _decodeUtf16WithoutBom(Uint8List bytes) {
+  if (bytes.length < 8) return null;
+  final head = bytes.length < 64 ? bytes.length : 64;
+  var odd = 0, even = 0;
+  for (var i = 0; i < head; i++) {
+    if (bytes[i] == 0) {
+      if (i.isOdd) {
+        odd++;
+      } else {
+        even++;
+      }
+    }
+  }
+  if ((odd + even) * 2 < head) return null;
+  if (bytes.length.isOdd) throw const FormatException('UTF-16 文件不完整');
+  final data = ByteData.sublistView(bytes);
+  final little = odd >= even;
+  return String.fromCharCodes([
+    for (var i = 0; i + 1 < bytes.length; i += 2)
+      data.getUint16(i, little ? Endian.little : Endian.big),
+  ]);
+}
+
+/// True when only the last few bytes are invalid UTF-8, which is how a
+/// multi-byte character truncated at the end of a file looks.
+bool _validUtf8Prefix(Uint8List bytes) {
+  for (var cut = 1; cut <= 3 && cut < bytes.length; cut++) {
+    try {
+      utf8.decode(Uint8List.sublistView(bytes, 0, bytes.length - cut));
+      return true;
+    } on FormatException {
+      // Try a shorter prefix.
+    }
+  }
+  return false;
 }
 
 List<Chapter> splitChapters(
