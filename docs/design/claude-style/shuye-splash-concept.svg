@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" role="img" aria-label="书叶开屏概念：给自己，一页安静">
+  <rect width="1080" height="1920" fill="#FAF9F5"/>
+  <circle cx="685" cy="700" r="145" fill="#D97757"/>
+  <g transform="translate(120 470)" fill="#FAF9F5" stroke="#141413" stroke-width="28" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 455 C125 380 257 380 390 430 C415 440 431 458 438 478 C446 458 463 440 488 430 C622 379 751 386 840 453 C732 444 617 452 497 499 C474 508 454 520 438 536 C422 521 403 509 379 499 C258 452 134 443 20 455 Z"/>
+    <path d="M438 476 C407 378 372 315 312 260 C359 232 421 252 452 308 C483 244 536 168 650 95 C678 155 666 220 625 270 C574 331 509 394 438 476 Z"/>
+  </g>
+  <g transform="translate(120 470)" fill="none" stroke="#141413" stroke-width="20" stroke-linecap="round">
+    <path d="M31 457 C149 420 269 431 383 476"/>
+    <path d="M60 500 C169 467 278 477 382 518"/>
+    <path d="M829 455 C716 421 601 432 494 477"/>
+    <path d="M804 499 C697 467 590 477 495 519"/>
+    <path d="M439 478 C462 370 507 254 616 129"/>
+  </g>
+  <text x="540" y="1160" text-anchor="middle" fill="#141413" font-family="Noto Serif SC, Songti SC, serif" font-size="126" font-weight="500">书叶</text>
+  <text x="540" y="1260" text-anchor="middle" fill="#626057" font-family="Noto Serif SC, Songti SC, serif" font-size="44">给自己，一页安静。</text>
+</svg>
