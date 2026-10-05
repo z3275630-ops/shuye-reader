@@ -1,3 +1,5 @@
+import 'preview_fonts.dart';
+
 // Optional screenshots of real Flutter widgets, not Android device screenshots.
 // SHUYE_CAPTURE_DIR and local font paths are supplied only for local visual QA.
 import 'dart:io';
@@ -16,6 +18,7 @@ import 'package:shuye_reader/share_card.dart';
 void main() {
   final output = Platform.environment['SHUYE_CAPTURE_DIR'];
   testWidgets('capture actual bookshelf and reading widgets', (tester) async {
+    await loadShuyeSerif(tester);
     sqfliteFfiInit();
     for (final pair in [
       ('Roboto', Platform.environment['SHUYE_PREVIEW_FONT']!),
@@ -111,12 +114,19 @@ void main() {
     await tester.tap(find.byTooltip('阅读设置'));
     await tester.pumpAndSettle();
     await capture('typography');
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Claude'));
+    await tester.pumpAndSettle();
+    await capture('typography-claude');
     await tester.tap(find.text('开始阅读'));
     await tester.pumpAndSettle();
     await tester.runAsync(
       () async => Future<void>.delayed(const Duration(milliseconds: 100)),
     );
     await tester.pumpAndSettle();
+    await capture('reader-claude');
+    await tester.tap(find.byTooltip('下一页'));
+    await tester.pumpAndSettle();
+    await capture('reader-claude-page2');
     await tester.tap(find.byTooltip('摘录与笔记'));
     await tester.pumpAndSettle();
     await capture('note-editor');

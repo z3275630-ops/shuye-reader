@@ -27,7 +27,9 @@ final appAppearance = ValueNotifier(const AppAppearance());
 // Mobile reader adaptation. Keep the palette and geometry in one place;
 // reader paper, imported fonts and cover artwork have their own settings.
 abstract final class ShuyeStyle {
-  static const canvas = Color(0xfff8f8f6);
+  static const fontFamily = 'ShuyeSerif';
+  static const readerAlignment = TextAlign.justify;
+  static const canvas = Color(0xfffaf9f5);
   static const darkCanvas = Color(0xff1f1f1e);
   static const clay = Color(0xffd97757);
   static const controlRadius = 12.0;
@@ -77,20 +79,20 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
         surfaceContainerLowest: dark ? const Color(0xff171716) : Colors.white,
         surfaceContainerLow: dark
             ? const Color(0xff242422)
-            : const Color(0xfff4f4f1),
+            : const Color(0xfff0efe9),
         surfaceContainer: dark
             ? const Color(0xff2c2c2a)
-            : const Color(0xffefeeeb),
+            : const Color(0xffefeee5),
         surfaceContainerHigh: dark
             ? const Color(0xff363632)
             : const Color(0xffeae9e2),
         surfaceContainerHighest: dark
             ? const Color(0xff40403b)
             : const Color(0xffe2e1d8),
-        onSurface: dark ? ShuyeStyle.canvas : const Color(0xff121212),
+        onSurface: dark ? ShuyeStyle.canvas : const Color(0xff22221f),
         onSurfaceVariant: dark
             ? const Color(0xffc2c0b6)
-            : const Color(0xff66645e),
+            : const Color(0xff626057),
         outline: dark ? const Color(0xff929088) : const Color(0xff87857d),
         outlineVariant: dark
             ? const Color(0xff50504a)
@@ -99,34 +101,39 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
         onInverseSurface: dark ? const Color(0xff262624) : ShuyeStyle.canvas,
         surfaceTint: Colors.transparent,
       );
-  final panel = dark ? colors.surfaceContainer : Colors.white;
+  final panel = dark ? colors.surfaceContainer : colors.surface;
   final border = colors.outlineVariant;
   final buttonShape = RoundedRectangleBorder(
     borderRadius: BorderRadius.circular(ShuyeStyle.controlRadius),
   );
-  final text = ThemeData(brightness: brightness).textTheme
-      .apply(bodyColor: colors.onSurface, displayColor: colors.onSurface);
+  final text = ThemeData(brightness: brightness).textTheme.apply(
+    fontFamily: ShuyeStyle.fontFamily,
+    bodyColor: colors.onSurface,
+    displayColor: colors.onSurface,
+  );
   return ThemeData(
     useMaterial3: true,
+    fontFamily: ShuyeStyle.fontFamily,
+    fontFamilyFallback: const ['serif'],
     colorScheme: colors,
     scaffoldBackgroundColor: colors.surface,
     textTheme: text.copyWith(
       headlineLarge: text.headlineLarge?.copyWith(
-        fontFamily: 'serif',
-        fontSize: 32,
-        fontWeight: FontWeight.w400,
+        fontFamily: ShuyeStyle.fontFamily,
+        fontSize: 34,
+        fontWeight: FontWeight.w500,
         letterSpacing: 0,
       ),
       headlineMedium: text.headlineMedium?.copyWith(
-        fontFamily: 'serif',
+        fontFamily: ShuyeStyle.fontFamily,
         fontSize: 28,
         fontWeight: FontWeight.w400,
         letterSpacing: 0,
       ),
       headlineSmall: text.headlineSmall?.copyWith(
-        fontFamily: 'serif',
+        fontFamily: ShuyeStyle.fontFamily,
         fontSize: 24,
-        fontWeight: FontWeight.w400,
+        fontWeight: FontWeight.w500,
         height: 1.4,
         letterSpacing: 0,
       ),
@@ -136,7 +143,7 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
         letterSpacing: 0,
       ),
       titleMedium: text.titleMedium?.copyWith(
-        fontSize: 15,
+        fontSize: 16,
         fontWeight: FontWeight.w500,
         letterSpacing: 0,
       ),
@@ -146,16 +153,18 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
         letterSpacing: 0,
       ),
       bodyMedium: text.bodyMedium?.copyWith(
-        fontSize: 14,
-        height: 1.5,
+        fontSize: 15,
+        height: 1.6,
         letterSpacing: 0,
       ),
+      bodySmall: text.bodySmall?.copyWith(fontSize: 13, height: 1.5),
       labelLarge: text.labelLarge?.copyWith(
+        fontSize: 14,
         fontWeight: FontWeight.w500,
         letterSpacing: 0,
       ),
     ),
-    iconTheme: IconThemeData(size: 22, color: colors.onSurfaceVariant),
+    iconTheme: IconThemeData(size: 23, color: colors.onSurface),
     textSelectionTheme: TextSelectionThemeData(
       cursorColor: colors.tertiary,
       selectionHandleColor: colors.tertiary,
@@ -168,19 +177,19 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
       elevation: 0,
       scrolledUnderElevation: 0,
       titleTextStyle: TextStyle(
-        fontFamily: 'Roboto',
+        fontFamily: ShuyeStyle.fontFamily,
         color: colors.onSurface,
         fontSize: 19,
         fontWeight: FontWeight.w600,
       ),
     ),
     cardTheme: CardThemeData(
-      color: panel,
+      color: colors.surfaceContainerLow,
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(ShuyeStyle.cardRadius),
-        side: BorderSide(color: border, width: .7),
+        side: BorderSide(color: border.withValues(alpha: .6), width: .5),
       ),
       surfaceTintColor: Colors.transparent,
     ),
@@ -195,8 +204,8 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
       ),
       labelTextStyle: WidgetStateProperty.resolveWith(
         (states) => TextStyle(
-          fontFamily: 'Roboto',
-          fontSize: 12,
+          fontFamily: ShuyeStyle.fontFamily,
+          fontSize: 13,
           fontWeight: states.contains(WidgetState.selected)
               ? FontWeight.w600
               : FontWeight.w400,
@@ -224,13 +233,13 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
       ),
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       titleTextStyle: TextStyle(
-        fontFamily: 'Roboto',
+        fontFamily: ShuyeStyle.fontFamily,
         color: colors.onSurface,
         fontSize: 19,
         fontWeight: FontWeight.w600,
       ),
       contentTextStyle: TextStyle(
-        fontFamily: 'Roboto',
+        fontFamily: ShuyeStyle.fontFamily,
         color: colors.onSurfaceVariant,
         fontSize: 14,
         height: 1.55,
@@ -259,25 +268,25 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
         side: BorderSide(color: border),
       ),
       textStyle: TextStyle(
-        fontFamily: 'Roboto',
+        fontFamily: ShuyeStyle.fontFamily,
         fontSize: 14,
         color: colors.onSurface,
       ),
     ),
     listTileTheme: ListTileThemeData(
-      iconColor: colors.onSurfaceVariant,
+      iconColor: colors.onSurface,
       horizontalTitleGap: 14,
       minLeadingWidth: 24,
       titleTextStyle: TextStyle(
-        fontFamily: 'Roboto',
+        fontFamily: ShuyeStyle.fontFamily,
         color: colors.onSurface,
-        fontSize: 15,
+        fontSize: 16,
         height: 1.35,
       ),
       subtitleTextStyle: TextStyle(
-        fontFamily: 'Roboto',
+        fontFamily: ShuyeStyle.fontFamily,
         color: colors.onSurfaceVariant,
-        fontSize: 12,
+        fontSize: 13,
         height: 1.45,
       ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -321,8 +330,8 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
       selectedColor: colors.secondaryContainer,
       side: BorderSide(color: colors.outlineVariant),
       labelStyle: TextStyle(
-        fontFamily: 'Roboto',
-        fontSize: 13,
+        fontFamily: ShuyeStyle.fontFamily,
+        fontSize: 14,
         color: colors.onSurface,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -385,7 +394,7 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
         borderRadius: BorderRadius.circular(8),
       ),
       textStyle: TextStyle(
-        fontFamily: 'Roboto',
+        fontFamily: ShuyeStyle.fontFamily,
         color: colors.onInverseSurface,
         fontSize: 12,
       ),
@@ -396,7 +405,7 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
       fillColor: panel,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       hintStyle: TextStyle(
-        fontFamily: 'Roboto',
+        fontFamily: ShuyeStyle.fontFamily,
         color: colors.onSurfaceVariant,
         fontSize: 14,
       ),

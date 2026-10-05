@@ -65,7 +65,7 @@ class _StrokeIcon extends CustomPainter {
       Paint()
         ..color = color
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.65
+        ..strokeWidth = 1.9
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round,
     );

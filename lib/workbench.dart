@@ -557,7 +557,7 @@ Future<void> showAiAssistant(
                       child: SelectableText(
                         result.isEmpty ? '配置自己的 AI 服务后即可使用。输出请结合原文核对。' : result,
                         style: Theme.of(c).textTheme.bodyLarge?.copyWith(
-                          fontFamily: result.isEmpty ? null : 'serif',
+                          fontFamily: ShuyeStyle.fontFamily,
                           height: 1.5,
                         ),
                       ),

@@ -1,3 +1,5 @@
+import 'preview_fonts.dart';
+
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -215,6 +217,7 @@ void main() {
   testWidgets('capture actual heatmap in light, dark, annual and empty states', (
     tester,
   ) async {
+    await loadShuyeSerif(tester);
     final font = Platform.environment['SHUYE_PREVIEW_FONT']!;
     final bytes = (await tester.runAsync(() => File(font).readAsBytes()))!;
     await (FontLoader(

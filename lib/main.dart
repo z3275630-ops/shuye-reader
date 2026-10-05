@@ -28,7 +28,7 @@ import 'statistics_period.dart';
 import 'reading_heatmap.dart';
 import 'library_collections.dart';
 
-const ink = Color(0xff263b32);
+const ink = Color(0xff22221f);
 
 List<Map<String, dynamic>> decodeArchive(Uint8List bytes) => [
   for (final f in checkedZip(bytes))
@@ -49,6 +49,9 @@ void main() async {
     yield LicenseEntryWithLineBreaks([
       '书叶',
     ], await rootBundle.loadString('LICENSE'));
+    yield LicenseEntryWithLineBreaks([
+      'Shuye Serif · Noto Serif SC',
+    ], await rootBundle.loadString('assets/fonts/OFL.txt'));
   });
   try {
     await ChineseConverter.load();
@@ -63,6 +66,7 @@ void main() async {
   } catch (e) {
     runApp(
       MaterialApp(
+        theme: applicationTheme(Brightness.light),
         home: Scaffold(
           body: Center(
             child: Padding(
@@ -163,7 +167,7 @@ class BookCover extends StatelessWidget {
                     color: Colors.white,
                     fontSize: 23,
                     height: 1.4,
-                    fontFamily: 'serif',
+                    fontFamily: ShuyeStyle.fontFamily,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -225,7 +229,7 @@ class BookCover extends StatelessWidget {
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontFamily: 'serif',
+                  fontFamily: ShuyeStyle.fontFamily,
                   fontSize: 19,
                   height: 1.4,
                   color: ink,
@@ -1327,7 +1331,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                                 maxLines: 8,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontFamily: 'serif',
+                                  fontFamily: ShuyeStyle.fontFamily,
                                   height: 1.8,
                                   fontSize: 16,
                                 ),

@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'appearance.dart';
+
 import 'package:flutter/material.dart';
 
 class CharacterGraph extends StatelessWidget {
@@ -77,7 +79,11 @@ class _GraphPainter extends CustomPainter {
     final painter = TextPainter(
       text: TextSpan(
         text: value,
-        style: TextStyle(color: colors.onSurface, fontSize: 14),
+        style: TextStyle(
+          color: colors.onSurface,
+          fontSize: 14,
+          fontFamily: ShuyeStyle.fontFamily,
+        ),
       ),
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,

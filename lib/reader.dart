@@ -23,8 +23,20 @@ const readerSchemes = {
   'white': [Color(0xfffafafa), Color(0xff303330)],
   'sage': [Color(0xffe4ebdf), Color(0xff344333)],
   'night': [Color(0xff202521), Color(0xffbcc4b7)],
+  'claude': [Color(0xfffaf9f5), Color(0xff22221f)],
 };
-const readerNames = {'paper': '暖纸', 'white': '纸白', 'sage': '青竹', 'night': '夜读'};
+const readerNames = {
+  'paper': '暖纸',
+  'white': '纸白',
+  'sage': '青竹',
+  'night': '夜读',
+  'claude': 'Claude',
+};
+
+String readerFont(ReaderSettings settings) {
+  final custom = settings.value('reader.customFont', '');
+  return custom.isEmpty ? ShuyeStyle.fontFamily : custom;
+}
 
 List<Color> readerColors(ReaderSettings settings, {DateTime? at}) {
   if (settings.flag('reader.eink')) return [Colors.white, Colors.black];
@@ -93,10 +105,11 @@ Future<void> showReaderSettings(
                           color: readerColors(s)[1],
                           fontSize: s.fontSize,
                           height: s.lineHeight,
-                          fontFamily: s.value('reader.customFont', s.font),
+                          fontFamily: readerFont(s),
                         ),
                         s,
                       ),
+                      textAlign: ShuyeStyle.readerAlignment,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -135,14 +148,7 @@ Future<void> showReaderSettings(
                         .toList(),
                   ),
                   const SizedBox(height: 16),
-                  SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(value: 'serif', label: Text('衬线字体')),
-                      ButtonSegment(value: 'sans', label: Text('无衬线字体')),
-                    ],
-                    selected: {s.font},
-                    onSelectionChanged: (v) => change(() => s.font = v.first),
-                  ),
+                  Text('书叶衬线字体', style: Theme.of(ctx).textTheme.titleMedium),
                   const SizedBox(height: 12),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
@@ -152,7 +158,7 @@ Future<void> showReaderSettings(
                     onChanged: (v) => change(() => s.cjkSpacing = v),
                   ),
                   Text(
-                    '中文字体由设备提供，实际字形以手机为准。',
+                    '使用内置衬线字体；导入的自定义阅读字体仍可使用。',
                     style: TextStyle(
                       fontSize: 12,
                       color: Theme.of(ctx).colorScheme.onSurfaceVariant,
@@ -230,6 +236,7 @@ List<PageSlice> paginate(
       text: readerSpan(text.substring(start, end), style, settings),
       textDirection: TextDirection.ltr,
       textScaler: scaler,
+      textAlign: ShuyeStyle.readerAlignment,
     );
     painter.layout(maxWidth: width);
     final fits = painter.height <= height - 4;
@@ -728,7 +735,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                         book.title,
                         style: const TextStyle(
                           fontSize: 21,
-                          fontFamily: 'serif',
+                          fontFamily: ShuyeStyle.fontFamily,
                         ),
                       ),
                     ),
@@ -941,7 +948,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       color: scheme[1],
       fontSize: settings.fontSize,
       height: settings.lineHeight,
-      fontFamily: settings.value('reader.customFont', settings.font),
+      fontFamily: readerFont(settings),
       fontFeatures: settings.flag('reader.punctuation')
           ? [const ui.FontFeature.enable('palt')]
           : null,
@@ -964,7 +971,13 @@ class _ReaderScreenState extends State<ReaderScreen>
         appBar: immersive
             ? null
             : AppBar(
-                title: Text(book.title, style: const TextStyle(fontSize: 14)),
+                title: Text(
+                  book.title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 actions: [
                   PopupMenuButton<String>(
                     tooltip: '阅读工具',
@@ -1068,16 +1081,16 @@ class _ReaderScreenState extends State<ReaderScreen>
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: 12,
-                                color: scheme[1].withValues(alpha: .65),
+                                fontSize: 13,
+                                color: scheme[1].withValues(alpha: .8),
                               ),
                             ),
                           ),
                           Text(
                             '${chapter + 1} / ${book.chapters.length} 章',
                             style: TextStyle(
-                              fontSize: 10,
-                              color: scheme[1].withValues(alpha: .5),
+                              fontSize: 13,
+                              color: scheme[1].withValues(alpha: .8),
                             ),
                           ),
                         ],
@@ -1201,6 +1214,8 @@ class _ReaderScreenState extends State<ReaderScreen>
                                                         ),
                                                     textDirection:
                                                         TextDirection.ltr,
+                                                    textAlign: ShuyeStyle
+                                                        .readerAlignment,
                                                     onSelectionChanged:
                                                         (s, cause) {
                                                           final visible = text
@@ -1310,6 +1325,8 @@ class _ReaderScreenState extends State<ReaderScreen>
                                                                 MediaQuery.textScalerOf(
                                                                   ctx,
                                                                 ),
+                                                            textAlign: ShuyeStyle
+                                                                .readerAlignment,
                                                           )
                                                         : const SizedBox(),
                                                   ),

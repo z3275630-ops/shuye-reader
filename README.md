@@ -2,11 +2,18 @@
 
 给自己，一页安静。
 
-<table><tr><td><img src="docs/screenshots/home.png" width="240" alt="首页预览"></td><td><img src="docs/screenshots/reader.png" width="240" alt="阅读预览"></td><td><img src="docs/screenshots/heatmap-month.png" width="240" alt="本月阅读热力图演示预览"></td></tr></table>
+<table><tr><td><img src="docs/screenshots/home.png" width="240" alt="首页预览"></td><td><img src="docs/screenshots/reader-claude-page2.png" width="240" alt="阅读预览"></td><td><img src="docs/screenshots/heatmap-month.png" width="240" alt="本月阅读热力图演示预览"></td></tr></table>
 
-实际 Flutter 界面预览，使用本机字体，非安卓真机截图。热力图彩色预览使用仅限截图测试的演示数据；应用只显示真实记录。三幅示例书封由 Codex 内置生图能力生成；应用封面与桌面图标根据用户选定的白绿叠页图编辑适配。书名与作者由 APP 叠加。
+实际 Flutter 界面预览，使用 APP 打包的衬线字体、本机字体回退，非安卓真机截图。热力图彩色预览使用仅限截图测试的演示数据；应用只显示真实记录。三幅示例书封由 Codex 内置生图能力生成；应用封面与桌面图标根据用户选定的白绿叠页图编辑适配。书名与作者由 APP 叠加。
 
 书叶是一款 Android 本地阅读器，支持阅读、听书、摘录与记录阅读足迹。书籍和笔记保存在本机。
+
+## 0.3.8：衬线字体与阅读纸色
+
+- 默认界面、标题、正文、按钮和导航统一使用衬线字体；打包一份开源常用中文裁剪字体，避免主要界面依赖厂商字体。保留用户导入的正文自定义字体，原版 PDF / 漫画仍使用源字形。
+- 新增 Claude 暖白阅读主题，保留原四套纸色和自定义颜色。正文长行两端对齐，减轻右侧额外留白，短末行自然留白；章节名与章节计数加大、加深。
+- 暖白底、米灰卡片、更深的文字与略加粗的线条图标；橙色热力图、统一分享配色和较小品牌横幅。参考与实际取舍见 [风格记录](docs/claude-style.md)，协助 PR #24 / Issue #23 的选择性采纳见 [衔接表](docs/prd/review-2026-10-05.md)。
+- 79 项测试通过，42 张界面预览使用实际打包字体。正式 ARM64 包 **30.15 MB（30,151,484 字节）**，比上一版增加约 2.74 MB，主要为中文衬线资源；没有新增运行依赖或图片。覆盖率、签名和真机边界见 [0.3.8 验证](docs/verification-0.3.8.md)。
 
 ## 0.3.7：Claude 风格与手机设置
 
@@ -87,7 +94,7 @@
 
 ## 安装与更新
 
-从 [v0.3.7 下载页](https://github.com/z3275630-ops/shuye-reader/releases/tag/v0.3.7) 下载唯一的 `shuye-0.3.7.apk`（ARM64）。仓库现为公有。`SHA256SUMS.txt` 为文件校验，`upgrade-guide.md` 为更新说明，无需安装。
+从 [v0.3.8 下载页](https://github.com/z3275630-ops/shuye-reader/releases/tag/v0.3.8) 下载唯一的 `shuye-0.3.8.apk`（ARM64）。仓库现为公有。`SHA256SUMS.txt` 为文件校验，`upgrade-guide.md` 为更新说明，无需安装。
 
 只打入当前手机需要的 ARM64 运行库，并无损压缩原生库。压缩改变下载体积；安装时系统提取原生库，不能将 APK 大小当作安装后的总占用。
 

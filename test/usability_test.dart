@@ -1,3 +1,5 @@
+import 'preview_fonts.dart';
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -368,6 +370,7 @@ void main() {
 
   final output = Platform.environment['SHUYE_CAPTURE_DIR'];
   testWidgets('capture real editor and PDF controls', (tester) async {
+    await loadShuyeSerif(tester);
     final font = FontLoader('Roboto')
       ..addFont(
         Future.value(

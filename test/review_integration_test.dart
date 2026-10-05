@@ -1,3 +1,5 @@
+import 'preview_fonts.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -366,6 +368,7 @@ void main() {
 
   final output = Platform.environment['SHUYE_CAPTURE_DIR'];
   testWidgets('capture reading settings integration', (tester) async {
+    await loadShuyeSerif(tester);
     await tester.runAsync(() async {
       for (final font in [
         ('Roboto', 'SHUYE_PREVIEW_FONT'),

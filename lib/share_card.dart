@@ -1,4 +1,5 @@
 import 'app_icons.dart';
+import 'appearance.dart';
 
 import 'package:flutter/material.dart';
 
@@ -24,8 +25,10 @@ class QuoteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = template == 'night';
-    final fg = dark ? const Color(0xffe1dbcb) : const Color(0xff263b32);
-    final accent = dark ? const Color(0xffbfcaa9) : const Color(0xff58735f);
+    final colors = applicationTheme(dark ? Brightness.dark : Brightness.light)
+        .colorScheme;
+    final fg = colors.onSurface;
+    final accent = colors.primary;
     final now = date ?? DateTime.now();
     final text = String.fromCharCodes(quote.runes.take(800));
     return Container(
@@ -33,10 +36,10 @@ class QuoteCard extends StatelessWidget {
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
         color: dark
-            ? const Color(0xff1b2420)
+            ? ShuyeStyle.darkCanvas
             : template == 'minimal'
             ? Colors.white
-            : const Color(0xfff4eddf),
+            : ShuyeStyle.canvas,
         image: template == 'paper'
             ? DecorationImage(
                 image: AssetImage(
@@ -51,7 +54,7 @@ class QuoteCard extends StatelessWidget {
               )
             : null,
         border: template == 'minimal'
-            ? Border.all(color: const Color(0xffdeded5))
+            ? Border.all(color: colors.outlineVariant)
             : null,
       ),
       child: Column(

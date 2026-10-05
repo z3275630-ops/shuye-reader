@@ -7,5 +7,6 @@
 - PDF、SQLCipher、音频和 ML Kit 等原生组件通过既有依赖或 Android 配置集成；具体组件和模型遵循其上游条款，不能以根目录 MIT 重新许可。ML Kit 服务条款及模型不应被描述为本项目原创开源代码。
 - `lib/app_icons.dart`：项目内编写的轻量路径图标，不包含外部图标字体或新图标包。
 - `assets/art/`：生成 / 编辑适配过程见 `docs/image-assets.md` 和 `docs/branding-prompts.md`；它们不是第三方原应用的资源提取结果。
+- `assets/fonts/ShuyeSerif-Regular.ttf`：源自 Google / Noto Serif SC 的静态裁剪版本，改名 Shuye Serif，按 SIL Open Font License 1.1 分发。保留 `assets/fonts/OFL.txt` 的版权与完整许可，来源、校验和裁剪说明见该目录 README；APP 开源许可页登记 Noto Serif SC / Shuye Serif。没有使用 Anthropic 专有字体。
 
 引入新的代码、字体、插图、图标或模型时记录来源及许可，保留要求的声明。更新依赖时复核上游许可，不要仅凭包名猜测许可。

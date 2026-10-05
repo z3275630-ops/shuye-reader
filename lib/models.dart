@@ -298,7 +298,7 @@ class ReaderSettings {
       extra: Map<String, dynamic>.from(j),
     );
     validateRules(s.chapterPattern, s.purifyLines);
-    if (!['paper', 'white', 'sage', 'night'].contains(s.theme)) {
+    if (!['paper', 'white', 'sage', 'night', 'claude'].contains(s.theme)) {
       s.theme = 'paper';
     }
     if (!['serif', 'sans'].contains(s.font)) s.font = 'serif';

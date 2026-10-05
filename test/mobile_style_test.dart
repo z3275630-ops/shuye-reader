@@ -1,3 +1,5 @@
+import 'preview_fonts.dart';
+
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -170,6 +172,7 @@ void main() {
 
   final output = Platform.environment['SHUYE_CAPTURE_DIR'];
   testWidgets('capture mobile appearance and shelf panels', (tester) async {
+    await loadShuyeSerif(tester);
     for (final font in [
       ('Roboto', 'SHUYE_PREVIEW_FONT'),
       ('serif', 'SHUYE_PREVIEW_SERIF'),

@@ -1,3 +1,5 @@
+import 'preview_fonts.dart';
+
 import 'package:shuye_reader/form_field.dart';
 
 import 'dart:io';
@@ -240,6 +242,7 @@ void main() {
 
   final output = Platform.environment['SHUYE_CAPTURE_DIR'];
   testWidgets('capture shared icon and dialog previews', (tester) async {
+    await loadShuyeSerif(tester);
     final font = FontLoader('Roboto')
       ..addFont(
         Future.value(

@@ -1,7 +1,7 @@
 name: shuye_reader
 description: "书叶：安静、私有、本地优先的 Android 阅读器。"
 publish_to: 'none'
-version: 0.3.7+10
+version: 0.3.8+11
 
 environment:
   sdk: ^3.13.2
@@ -46,5 +46,11 @@ flutter:
     - assets/art/shuye-cover.webp
     - assets/art/shuye-mark.webp
     - assets/chinese/
+    - assets/fonts/OFL.txt
+  fonts:
+    - family: ShuyeSerif
+      fonts:
+        - asset: assets/fonts/ShuyeSerif-Regular.ttf
+          weight: 400
   shaders:
     - shaders/page_curl.frag
