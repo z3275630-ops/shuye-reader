@@ -453,6 +453,7 @@ class _ReadingHeatmapState extends State<ReadingHeatmap> {
                             style: const TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 16,
+                              fontFeatures: [FontFeature.tabularFigures()],
                             ),
                           ),
                           const SizedBox(height: 5),

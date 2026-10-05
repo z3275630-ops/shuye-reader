@@ -260,6 +260,7 @@ class HomeDashboard extends StatelessWidget {
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
+                            fontFeatures: [FontFeature.tabularFigures()],
                           ),
                         ),
                       ],

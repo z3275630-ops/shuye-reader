@@ -157,7 +157,11 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
         height: 1.6,
         letterSpacing: 0,
       ),
-      bodySmall: text.bodySmall?.copyWith(fontSize: 13, height: 1.5),
+      bodySmall: text.bodySmall?.copyWith(
+        fontSize: 13,
+        height: 1.5,
+        letterSpacing: .8,
+      ),
       labelLarge: text.labelLarge?.copyWith(
         fontSize: 14,
         fontWeight: FontWeight.w500,
@@ -288,6 +292,7 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
         color: colors.onSurfaceVariant,
         fontSize: 13,
         height: 1.45,
+        letterSpacing: .8,
       ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),

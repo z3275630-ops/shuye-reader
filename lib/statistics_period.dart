@@ -151,8 +151,17 @@ class _PeriodStatisticsState extends State<PeriodStatistics> {
                 Text(
                   '阅读 ${total ~/ 60} 分钟',
                   key: const ValueKey('period-total'),
+                  style: const TextStyle(
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
                 ),
-                Text('阅读 $active 天', key: const ValueKey('period-days')),
+                Text(
+                  '阅读 $active 天',
+                  key: const ValueKey('period-days'),
+                  style: const TextStyle(
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                ),
               ],
             ),
             if (total == 0)

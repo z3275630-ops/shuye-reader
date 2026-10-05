@@ -1377,7 +1377,13 @@ class _ReaderScreenState extends State<ReaderScreen>
                           ),
                           Text(
                             '${page + 1} / ${pages.length} 页',
-                            style: TextStyle(fontSize: 12, color: scheme[1]),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: scheme[1],
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
                           ),
                           IconButton(
                             tooltip: '下一页',
@@ -1387,7 +1393,13 @@ class _ReaderScreenState extends State<ReaderScreen>
                           const Spacer(),
                           Text(
                             '${(book.progress * 100).round()}%',
-                            style: TextStyle(fontSize: 11, color: scheme[1]),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: scheme[1],
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
                           ),
                         ],
                       ),
