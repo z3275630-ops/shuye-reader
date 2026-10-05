@@ -92,6 +92,8 @@ void main() {
           expect(find.text(label), findsOneWidget);
         }
         expect(find.text('2 小时'), findsOneWidget);
+        await tester.tap(find.text('半年'));
+        await tester.pumpAndSettle();
         final paint = find.descendant(
           of: find.byKey(const ValueKey('reading-heatmap-chart')),
           matching: find.byType(CustomPaint),
@@ -241,7 +243,7 @@ void main() {
       String name,
       Brightness brightness,
       Map<String, int> data, {
-      bool year = false,
+      HeatmapSpan span = HeatmapSpan.month,
     }) async {
       final key = GlobalKey();
       await tester.pumpWidget(const SizedBox());
@@ -268,8 +270,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      if (year) {
-        await tester.tap(find.text('全年'));
+      if (span != HeatmapSpan.month) {
+        await tester.tap(find.text(span == HeatmapSpan.year ? '全年' : '半年'));
         await tester.pumpAndSettle();
       }
       await tester.runAsync(() async {
@@ -284,9 +286,26 @@ void main() {
       expect(tester.takeException(), isNull);
     }
 
-    await render('heatmap-light', Brightness.light, demo);
-    await render('heatmap-dark', Brightness.dark, demo);
-    await render('heatmap-year', Brightness.light, demo, year: true);
+    await render('heatmap-month', Brightness.light, demo);
+    await render('heatmap-month-dark', Brightness.dark, demo);
+    await render(
+      'heatmap-light',
+      Brightness.light,
+      demo,
+      span: HeatmapSpan.halfYear,
+    );
+    await render(
+      'heatmap-dark',
+      Brightness.dark,
+      demo,
+      span: HeatmapSpan.halfYear,
+    );
+    await render(
+      'heatmap-year',
+      Brightness.light,
+      demo,
+      span: HeatmapSpan.year,
+    );
     await render('heatmap-empty', Brightness.light, {});
   }, skip: output == null);
 }

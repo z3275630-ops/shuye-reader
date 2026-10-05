@@ -713,7 +713,9 @@ class _LibraryHomeState extends State<LibraryHome> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
+      centerTitle: tab == 2,
       title: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             Icons.eco_outlined,
@@ -1346,17 +1348,9 @@ class _LibraryHomeState extends State<LibraryHome> {
         '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
     final total = stats.values.fold<int>(0, (n, s) => n + s);
     return ListView(
-      padding: const EdgeInsets.all(24),
+      key: const PageStorageKey('reading-statistics'),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
-        Text(
-          '每一页，都算数。',
-          style: TextStyle(
-            fontSize: 27,
-            fontFamily: 'serif',
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: 24),
         ReadingHeatmap(stats: stats),
         const SizedBox(height: 18),
         PeriodStatistics(stats: stats),

@@ -3,9 +3,50 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:shuye_reader/main.dart';
 import 'package:shuye_reader/repository.dart';
+import 'package:shuye_reader/reading_heatmap.dart';
 
 void main() {
   sqfliteFfiInit();
+  testWidgets(
+    'opening statistics after scrolling settings starts at its own top',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final repo = (await tester.runAsync(
+        () => ReaderRepository.open(
+          path: inMemoryDatabasePath,
+          factory: databaseFactoryFfi,
+        ),
+      ))!;
+      await tester.pumpWidget(ShuyeApp(repository: repo));
+      await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 150)),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('设置'));
+      await tester.pumpAndSettle();
+      tester
+          .state<ScrollableState>(find.byType(Scrollable).last)
+          .position
+          .jumpTo(300);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('统计'));
+      await tester.pumpAndSettle();
+      final barBottom = tester.getBottomRight(find.byType(AppBar)).dy;
+      final chartTop = tester.getTopLeft(find.byType(ReadingHeatmap)).dy;
+      expect(chartTop, greaterThanOrEqualTo(barBottom));
+      expect(chartTop, lessThan(barBottom + 24));
+      expect(
+        find.byKey(const ValueKey('reading-heatmap-month')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await tester.runAsync(() => repo.close());
+    },
+  );
   testWidgets(
     'reader supports turn page, note creation, outline, search and resume',
     (tester) async {
