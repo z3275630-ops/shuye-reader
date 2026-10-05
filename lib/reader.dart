@@ -956,9 +956,30 @@ class _ReaderScreenState extends State<ReaderScreen>
     );
     return Theme(
       data: Theme.of(context).copyWith(
-        brightness: scheme[0].computeLuminance() < .5
-            ? Brightness.dark
-            : Brightness.light,
+        // The app-level textSelectionTheme uses colors.tertiary (#184e95):
+        // a foreign hue at .2 alpha over the night paper #202521, only 1.11:1
+        // apart in relative luminance. Derive the highlight from the reader's
+        // own body colour so it stays in the paper's hue family.
+        // Two constraints pull against each other (WCAG 2.1 luminance):
+        //   - the band has to be perceptible against the paper,
+        //   - the selected text keeps sitting on that band, so it must stay
+        //     readable; body-on-paper is 8.69:1 on the night paper.
+        // .27 is the largest alpha that still leaves the selected body text
+        // at AA (4.5:1): band 1.9:1 against the paper, text 4.6:1 on the band.
+        // Material's own default selection band is only ~1.3:1 against the
+        // surface, so a subtle band is the expected norm; what was wrong here
+        // was the hue and the 1.11:1 value, not the absence of a 3:1 band.
+        textSelectionTheme: TextSelectionThemeData(
+          selectionColor: scheme[1].withValues(alpha: .27),
+          cursorColor: scheme[1],
+          selectionHandleColor: scheme[1],
+        ),
+        // This `brightness:` argument is a no-op: in current Flutter,
+        // ThemeData.brightness is a getter over colorScheme.brightness, so
+        // a brightness passed here never reaches the components. Keeping it
+        // would look load-bearing while doing nothing, so it is dropped; the
+        // app-level colorScheme already carries the effective brightness and
+        // every other reader colour is set explicitly below.
         scaffoldBackgroundColor: scheme[0],
         appBarTheme: AppBarTheme(
           backgroundColor: scheme[0],
@@ -1375,9 +1396,28 @@ class _ReaderScreenState extends State<ReaderScreen>
                             onPressed: () => turn(-1),
                             icon: const ShuyeIcon(Icons.chevron_left),
                           ),
-                          Text(
-                            '${page + 1} / ${pages.length} 页',
-                            style: TextStyle(fontSize: 12, color: scheme[1]),
+                          // On a 320dp screen three 48dp IconButtons plus 32dp
+                          // padding leave just 144dp for both labels, which
+                          // overflows once 1.5x font scaling is applied (the
+                          // system scale multiplies on top of the sizes below,
+                          // e.g. 12 -> 18px). Flexible lets each label yield
+                          // and FittedBox scales it down instead of painting
+                          // outside the row; maxLines/ellipsis stay as a
+                          // fallback. Button touch targets are untouched.
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                '${page + 1} / ${pages.length} 页',
+                                maxLines: 1,
+                                softWrap: false,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: scheme[1],
+                                ),
+                              ),
+                            ),
                           ),
                           IconButton(
                             tooltip: '下一页',
@@ -1385,9 +1425,20 @@ class _ReaderScreenState extends State<ReaderScreen>
                             icon: const ShuyeIcon(Icons.chevron_right),
                           ),
                           const Spacer(),
-                          Text(
-                            '${(book.progress * 100).round()}%',
-                            style: TextStyle(fontSize: 11, color: scheme[1]),
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                '${(book.progress * 100).round()}%',
+                                maxLines: 1,
+                                softWrap: false,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: scheme[1],
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                       ),
