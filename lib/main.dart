@@ -472,8 +472,11 @@ class _LibraryHomeState extends State<LibraryHome> {
     }
   });
   Future<void> openBook(Book book, [Note? note]) async {
-    // Guard the whole async span: decoding a large book can take long enough
-    // for a second tap to push a second reader that records the same time.
+    // Guard only the async span up to the moment navigation starts: decoding a
+    // large book can take long enough for a second tap to push a second reader,
+    // and two stacked readers each record the same reading time. The flag is
+    // released as soon as the route is on its way, so a widget deep link can
+    // still open a book while a reader is on screen.
     if (_opening) return;
     _opening = true;
     try {
@@ -483,7 +486,7 @@ class _LibraryHomeState extends State<LibraryHome> {
         book.chapter = note.chapter;
         book.offset = note.offset;
       }
-      await Navigator.of(context).push(
+      final navigated = Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => book.format == 'PDF'
               ? DocumentReader(book: book, repo: repo, settings: settings)
@@ -492,6 +495,8 @@ class _LibraryHomeState extends State<LibraryHome> {
               : ReaderScreen(book: book, repository: repo, settings: settings),
         ),
       );
+      _opening = false;
+      await navigated;
       await reload();
     } finally {
       _opening = false;
