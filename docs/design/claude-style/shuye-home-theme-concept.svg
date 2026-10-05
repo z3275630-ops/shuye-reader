@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" role="img" aria-label="书叶首页主题概念">
+  <rect width="1080" height="1920" fill="#FAF9F5"/>
+  <g font-family="Noto Serif SC, Songti SC, serif" fill="#141413">
+    <text x="86" y="135" font-size="58">◒</text>
+    <text x="155" y="132" font-size="56">书叶</text>
+    <text x="878" y="130" font-size="48">▦</text>
+    <text x="958" y="130" font-size="62">＋</text>
+  </g>
+  <rect x="50" y="190" width="980" height="470" rx="46" fill="#D97757"/>
+  <circle cx="845" cy="315" r="120" fill="#9BAA86"/>
+  <g fill="#FAF9F5" stroke="#141413" stroke-width="15" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M390 540 C495 470 612 474 720 516 C742 525 756 540 762 556 C770 540 785 525 807 516 C884 486 946 488 1003 520 C936 514 875 524 812 548 C791 556 774 567 762 582 C749 567 733 556 711 548 C607 509 498 505 390 540 Z"/>
+    <path d="M762 553 C740 484 711 432 662 388 C704 365 751 380 777 420 C805 366 849 310 934 271 C947 330 929 386 890 423 C845 466 801 504 762 553 Z"/>
+  </g>
+  <g fill="none" stroke="#141413" stroke-width="12" stroke-linecap="round">
+    <path d="M388 404 C454 375 505 333 562 323 C611 315 645 334 673 363"/>
+    <path d="M762 552 C789 468 825 386 907 291"/>
+    <path d="M413 543 C514 519 611 527 710 561"/>
+    <path d="M990 542 C917 519 854 526 812 561"/>
+  </g>
+  <g font-family="Noto Serif SC, Songti SC, serif" fill="#FAF9F5">
+    <text x="88" y="308" font-size="72">给自己，</text>
+    <text x="88" y="395" font-size="72">一页安静。</text>
+    <text x="88" y="486" font-size="30" opacity=".9">在书页里，与更好的自己相遇。</text>
+  </g>
+
+  <rect x="50" y="700" width="980" height="380" rx="38" fill="#F3F0E8" stroke="#D6D1C5"/>
+  <text x="82" y="770" font-family="Noto Serif SC, Songti SC, serif" font-size="46" fill="#141413">继续阅读</text>
+  <text x="875" y="770" font-family="Noto Serif SC, Songti SC, serif" font-size="28" fill="#626057">查看全部 ›</text>
+  <rect x="86" y="820" width="180" height="215" rx="20" fill="#E3DACC"/>
+  <path d="M120 991 C154 944 200 910 242 883" fill="none" stroke="#8A9A6A" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="174" cy="930" r="21" fill="#D97757"/>
+  <text x="300" y="875" font-family="Noto Serif SC, Songti SC, serif" font-size="42" fill="#141413">书叶使用手记</text>
+  <text x="300" y="925" font-family="Noto Serif SC, Songti SC, serif" font-size="27" fill="#626057">一本书，一段属于自己的时间。</text>
+  <text x="300" y="967" font-family="Noto Serif SC, Songti SC, serif" font-size="27" fill="#626057">在阅读中，收集生活的细小光芒。</text>
+  <rect x="300" y="1005" width="440" height="12" rx="6" fill="#E5E0D5"/>
+  <rect x="300" y="1005" width="160" height="12" rx="6" fill="#D97757"/>
+  <text x="762" y="1018" font-family="serif" font-size="26" fill="#626057">36%</text>
+
+  <rect x="50" y="1120" width="980" height="480" rx="38" fill="#F3F0E8" stroke="#D6D1C5"/>
+  <text x="82" y="1192" font-family="Noto Serif SC, Songti SC, serif" font-size="46" fill="#141413">今日目标</text>
+  <circle cx="242" cy="1372" r="112" fill="none" stroke="#E2DED4" stroke-width="20"/>
+  <circle cx="242" cy="1260" r="12" fill="#D97757"/>
+  <text x="242" y="1395" text-anchor="middle" font-family="serif" font-size="88" fill="#141413">0</text>
+  <text x="242" y="1443" text-anchor="middle" font-family="Noto Serif SC, Songti SC, serif" font-size="25" fill="#626057">/ 20 分钟</text>
+  <text x="450" y="1318" font-family="Noto Serif SC, Songti SC, serif" font-size="31" fill="#41413D">哪怕只读几页，</text>
+  <text x="450" y="1367" font-family="Noto Serif SC, Songti SC, serif" font-size="31" fill="#41413D">也是在靠近更好的自己。</text>
+  <path d="M420 1552 C550 1458 685 1460 820 1518 C900 1480 960 1481 1030 1510 L1030 1600 L420 1600 Z" fill="#9BAA86" opacity=".9"/>
+  <circle cx="880" cy="1478" r="48" fill="#D97757" opacity=".78"/>
+  <path d="M655 1595 C719 1551 777 1542 845 1548" fill="none" stroke="#FAF9F5" stroke-width="18" stroke-linecap="round"/>
+
+  <rect x="20" y="1680" width="1040" height="190" rx="58" fill="#F6F3EB" stroke="#DDD7CA"/>
+  <g font-family="Noto Serif SC, Songti SC, serif" font-size="25" text-anchor="middle">
+    <rect x="40" y="1700" width="160" height="90" rx="40" fill="#F0DFD3"/>
+    <text x="120" y="1760" font-size="46" fill="#8C3E2A">⌂</text><text x="120" y="1825" fill="#A44D35">首页</text>
+    <text x="330" y="1760" font-size="46" fill="#5A5952">▭</text><text x="330" y="1825" fill="#5A5952">书架</text>
+    <text x="540" y="1760" font-size="46" fill="#5A5952">⌑</text><text x="540" y="1825" fill="#5A5952">笔记</text>
+    <text x="750" y="1760" font-size="46" fill="#5A5952">▥</text><text x="750" y="1825" fill="#5A5952">统计</text>
+    <text x="960" y="1760" font-size="46" fill="#5A5952">☷</text><text x="960" y="1825" fill="#5A5952">设置</text>
+  </g>
+</svg>
