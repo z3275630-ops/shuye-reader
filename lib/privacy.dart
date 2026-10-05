@@ -97,7 +97,7 @@ class _PrivacyGateState extends State<PrivacyGate> with WidgetsBindingObserver {
       if (locked)
         Positioned.fill(
           child: Material(
-            color: const Color(0xfff7f6f1),
+            color: const Color(0xfffaf9f5),
             child: Center(
               child: Padding(
                 padding: const EdgeInsets.all(28),
@@ -107,7 +107,7 @@ class _PrivacyGateState extends State<PrivacyGate> with WidgetsBindingObserver {
                     const ShuyeIcon(
                       Icons.lock_outline,
                       size: 56,
-                      color: Color(0xff58735f),
+                      color: Color(0xffd97757),
                     ),
                     const SizedBox(height: 20),
                     const Text('你的阅读，留给自己', style: TextStyle(fontSize: 22)),

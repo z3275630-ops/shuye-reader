@@ -28,9 +28,9 @@ import 'statistics_period.dart';
 import 'reading_heatmap.dart';
 import 'library_collections.dart';
 
-const ink = Color(0xff263b32);
-const sage = Color(0xff58735f);
-const paper = Color(0xfff7f6f1);
+const ink = Color(0xff141413);
+const sage = Color(0xffd97757);
+const paper = Color(0xfffaf9f5);
 
 List<Map<String, dynamic>> decodeArchive(Uint8List bytes) => [
   for (final f in checkedZip(bytes))

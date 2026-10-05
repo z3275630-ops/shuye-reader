@@ -183,22 +183,22 @@ class _ReadingHeatmapState extends State<ReadingHeatmap> {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final palette = dark
         ? const [
-            Color(0xff303c36),
-            Color(0xff3b5745),
-            Color(0xff4f7758),
-            Color(0xff659364),
-            Color(0xff82b476),
-            Color(0xffa2ce8e),
-            Color(0xffc5e7ab),
+            Color(0xff262626),
+            Color(0xff4a2c1e),
+            Color(0xff6b3a26),
+            Color(0xff8c4a33),
+            Color(0xffb35a3c),
+            Color(0xffd97757),
+            Color(0xffe8977d),
           ]
         : const [
-            Color(0xffeaf0e9),
-            Color(0xffd2e5bc),
-            Color(0xffafcf8f),
-            Color(0xff80ac65),
-            Color(0xff598946),
-            Color(0xff396a35),
-            Color(0xff214b29),
+            Color(0xfff0efe9),
+            Color(0xfff5e3db),
+            Color(0xffefc9b8),
+            Color(0xffe5a98f),
+            Color(0xffd97757),
+            Color(0xffc05f3f),
+            Color(0xff9c4a2e),
           ];
     final data = ReadingHeatmapData.forSpan(
       span,

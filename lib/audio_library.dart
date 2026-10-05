@@ -259,7 +259,7 @@ class _AudioScreenState extends State<AudioScreen> with WidgetsBindingObserver {
         const ShuyeIcon(
           Icons.headphones_outlined,
           size: 72,
-          color: Color(0xff58735f),
+          color: Color(0xffd97757),
         ),
         const SizedBox(height: 20),
         Text(

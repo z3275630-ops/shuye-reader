@@ -18,10 +18,10 @@ import 'typography.dart';
 import 'reader_gestures.dart';
 
 const readerSchemes = {
-  'paper': [Color(0xfff4eddf), Color(0xff3f392e)],
-  'white': [Color(0xfffafafa), Color(0xff303330)],
-  'sage': [Color(0xffe4ebdf), Color(0xff344333)],
-  'night': [Color(0xff202521), Color(0xffbcc4b7)],
+  'paper': [Color(0xfffaf9f5), Color(0xff141413)],
+  'white': [Color(0xffffffff), Color(0xff141413)],
+  'sage': [Color(0xffe9eeea), Color(0xff141413)],
+  'night': [Color(0xff0b0b0b), Color(0xfff5f4ee)],
 };
 const readerNames = {'paper': '暖纸', 'white': '纸白', 'sage': '青竹', 'night': '夜读'};
 

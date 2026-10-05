@@ -72,7 +72,7 @@ class _GraphPainter extends CustomPainter {
     Canvas canvas,
     String value,
     Offset center, {
-    Color color = const Color(0xff263b32),
+    Color color = const Color(0xff141413),
     double width = 100,
   }) {
     final painter = TextPainter(
@@ -118,7 +118,7 @@ class _GraphPainter extends CustomPainter {
           Rect.fromCenter(center: mid, width: 100, height: 42),
           const Radius.circular(8),
         ),
-        Paint()..color = const Color(0xfff7f6f1),
+        Paint()..color = const Color(0xfffaf9f5),
       );
       text(canvas, link.$3, mid, width: 96);
     }
@@ -128,7 +128,7 @@ class _GraphPainter extends CustomPainter {
           Rect.fromCenter(center: e.value, width: 108, height: 48),
           const Radius.circular(12),
         ),
-        Paint()..color = const Color(0xffe4ebdf),
+        Paint()..color = const Color(0xffe3e1d8),
       );
       text(canvas, e.key, e.value);
     }

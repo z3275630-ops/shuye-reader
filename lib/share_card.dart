@@ -24,8 +24,8 @@ class QuoteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = template == 'night';
-    final fg = dark ? const Color(0xffe1dbcb) : const Color(0xff263b32);
-    final accent = dark ? const Color(0xffbfcaa9) : const Color(0xff58735f);
+    final fg = dark ? const Color(0xfff5f4ee) : const Color(0xff141413);
+    final accent = const Color(0xffd97757);
     final now = date ?? DateTime.now();
     final text = String.fromCharCodes(quote.runes.take(800));
     return Container(
@@ -33,10 +33,10 @@ class QuoteCard extends StatelessWidget {
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
         color: dark
-            ? const Color(0xff1b2420)
+            ? const Color(0xff0b0b0b)
             : template == 'minimal'
             ? Colors.white
-            : const Color(0xfff4eddf),
+            : const Color(0xfffaf9f5),
         image: template == 'paper'
             ? DecorationImage(
                 image: AssetImage(
@@ -51,7 +51,7 @@ class QuoteCard extends StatelessWidget {
               )
             : null,
         border: template == 'minimal'
-            ? Border.all(color: const Color(0xffdeded5))
+            ? Border.all(color: const Color(0xffc2c0b6))
             : null,
       ),
       child: Column(

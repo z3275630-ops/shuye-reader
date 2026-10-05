@@ -100,7 +100,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester.widget<SelectableText>(find.byType(SelectableText)).style!.color,
-        const Color(0xffbcc4b7),
+        const Color(0xfff5f4ee),
       );
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();

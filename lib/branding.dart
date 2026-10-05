@@ -24,7 +24,7 @@ class ShuyeCover extends StatelessWidget {
   const ShuyeCover({super.key});
   @override
   Widget build(BuildContext context) => ClipRRect(
-    borderRadius: BorderRadius.circular(18),
+    borderRadius: BorderRadius.circular(16),
     child: AspectRatio(
       aspectRatio: 2.6,
       child: Image.asset(
