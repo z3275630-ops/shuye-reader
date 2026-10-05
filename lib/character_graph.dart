@@ -41,7 +41,11 @@ class CharacterGraph extends StatelessWidget {
                     maxScale: 3,
                     child: CustomPaint(
                       size: const Size(900, 900),
-                      painter: _GraphPainter(names.take(30).toList(), links),
+                      painter: _GraphPainter(
+                        names.take(30).toList(),
+                        links,
+                        Theme.of(context).colorScheme,
+                      ),
                     ),
                   ),
                 ),
@@ -67,18 +71,13 @@ class CharacterGraph extends StatelessWidget {
 class _GraphPainter extends CustomPainter {
   final List<String> names;
   final List<(String, String, String)> links;
-  _GraphPainter(this.names, this.links);
-  void text(
-    Canvas canvas,
-    String value,
-    Offset center, {
-    Color color = const Color(0xff263b32),
-    double width = 100,
-  }) {
+  final ColorScheme colors;
+  _GraphPainter(this.names, this.links, this.colors);
+  void text(Canvas canvas, String value, Offset center, {double width = 100}) {
     final painter = TextPainter(
       text: TextSpan(
         text: value,
-        style: TextStyle(color: color, fontSize: 14),
+        style: TextStyle(color: colors.onSurface, fontSize: 14),
       ),
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
@@ -101,7 +100,7 @@ class _GraphPainter extends CustomPainter {
           center + Offset(math.cos(angle), math.sin(angle)) * 340;
     }
     final line = Paint()
-      ..color = const Color(0xff9aad9b)
+      ..color = colors.outline
       ..strokeWidth = 1.5;
     for (final link in links) {
       final from = points[link.$1], to = points[link.$2];
@@ -118,7 +117,7 @@ class _GraphPainter extends CustomPainter {
           Rect.fromCenter(center: mid, width: 100, height: 42),
           const Radius.circular(8),
         ),
-        Paint()..color = const Color(0xfff7f6f1),
+        Paint()..color = colors.surface,
       );
       text(canvas, link.$3, mid, width: 96);
     }
@@ -128,7 +127,7 @@ class _GraphPainter extends CustomPainter {
           Rect.fromCenter(center: e.value, width: 108, height: 48),
           const Radius.circular(12),
         ),
-        Paint()..color = const Color(0xffe4ebdf),
+        Paint()..color = colors.secondaryContainer,
       );
       text(canvas, e.key, e.value);
     }

@@ -1,4 +1,5 @@
 import 'app_icons.dart';
+import 'appearance.dart';
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -54,6 +55,7 @@ Future<void> showReaderSettings(
 }) async {
   await showModalBottomSheet<void>(
     context: context,
+    sheetAnimationStyle: applicationMotion(context),
     isScrollControlled: true,
     showDragHandle: true,
     builder: (ctx) => StatefulBuilder(
@@ -71,9 +73,9 @@ Future<void> showReaderSettings(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     '让文字，刚刚好。',
-                    style: TextStyle(fontSize: 22, fontFamily: 'serif'),
+                    style: Theme.of(ctx).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 22),
                   Container(
@@ -98,16 +100,18 @@ Future<void> showReaderSettings(
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text('字号  ${s.fontSize.round()}'),
-                  Slider(
+                  SettingSlider(
+                    title: '字号',
+                    displayValue: '${s.fontSize.round()}',
                     value: s.fontSize,
                     min: 14,
                     max: 32,
                     divisions: 18,
                     onChanged: (v) => change(() => s.fontSize = v),
                   ),
-                  Text('行距  ${s.lineHeight.toStringAsFixed(2)}'),
-                  Slider(
+                  SettingSlider(
+                    title: '行距',
+                    displayValue: s.lineHeight.toStringAsFixed(2),
                     value: s.lineHeight,
                     min: 1.3,
                     max: 2.4,
@@ -147,9 +151,12 @@ Future<void> showReaderSettings(
                     value: s.cjkSpacing,
                     onChanged: (v) => change(() => s.cjkSpacing = v),
                   ),
-                  const Text(
+                  Text(
                     '中文字体由设备提供，实际字形以手机为准。',
-                    style: TextStyle(fontSize: 11, color: Colors.black54),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   ListTile(
                     leading: const ShuyeIcon(Icons.tune),

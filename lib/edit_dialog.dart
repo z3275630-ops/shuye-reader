@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_icons.dart';
+import 'appearance.dart';
 import 'form_field.dart';
 
 Future<Map<String, String>?> editFields(
@@ -15,6 +16,7 @@ Future<Map<String, String>?> editFields(
   bool autofocus = false,
 }) => showDialog<Map<String, String>>(
   context: context,
+  animationStyle: applicationMotion(context),
   builder: (_) => _EditDialog(
     title: title,
     fields: fields,

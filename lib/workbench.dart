@@ -1,3 +1,4 @@
+import 'appearance.dart';
 import 'edit_dialog.dart';
 
 export 'edit_dialog.dart';
@@ -491,6 +492,7 @@ Future<void> showAiAssistant(
   bool busy = false;
   await showModalBottomSheet<void>(
     context: ctx,
+    sheetAnimationStyle: applicationMotion(ctx),
     isScrollControlled: true,
     showDragHandle: true,
     builder: (c) => StatefulBuilder(
@@ -503,94 +505,144 @@ Future<void> showAiAssistant(
             MediaQuery.viewInsetsOf(c).bottom + 20,
           ),
           child: SizedBox(
-            height: MediaQuery.sizeOf(c).height * .75,
+            height:
+                (MediaQuery.sizeOf(c).height -
+                        MediaQuery.viewInsetsOf(c).bottom -
+                        48)
+                    .clamp(180, MediaQuery.sizeOf(c).height * .82),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('阅读助手', style: Theme.of(c).textTheme.headlineSmall),
                 const SizedBox(height: 8),
-                Text(
-                  excerpt != null
-                      ? '仅发送所选摘录'
-                      : book != null
-                      ? '仅发送当前章节（最多 3 万字符）'
-                      : '仅发送书名、作者和阅读进度',
-                  style: const TextStyle(fontSize: 12),
-                ),
+                if (MediaQuery.viewInsetsOf(c).bottom == 0)
+                  Text(
+                    excerpt != null
+                        ? '仅发送所选摘录'
+                        : book != null
+                        ? '仅发送当前章节（最多 3 万字符）'
+                        : '仅发送书名、作者和阅读进度',
+                    style: const TextStyle(fontSize: 12),
+                  ),
                 const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    for (final q in ['解释文字', '总结重点', '解释生词', '制定阅读计划'])
-                      ActionChip(
-                        label: Text(q),
-                        onPressed: () => prompt.text = q,
-                      ),
-                    for (final custom in prompts.take(12))
-                      ActionChip(
-                        label: Text(custom['名称'] as String? ?? '自定义'),
-                        onPressed: () =>
-                            prompt.text = custom['提示词'] as String? ?? '',
-                      ),
-                  ],
-                ),
-                TextField(
-                  controller: prompt,
-                  maxLines: 3,
-                  decoration: const InputDecoration(hintText: '你想了解什么？'),
-                ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: busy
-                      ? null
-                      : () async {
-                          set(() => busy = true);
-                          try {
-                            final context =
-                                excerpt ??
-                                (book != null
-                                    ? book.chapters[book.chapter].text
-                                    : (await repo.books(summaries: true))
-                                          .map(
-                                            (b) =>
-                                                '${b.title} / ${b.author} / ${(b.progress * 100).round()}%',
-                                          )
-                                          .join('\n'));
-                            final answer = await AiClient().answer(
-                              endpoint: s.value(
-                                'ai.endpoint',
-                                'https://api.openai.com/v1',
-                              ),
-                              key: await Secrets().read('ai.key'),
-                              model: s.value('ai.model', ''),
-                              prompt: prompt.text,
-                              context: context,
-                              system: s.value(
-                                'ai.systemPrompt',
-                                '你是阅读助手，引用原文并注明位置，不编造事实。',
-                              ),
-                            );
-                            await repo.putEntry('aiChats', {
-                              'question': prompt.text,
-                              'answer': answer,
-                            }, bookId: book?.id);
-                            if (c.mounted) set(() => result = answer);
-                          } catch (e) {
-                            if (c.mounted) set(() => result = '请求未完成：$e');
-                          } finally {
-                            if (c.mounted) set(() => busy = false);
-                          }
-                        },
-                  icon: const ShuyeIcon(Icons.auto_awesome),
-                  label: Text(busy ? '正在思考…' : '发送'),
-                ),
+                if (MediaQuery.viewInsetsOf(c).bottom == 0)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (final q in ['解释文字', '总结重点', '解释生词', '制定阅读计划'])
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ActionChip(
+                              label: Text(q),
+                              onPressed: () => prompt.text = q,
+                            ),
+                          ),
+                        for (final custom in prompts.take(12))
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ActionChip(
+                              label: Text(custom['名称'] as String? ?? '自定义'),
+                              onPressed: () =>
+                                  prompt.text = custom['提示词'] as String? ?? '',
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 Expanded(
                   child: SingleChildScrollView(
                     child: Padding(
                       padding: const EdgeInsets.only(top: 16),
                       child: SelectableText(
                         result.isEmpty ? '配置自己的 AI 服务后即可使用。输出请结合原文核对。' : result,
+                        style: Theme.of(c).textTheme.bodyLarge?.copyWith(
+                          fontFamily: result.isEmpty ? null : 'serif',
+                          height: 1.5,
+                        ),
                       ),
+                    ),
+                  ),
+                ),
+                Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(
+                      color: Theme.of(c).colorScheme.outlineVariant,
+                      width: .7,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextField(
+                          controller: prompt,
+                          maxLines: 3,
+                          style: Theme.of(c).textTheme.bodyLarge,
+                          decoration: const InputDecoration(
+                            hintText: '你想了解什么？',
+                            filled: false,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: FilledButton.icon(
+                            onPressed: busy
+                                ? null
+                                : () async {
+                                    set(() => busy = true);
+                                    try {
+                                      final context =
+                                          excerpt ??
+                                          (book != null
+                                              ? book.chapters[book.chapter].text
+                                              : (await repo.books(
+                                                      summaries: true,
+                                                    ))
+                                                    .map(
+                                                      (b) =>
+                                                          '${b.title} / ${b.author} / ${(b.progress * 100).round()}%',
+                                                    )
+                                                    .join('\n'));
+                                      final answer = await AiClient().answer(
+                                        endpoint: s.value(
+                                          'ai.endpoint',
+                                          'https://api.openai.com/v1',
+                                        ),
+                                        key: await Secrets().read('ai.key'),
+                                        model: s.value('ai.model', ''),
+                                        prompt: prompt.text,
+                                        context: context,
+                                        system: s.value(
+                                          'ai.systemPrompt',
+                                          '你是阅读助手，引用原文并注明位置，不编造事实。',
+                                        ),
+                                      );
+                                      await repo.putEntry('aiChats', {
+                                        'question': prompt.text,
+                                        'answer': answer,
+                                      }, bookId: book?.id);
+                                      if (c.mounted) set(() => result = answer);
+                                    } catch (e) {
+                                      if (c.mounted) {
+                                        set(() => result = '请求未完成：$e');
+                                      }
+                                    } finally {
+                                      if (c.mounted) set(() => busy = false);
+                                    }
+                                  },
+                            icon: const ShuyeIcon(Icons.arrow_upward),
+                            label: Text(busy ? '正在思考…' : '发送'),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

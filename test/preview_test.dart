@@ -88,6 +88,16 @@ void main() {
     await tester.tap(find.text('书架'));
     await tester.pumpAndSettle();
     await capture('bookshelf');
+    await tester.tap(find.byTooltip('书架选项'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('书架装修'));
+    await tester.pumpAndSettle();
+    await capture('shelf-preview');
+    Navigator.of(tester.element(find.text('布置你的书架'))).pop();
+    await tester.runAsync(
+      () async => Future<void>.delayed(const Duration(milliseconds: 150)),
+    );
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('山间来信').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('山间来信').last);

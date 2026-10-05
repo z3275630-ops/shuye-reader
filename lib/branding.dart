@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-const shuyeVersion = '0.3.6';
+import 'appearance.dart';
+
+const shuyeVersion = '0.3.7';
 const shuyeCoverAsset = 'assets/art/shuye-cover.webp';
 const shuyeMarkAsset = 'assets/art/shuye-mark.webp';
 
@@ -26,7 +28,7 @@ class ShuyeCover extends StatelessWidget {
   Widget build(BuildContext context) => ClipRRect(
     borderRadius: BorderRadius.circular(18),
     child: AspectRatio(
-      aspectRatio: 2.6,
+      aspectRatio: 3.2,
       child: Image.asset(
         shuyeCoverAsset,
         fit: BoxFit.cover,
@@ -41,7 +43,6 @@ class ShuyeIdentityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
     clipBehavior: Clip.antiAlias,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -82,6 +83,7 @@ class ShuyeIdentityCard extends StatelessWidget {
 
 void showShuyeAbout(BuildContext context) => showDialog<void>(
   context: context,
+  animationStyle: applicationMotion(context),
   builder: (dialogContext) => AlertDialog(
     scrollable: true,
     title: Row(

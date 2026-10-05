@@ -3,6 +3,7 @@ import 'app_icons.dart';
 import 'package:flutter/material.dart';
 
 import 'models.dart';
+import 'appearance.dart';
 import 'branding.dart';
 
 const homeSections = {
@@ -68,7 +69,7 @@ class HomeDashboard extends StatelessWidget {
           );
     Widget panel(String title, Widget content, {Widget? action}) => Card(
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -322,6 +323,7 @@ Future<void> configureHome(
   String? error;
   await showModalBottomSheet<void>(
     context: context,
+    sheetAnimationStyle: applicationMotion(context),
     isScrollControlled: true,
     showDragHandle: true,
     builder: (c) => StatefulBuilder(

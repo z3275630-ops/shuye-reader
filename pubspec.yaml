@@ -1,7 +1,7 @@
 name: shuye_reader
 description: "书叶：安静、私有、本地优先的 Android 阅读器。"
 publish_to: 'none'
-version: 0.3.6+9
+version: 0.3.7+10
 
 environment:
   sdk: ^3.13.2

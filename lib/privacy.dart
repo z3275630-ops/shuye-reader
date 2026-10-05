@@ -97,20 +97,23 @@ class _PrivacyGateState extends State<PrivacyGate> with WidgetsBindingObserver {
       if (locked)
         Positioned.fill(
           child: Material(
-            color: const Color(0xfff7f6f1),
+            color: Theme.of(context).colorScheme.surface,
             child: Center(
               child: Padding(
                 padding: const EdgeInsets.all(28),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const ShuyeIcon(
+                    ShuyeIcon(
                       Icons.lock_outline,
                       size: 56,
-                      color: Color(0xff58735f),
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                     const SizedBox(height: 20),
-                    const Text('你的阅读，留给自己', style: TextStyle(fontSize: 22)),
+                    Text(
+                      '你的阅读，留给自己',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
                     const SizedBox(height: 20),
                     if (error != null) Text(error!),
                     FilledButton(

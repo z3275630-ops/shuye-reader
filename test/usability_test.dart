@@ -208,8 +208,11 @@ void main() {
       );
       await tester.tap(find.text('控制'));
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(find.text('自定义纸色与文字颜色'), 400);
-      await tester.tap(find.text('自定义纸色与文字颜色'));
+      final colorsEntry = find.text('自定义纸色与文字颜色');
+      await tester.scrollUntilVisible(colorsEntry.hitTestable(), 240);
+      await tester.pumpAndSettle();
+      expect(colorsEntry.hitTestable(), findsOneWidget);
+      await tester.tap(colorsEntry.hitTestable());
       await tester.pumpAndSettle();
       final fields = find.byType(TextFormField);
       await tester.enterText(fields.first, 'invalid');

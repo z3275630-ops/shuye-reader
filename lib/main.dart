@@ -29,8 +29,6 @@ import 'reading_heatmap.dart';
 import 'library_collections.dart';
 
 const ink = Color(0xff263b32);
-const sage = Color(0xff58735f);
-const paper = Color(0xfff7f6f1);
 
 List<Map<String, dynamic>> decodeArchive(Uint8List bytes) => [
   for (final f in checkedZip(bytes))
@@ -251,13 +249,10 @@ class BookCover extends StatelessWidget {
       height: height,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: .18),
-            blurRadius: 14,
-            offset: const Offset(0, 7),
-          ),
-        ],
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant,
+          width: .5,
+        ),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
@@ -569,7 +564,13 @@ class _LibraryHomeState extends State<LibraryHome> {
   }
 
   Future<void> shelfSettings() async {
-    await configureShelf(context, settings, () => repo.saveSettings(settings));
+    await configureShelf(
+      context,
+      settings,
+      () => repo.saveSettings(settings),
+      books: books,
+      cover: (book) => BookCover(book),
+    );
     await reload();
   }
 
@@ -745,7 +746,10 @@ class _LibraryHomeState extends State<LibraryHome> {
           const SizedBox(width: 8),
           Text(
             ['书架', '我的摘录', '阅读足迹', '设置', '书叶'][tab],
-            style: TextStyle(letterSpacing: 2, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              letterSpacing: 0,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
@@ -953,12 +957,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                   ),
                 Text(
                   '给自己，一页安静。',
-                  style: TextStyle(
-                    fontSize: 27,
-                    fontFamily: 'serif',
-                    color: Theme.of(context).colorScheme.onSurface,
-                    height: 1.5,
-                  ),
+                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -973,7 +972,9 @@ class _LibraryHomeState extends State<LibraryHome> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 22),
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(
+                        ShuyeStyle.cardRadius,
+                      ),
                       onTap: () => openBook(recent),
                       child: Container(
                         padding: const EdgeInsets.all(18),
@@ -981,7 +982,9 @@ class _LibraryHomeState extends State<LibraryHome> {
                           color: Theme.of(context)
                               .colorScheme
                               .surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(18),
+                          borderRadius: BorderRadius.circular(
+                            ShuyeStyle.cardRadius,
+                          ),
                         ),
                         child: Row(
                           children: [
@@ -1036,8 +1039,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                   onChanged: (v) => setState(() => query = v),
                   decoration: const InputDecoration(
                     hintText: '找一本书，或一位作者',
-                    prefixIcon: ShuyeIcon(Icons.search, size: 21),
-                    contentPadding: EdgeInsets.symmetric(vertical: 12),
+                    prefixIcon: ShuyeIcon(Icons.search),
                   ),
                 ),
                 const SizedBox(height: 16),

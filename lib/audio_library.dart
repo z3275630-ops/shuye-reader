@@ -256,10 +256,10 @@ class _AudioScreenState extends State<AudioScreen> with WidgetsBindingObserver {
       padding: const EdgeInsets.all(24),
       children: [
         if (busy) const LinearProgressIndicator(),
-        const ShuyeIcon(
+        ShuyeIcon(
           Icons.headphones_outlined,
           size: 72,
-          color: Color(0xff58735f),
+          color: Theme.of(context).colorScheme.primary,
         ),
         const SizedBox(height: 20),
         Text(
