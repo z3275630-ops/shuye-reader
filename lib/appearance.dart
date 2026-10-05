@@ -1,13 +1,26 @@
 import 'package:flutter/material.dart';
 
 import 'models.dart';
+import 'theme_mist.dart';
+
+/// 可选的界面配色。`claude` 是原本的暖白纸面，`mist` 是新增的冷调海雾。
+/// 正文阅读纸色是独立设置，不随这里切换。
+const appThemes = <String, String>{'claude': '暖白', 'mist': '海雾'};
+
+String appThemeId(String id) => appThemes.containsKey(id) ? id : 'claude';
 
 class AppAppearance {
   final String mode;
+  final String theme;
   final double scale;
-  const AppAppearance({this.mode = 'system', this.scale = 1});
+  const AppAppearance({
+    this.mode = 'system',
+    this.theme = 'claude',
+    this.scale = 1,
+  });
   factory AppAppearance.fromSettings(ReaderSettings s) => AppAppearance(
     mode: s.value('app.themeMode', 'system'),
+    theme: appThemeId(s.value('app.theme', 'claude')),
     scale: s.number('app.textScale', 1).clamp(.85, 1.5),
   );
   ThemeMode get themeMode => switch (mode) {
@@ -17,9 +30,12 @@ class AppAppearance {
   };
   @override
   bool operator ==(Object other) =>
-      other is AppAppearance && other.mode == mode && other.scale == scale;
+      other is AppAppearance &&
+      other.mode == mode &&
+      other.theme == theme &&
+      other.scale == scale;
   @override
-  int get hashCode => Object.hash(mode, scale);
+  int get hashCode => Object.hash(mode, theme, scale);
 }
 
 final appAppearance = ValueNotifier(const AppAppearance());
@@ -46,13 +62,26 @@ AnimationStyle applicationMotion(BuildContext context) =>
         reverseDuration: Duration(milliseconds: 150),
       );
 
-final _themes = <Brightness, ThemeData>{};
-ThemeData applicationTheme(Brightness brightness) =>
-    _themes.putIfAbsent(brightness, () => _buildApplicationTheme(brightness));
+final _themes = <String, ThemeData>{};
 
-ThemeData _buildApplicationTheme(Brightness brightness) {
+/// 按配色与明暗分别缓存，切换主题时不必重建整套控件样式。
+/// 配色取自 [appAppearance]，调用点（`MaterialApp`）已经监听它，
+/// 因此用户改配色后重建会自然拿到新的 ThemeData。
+ThemeData applicationTheme(Brightness brightness) {
+  final id = appThemeId(appAppearance.value.theme);
+  return _themes.putIfAbsent(
+    '$id:${brightness.name}',
+    () => _buildApplicationTheme(
+      brightness,
+      id == 'mist' ? mistColorScheme(brightness) : null,
+    ),
+  );
+}
+
+ThemeData _buildApplicationTheme(Brightness brightness, [ColorScheme? scheme]) {
   final dark = brightness == Brightness.dark;
   final colors =
+      scheme ??
       ColorScheme.fromSeed(
         seedColor: ShuyeStyle.clay,
         brightness: brightness,
@@ -94,9 +123,13 @@ ThemeData _buildApplicationTheme(Brightness brightness) {
             ? const Color(0xffc2c0b6)
             : const Color(0xff626057),
         outline: dark ? const Color(0xff929088) : const Color(0xff87857d),
+        // Light hairlines sit on a much brighter canvas than the dark ones, so
+        // #d6d4cb only reached 1.41:1 there while the dark value reaches 2.03:1
+        // against #1f1f1e. The documented strategy layers with 0.5-0.7dp lines
+        // instead of shadows, so give the light side a comparable weight.
         outlineVariant: dark
             ? const Color(0xff50504a)
-            : const Color(0xffd6d4cb),
+            : const Color(0xffc5c2b6),
         inverseSurface: dark ? ShuyeStyle.canvas : const Color(0xff30302e),
         onInverseSurface: dark ? const Color(0xff262624) : ShuyeStyle.canvas,
         surfaceTint: Colors.transparent,
@@ -555,6 +588,36 @@ Future<void> configureAppearance(
                 ),
               ),
               const SizedBox(height: 20),
+              Text('界面配色', style: Theme.of(c).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final option in appThemes.entries)
+                    ChoiceChip(
+                      label: Text(option.value),
+                      selected:
+                          appThemeId(settings.value('app.theme', 'claude')) ==
+                          option.key,
+                      onSelected: (_) async {
+                        settings.extra['app.theme'] = option.key;
+                        appAppearance.value = AppAppearance.fromSettings(
+                          settings,
+                        );
+                        set(() {});
+                        try {
+                          await save();
+                        } catch (_) {
+                          if (c.mounted) set(() => error = '保存失败，请重试。');
+                        }
+                      },
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text('明暗', style: Theme.of(c).textTheme.titleMedium),
+              const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
