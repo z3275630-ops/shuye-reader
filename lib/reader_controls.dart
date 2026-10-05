@@ -124,7 +124,8 @@ Future<void> advancedReaderSettings(
                 const SizedBox(height: 16),
                 menu('reader.animation', '翻页效果', {
                   'none': '即时',
-                  'slide': '淡入翻页',
+                  'slide': '平移翻页',
+                  'fade': '淡入翻页',
                   'curl': '纸张卷页',
                 }, 'slide'),
                 const SizedBox(height: 12),
