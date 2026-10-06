@@ -87,7 +87,7 @@ abstract final class ShuyeStyle {
   static const sheetRadius = 24.0;
   static const panelTitle = TextStyle(
     fontSize: 20,
-    fontWeight: FontWeight.w400,
+    fontWeight: FontWeight.w600,
     height: 1.3,
     letterSpacing: 0,
   );
@@ -101,6 +101,11 @@ AnimationStyle applicationMotion(BuildContext context) =>
         duration: Duration(milliseconds: 200),
         reverseDuration: Duration(milliseconds: 150),
       );
+
+TextAlign readerTextAlign(ReaderSettings? settings) =>
+    settings?.value('reader.alignment', 'justify') == 'left'
+    ? TextAlign.left
+    : TextAlign.justify;
 
 final _themes = <String, ThemeData>{};
 
@@ -229,12 +234,12 @@ ThemeData _buildApplicationTheme(
       ),
       titleLarge: text.titleLarge?.copyWith(
         fontSize: 20,
-        fontWeight: FontWeight.w400,
+        fontWeight: FontWeight.w600,
         letterSpacing: 0,
       ),
       titleMedium: text.titleMedium?.copyWith(
         fontSize: 16,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w600,
         letterSpacing: 0,
       ),
       bodyLarge: text.bodyLarge?.copyWith(
@@ -274,7 +279,7 @@ ThemeData _buildApplicationTheme(
         fontFamily: ShuyeStyle.fontFamily,
         color: colors.onSurface,
         fontSize: 18,
-        fontWeight: FontWeight.w400,
+        fontWeight: FontWeight.w600,
       ),
     ),
     cardTheme: CardThemeData(
@@ -300,7 +305,7 @@ ThemeData _buildApplicationTheme(
         (states) => TextStyle(
           fontFamily: ShuyeStyle.fontFamily,
           fontSize: 14,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
           color: states.contains(WidgetState.selected)
               ? colors.onSurface
               : colors.onSurface,
@@ -311,7 +316,7 @@ ThemeData _buildApplicationTheme(
           size: 23,
           color: states.contains(WidgetState.selected)
               ? colors.onSurface
-              : colors.onSurfaceVariant,
+              : colors.onSurface.withValues(alpha: .88),
         ),
       ),
     ),
@@ -328,7 +333,7 @@ ThemeData _buildApplicationTheme(
         fontFamily: ShuyeStyle.fontFamily,
         color: colors.onSurface,
         fontSize: 19,
-        fontWeight: FontWeight.w400,
+        fontWeight: FontWeight.w600,
       ),
       contentTextStyle: TextStyle(
         fontFamily: ShuyeStyle.fontFamily,
@@ -373,6 +378,7 @@ ThemeData _buildApplicationTheme(
         fontFamily: ShuyeStyle.fontFamily,
         color: colors.onSurface,
         fontSize: 15,
+        fontWeight: FontWeight.w600,
         height: 1.35,
       ),
       subtitleTextStyle: TextStyle(

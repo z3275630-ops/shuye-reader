@@ -77,7 +77,9 @@ void main() {
       await tester.tap(find.byTooltip('下一页'));
       await tester.pumpAndSettle();
       expect(find.textContaining('2 /'), findsWidgets);
-      await tester.tap(find.byTooltip('摘录与笔记'));
+      await tester.tap(find.byTooltip('阅读工具'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('摘录与笔记'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).last, '测试笔记');
       await tester.tap(find.text('保存'));
@@ -92,6 +94,7 @@ void main() {
         find.ancestor(of: find.text('夜读'), matching: find.byType(ChoiceChip)),
       );
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('开始阅读'));
       await tester.tap(find.text('开始阅读'));
       await tester.pumpAndSettle();
       await tester.runAsync(
@@ -109,7 +112,9 @@ void main() {
       await tester.tap(find.text('第二章 慢一点的日子'));
       await tester.pumpAndSettle();
       expect(find.text('第二章 慢一点的日子'), findsOneWidget);
-      await tester.tap(find.byTooltip('全文搜索'));
+      await tester.tap(find.byTooltip('阅读工具'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('全文搜索'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '邮局');
       await tester.testTextInput.receiveAction(TextInputAction.done);
@@ -151,11 +156,15 @@ void main() {
       await tester.tap(find.text('统计'));
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
-        find.text('开始阅读后，方格会逐渐亮起来。'),
+        find.text('本期最长连续'),
         100,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.text('开始阅读后，方格会逐渐亮起来。'), findsOneWidget);
+      expect(find.text('本期最长连续'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('reading-heatmap-month')),
+        findsOneWidget,
+      );
       await tester.tap(find.text('笔记'));
       await tester.pumpAndSettle();
       expect(find.text('把心动的句子留下来'), findsOneWidget);

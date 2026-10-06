@@ -227,268 +227,267 @@ class _ReadingHeatmapState extends State<ReadingHeatmap> {
     final canGoForward = span == HeatmapSpan.month
         ? !next.isAfter(DateTime(now.year, now.month))
         : next.year <= now.year;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+    return Column(
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ShuyeIcon(
-                  Icons.grid_view_rounded,
-                  size: 20,
-                  color: colors.primary,
-                ),
-                const SizedBox(width: 9),
-                Flexible(
-                  child: Text(
-                    '阅读热力图',
-                    style: Theme.of(context).textTheme.titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w400),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 5),
-            Center(
-              child: Text(
-                '让每一天的阅读，都留下颜色。',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Center(
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 8,
-                runSpacing: 6,
-                children: [
-                  for (final option in {
-                    HeatmapSpan.month: '本月',
-                    HeatmapSpan.halfYear: '半年',
-                    HeatmapSpan.year: '全年',
-                  }.entries)
-                    ChoiceChip(
-                      label: Text(option.value),
-                      selected: span == option.key,
-                      onSelected: (_) => change(option.key),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                if (span != HeatmapSpan.halfYear)
-                  IconButton(
-                    tooltip: span == HeatmapSpan.month ? '上一月' : '上一年',
-                    onPressed: canGoBack
-                        ? () => change(span, previous.year, previous.month)
-                        : null,
-                    icon: const ShuyeIcon(Icons.chevron_left),
-                  ),
-                Expanded(
-                  child: Text(
-                    range,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                if (span != HeatmapSpan.halfYear)
-                  IconButton(
-                    tooltip: span == HeatmapSpan.month ? '下一月' : '下一年',
-                    onPressed: canGoForward
-                        ? () => change(span, next.year, next.month)
-                        : null,
-                    icon: const ShuyeIcon(Icons.chevron_right),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            if (span == HeatmapSpan.month)
-              _monthChart(data, palette, labelScale, colors)
-            else
-              _weekChart(data, palette, labelScale, colors),
-            const SizedBox(height: 14),
-            Center(
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 4,
-                runSpacing: 6,
-                children: [
-                  Text(
-                    '少',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                  for (var i = 0; i < palette.length; i++)
-                    Tooltip(
-                      message: heatmapLevels[i],
-                      child: Container(
-                        width: 14,
-                        height: 14,
-                        decoration: BoxDecoration(
-                          color: palette[i],
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                    ),
-                  Text(
-                    '多',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: '颜色说明',
-                    visualDensity: VisualDensity.compact,
-                    icon: const ShuyeIcon(Icons.info_outline, size: 16),
-                    onPressed: () => showDialog<void>(
-                      context: context,
-                      builder: (c) => AlertDialog(
-                        title: const Text('颜色与阅读时长'),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            for (var i = 0; i < palette.length; i++)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 5,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 16,
-                                      height: 16,
-                                      decoration: BoxDecoration(
-                                        color: palette[i],
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(child: Text(heatmapLevels[i])),
-                                  ],
-                                ),
-                              ),
-                            const SizedBox(height: 10),
-                            const Text(
-                              '本月的浅淡格、全年的斜线空心格表示未来日期，不计入统计。',
-                              style: TextStyle(fontSize: 12),
-                            ),
-                          ],
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(c),
-                            child: const Text('知道了'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colors.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Semantics(
-                liveRegion: true,
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 12,
-                  runSpacing: 4,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
                   children: [
-                    Text(
-                      '${selected.year}.${selected.month}.${selected.day} ${heatmapWeekdays[selected.weekday - 1]}',
-                      key: const ValueKey('heatmap-selected-date'),
-                      style: const TextStyle(fontSize: 13),
+                    ShuyeIcon(
+                      Icons.grid_view_rounded,
+                      size: 20,
+                      color: colors.primary,
                     ),
-                    Text(
-                      readingDuration(data.seconds(selected)),
-                      key: const ValueKey('heatmap-selected-duration'),
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        color: colors.primary,
+                    const SizedBox(width: 9),
+                    Flexible(
+                      child: Text(
+                        '阅读热力图',
+                        style: Theme.of(context).textTheme.titleLarge
+                            ?.copyWith(fontWeight: FontWeight.w600),
                       ),
                     ),
                   ],
                 ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            LayoutBuilder(
-              builder: (context, constraints) => Wrap(
-                spacing: 10,
-                runSpacing: 12,
-                children: [
-                  for (final item in [
-                    ('阅读时长', compactReadingDuration(summary.total)),
-                    ('阅读天数', '${summary.active} 天'),
-                    ('本期最长连续', '${summary.longest} 天'),
-                  ])
-                    SizedBox(
-                      width: (constraints.maxWidth - 20) / 3,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            item.$2,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w400,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            item.$1,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: colors.onSurfaceVariant,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Center(
-              child: Text(
-                summary.active == 0
-                    ? '开始阅读后，方格会逐渐亮起来。'
-                    : span == HeatmapSpan.month
-                    ? '点按方格查看日期与时长，用箭头查看往月。'
-                    : '点按或长按查看时长，左右滑动查看月份。',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: colors.onSurfaceVariant,
-                  height: 1.5,
+                const SizedBox(height: 14),
+                Center(
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      for (final option in {
+                        HeatmapSpan.month: '本月',
+                        HeatmapSpan.halfYear: '半年',
+                        HeatmapSpan.year: '全年',
+                      }.entries)
+                        ChoiceChip(
+                          label: Text(option.value),
+                          selected: span == option.key,
+                          onSelected: (_) => change(option.key),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
+                const SizedBox(height: 4),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  child: Row(
+                    children: [
+                      if (span != HeatmapSpan.halfYear)
+                        IconButton(
+                          tooltip: span == HeatmapSpan.month ? '上一月' : '上一年',
+                          onPressed: canGoBack
+                              ? () =>
+                                    change(span, previous.year, previous.month)
+                              : null,
+                          icon: const ShuyeIcon(Icons.chevron_left),
+                        ),
+                      Expanded(
+                        child: Text(
+                          range,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      if (span != HeatmapSpan.halfYear)
+                        IconButton(
+                          tooltip: span == HeatmapSpan.month ? '下一月' : '下一年',
+                          onPressed: canGoForward
+                              ? () => change(span, next.year, next.month)
+                              : null,
+                          icon: const ShuyeIcon(Icons.chevron_right),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 244,
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: span == HeatmapSpan.month
+                        ? ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 224),
+                            child: _monthChart(
+                              data,
+                              palette,
+                              labelScale,
+                              colors,
+                            ),
+                          )
+                        : _weekChart(data, palette, labelScale, colors),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Center(
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 4,
+                    runSpacing: 6,
+                    children: [
+                      Text(
+                        '少',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                      for (var i = 0; i < palette.length; i++)
+                        Tooltip(
+                          message: heatmapLevels[i],
+                          child: Container(
+                            width: 11,
+                            height: 11,
+                            decoration: BoxDecoration(
+                              color: palette[i],
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                          ),
+                        ),
+                      Text(
+                        '多',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: '颜色说明',
+                        visualDensity: VisualDensity.compact,
+                        icon: const ShuyeIcon(Icons.info_outline, size: 16),
+                        onPressed: () => showDialog<void>(
+                          context: context,
+                          builder: (c) => AlertDialog(
+                            title: const Text('颜色与阅读时长'),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                for (var i = 0; i < palette.length; i++)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 5,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 16,
+                                          height: 16,
+                                          decoration: BoxDecoration(
+                                            color: palette[i],
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(child: Text(heatmapLevels[i])),
+                                      ],
+                                    ),
+                                  ),
+                                const SizedBox(height: 10),
+                                const Text(
+                                  '本月的浅淡格、全年的斜线空心格表示未来日期，不计入统计。',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(c),
+                                child: const Text('知道了'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Semantics(
+                    liveRegion: true,
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 12,
+                      runSpacing: 4,
+                      children: [
+                        Text(
+                          '${selected.year}.${selected.month}.${selected.day} ${heatmapWeekdays[selected.weekday - 1]}',
+                          key: const ValueKey('heatmap-selected-date'),
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        Text(
+                          readingDuration(data.seconds(selected)),
+                          key: const ValueKey('heatmap-selected-duration'),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            color: colors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(height: 16),
+        LayoutBuilder(
+          builder: (context, constraints) => Wrap(
+            spacing: 10,
+            runSpacing: 12,
+            children: [
+              for (final item in [
+                ('阅读时长', compactReadingDuration(summary.total)),
+                ('阅读天数', '${summary.active} 天'),
+                ('本期最长连续', '${summary.longest} 天'),
+              ])
+                SizedBox(
+                  width: (constraints.maxWidth - 20) / 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        item.$2,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w400,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        item.$1,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: colors.onSurfaceVariant,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -615,7 +614,7 @@ class _ReadingHeatmapState extends State<ReadingHeatmap> {
       final viewport = math.max(1.0, constraints.maxWidth - axis);
       final visibleWeeks = math.min(
         data.columns,
-        math.max(1, (viewport / 24).floor()),
+        math.max(1, (viewport / 28).ceil()),
       );
       final pitch = viewport / visibleWeeks;
       final chartWidth = pitch * data.columns;

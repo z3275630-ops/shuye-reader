@@ -10,6 +10,7 @@ import 'samples.dart';
 import 'services.dart';
 import 'facets.dart';
 import 'reading_time.dart';
+import 'progress_queue.dart';
 
 class ReaderRepository {
   final Database db;
@@ -17,12 +18,38 @@ class ReaderRepository {
   String? settingsWarning;
   int libraryGeneration = 0;
   bool libraryChanging = false;
+  final _progressQueues = <(int, String), ProgressQueue>{};
+  Future<void> _saveColumns(Book book, Map<String, Object?> values) {
+    if (libraryChanging) return Future.value();
+    final generation = libraryGeneration;
+    final queue = _progressQueues.putIfAbsent(
+      (generation, book.id),
+      () => ProgressQueue((snapshot) async {
+        if (generation != libraryGeneration || libraryChanging) return;
+        await db.update(
+          'books',
+          snapshot,
+          where: 'id = ?',
+          whereArgs: [book.id],
+        );
+      }),
+    );
+    return queue.save(values);
+  }
+
+  Future<void> flushProgress() async {
+    for (final queue in _progressQueues.values.toList()) {
+      await queue.flush();
+    }
+  }
+
   final readingFlushers = <Future<void> Function()>{};
   Future<void> flushReading() async {
     for (final flush in readingFlushers.toList()) {
       await flush();
     }
     await _readingTime.flush();
+    await flushProgress();
   }
 
   late final _readingTime = ReadingTimeQueue((bookId, seconds, at) async {
@@ -320,15 +347,16 @@ class ReaderRepository {
     return true;
   }
 
-  Future<void> saveProgress(Book b) async => db.update(
-    'books',
-    {'chapter': b.chapter, 'offset': b.offset, 'last_read': b.lastRead},
-    where: 'id = ?',
-    whereArgs: [b.id],
-  );
+  Future<void> saveProgress(Book b) => _saveColumns(b, {
+    'chapter': b.chapter,
+    'offset': b.offset,
+    'last_read': b.lastRead,
+  });
   Future<void> deleteBook(String id) async {
+    await flushProgress();
     await _readingTime.flush();
     await db.delete('books', where: 'id = ?', whereArgs: [id]);
+    _progressQueues.removeWhere((key, _) => key.$2 == id);
   }
 
   Future<String> proposeBookUpdate(
@@ -490,12 +518,10 @@ class ReaderRepository {
     b.metadata = updated.metadata;
   }
 
-  Future<void> saveMetadata(Book b) async => db.update(
-    'books',
-    {'metadata': jsonEncode(b.metadata), 'last_read': b.lastRead},
-    where: 'id = ?',
-    whereArgs: [b.id],
-  );
+  Future<void> saveMetadata(Book b) => _saveColumns(b, {
+    'metadata': jsonEncode(b.metadata),
+    'last_read': b.lastRead,
+  });
   Future<List<Map<String, dynamic>>> entries(
     String kind, {
     String? bookId,
@@ -722,6 +748,7 @@ class ReaderRepository {
         }
       });
       libraryGeneration++;
+      _progressQueues.clear();
     } finally {
       libraryChanging = false;
     }
@@ -835,7 +862,10 @@ class ReaderRepository {
     });
   }
 
-  Future<void> close() => db.close();
+  Future<void> close() async {
+    await flushReading();
+    await db.close();
+  }
 }
 
 bool validRecordDay(String value) {

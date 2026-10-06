@@ -4,6 +4,44 @@ import 'package:shuye_reader/appearance.dart';
 import 'package:shuye_reader/reading_heatmap.dart';
 
 void main() {
+  testWidgets('span switching retains chart origin and card height', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: applicationTheme(Brightness.light),
+        home: Scaffold(
+          body: ListView(
+            children: [
+              ReadingHeatmap(now: DateTime(2026, 10, 6), stats: const {}),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final height = tester.getSize(find.byType(Card)).height;
+    final monthTop = tester
+        .getTopLeft(find.byKey(const ValueKey('reading-heatmap-month')))
+        .dy;
+    for (final span in ['半年', '全年', '本月']) {
+      await tester.tap(find.text(span));
+      await tester.pumpAndSettle();
+      expect(tester.getSize(find.byType(Card)).height, closeTo(height, .1));
+      final chart = find.byKey(
+        ValueKey(
+          span == '本月' ? 'reading-heatmap-month' : 'reading-heatmap-chart',
+        ),
+      );
+      expect(tester.getTopLeft(chart).dy, closeTo(monthTop, .1));
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   test(
     'calendar month preserves leap days, six-row months and year boundaries',
     () {

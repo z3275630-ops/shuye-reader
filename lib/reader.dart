@@ -17,6 +17,7 @@ import 'workbench.dart';
 import 'page_turn.dart';
 import 'typography.dart';
 import 'reader_gestures.dart';
+import 'privacy.dart';
 
 const readerSchemes = {
   'paper': [Color(0xfff4eddf), Color(0xff3f392e)],
@@ -158,7 +159,7 @@ Future<void> showReaderSettings(
                         ),
                         s,
                       ),
-                      textAlign: ShuyeStyle.readerAlignment,
+                      textAlign: readerTextAlign(s),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -224,6 +225,25 @@ Future<void> showReaderSettings(
                       s.extra['reader.ignoreBlank'] = true;
                     }),
                     child: const Text('使用 Claude 正文间距'),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 10,
+                    children: [
+                      for (final option in {
+                        'justify': '两端对齐',
+                        'left': '自然左对齐',
+                      }.entries)
+                        ChoiceChip(
+                          label: Text(option.value),
+                          selected:
+                              s.value('reader.alignment', 'justify') ==
+                              option.key,
+                          onSelected: (_) => change(
+                            () => s.extra['reader.alignment'] = option.key,
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   Text('书叶衬线字体', style: Theme.of(ctx).textTheme.titleMedium),
@@ -314,7 +334,7 @@ List<PageSlice> paginate(
       text: readerSpan(text.substring(start, end), style, settings),
       textDirection: TextDirection.ltr,
       textScaler: scaler,
-      textAlign: ShuyeStyle.readerAlignment,
+      textAlign: readerTextAlign(settings),
     );
     painter.layout(maxWidth: width);
     final fits = painter.height <= height - 4;
@@ -410,6 +430,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     super.initState();
     libraryGeneration = repo.libraryGeneration;
     repo.readingFlushers.add(flushTime);
+    privacyLocked.addListener(privacyChanged);
     chapter = book.chapter;
     initialOffset = book.offset;
     book.lastRead = DateTime.now().millisecondsSinceEpoch;
@@ -419,6 +440,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       if (!staleLibrary &&
           !repo.libraryChanging &&
           active &&
+          !privacyLocked.value &&
           !dialogOpen &&
           !shield &&
           (ModalRoute.of(context)?.isCurrent ?? true)) {
@@ -467,12 +489,17 @@ class _ReaderScreenState extends State<ReaderScreen>
       if (call.method == 'deviceError') message('屏幕设置未完成：${call.arguments}');
       if (call.method == 'turn' &&
           active &&
+          !privacyLocked.value &&
           !dialogOpen &&
           !shield &&
           (ModalRoute.of(context)?.isCurrent ?? true)) {
         turn(call.arguments as int);
       }
-      if (call.method == 'ttsDone' && speaking && active && !dialogOpen) {
+      if (call.method == 'ttsDone' &&
+          speaking &&
+          active &&
+          !privacyLocked.value &&
+          !dialogOpen) {
         if (speechIndex < speechChunks.length) {
           await speakChunk();
         } else {
@@ -501,7 +528,9 @@ class _ReaderScreenState extends State<ReaderScreen>
       if (mounted) {
         unawaited(
           DeviceReader.setFullscreen(
-            immersive && (ModalRoute.of(context)?.isCurrent ?? true),
+            immersive &&
+                !privacyLocked.value &&
+                (ModalRoute.of(context)?.isCurrent ?? true),
           ),
         );
       }
@@ -511,7 +540,9 @@ class _ReaderScreenState extends State<ReaderScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     active = state == AppLifecycleState.resumed;
-    if (active && ModalRoute.of(context)?.isCurrent == true) {
+    if (active &&
+        !privacyLocked.value &&
+        ModalRoute.of(context)?.isCurrent == true) {
       unawaited(DeviceReader.setFullscreen(immersive));
     }
     if (!active) {
@@ -520,6 +551,22 @@ class _ReaderScreenState extends State<ReaderScreen>
       unawaited(flushTime());
       unawaited(persist());
     }
+  }
+
+  void privacyChanged() {
+    if (privacyLocked.value) {
+      unawaited(flushTime());
+      unawaited(persist());
+      speaking = false;
+      autoSeconds = 0;
+      unawaited(DeviceReader.stopSpeech());
+    }
+    final reading =
+        !privacyLocked.value &&
+        active &&
+        (ModalRoute.of(context)?.isCurrent ?? true);
+    unawaited(DeviceReader.configure(settings, reading: reading));
+    unawaited(DeviceReader.setFullscreen(reading && immersive));
   }
 
   Future<void> flushTime() async {
@@ -547,6 +594,7 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   @override
   void dispose() {
+    privacyLocked.removeListener(privacyChanged);
     repo.readingFlushers.remove(flushTime);
     HardwareKeyboard.instance.removeHandler(handlePhysicalKey);
     timer?.cancel();
@@ -569,6 +617,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   bool handlePhysicalKey(KeyEvent event) {
     if (event is! KeyDownEvent ||
         !active ||
+        privacyLocked.value ||
         !(ModalRoute.of(context)?.isCurrent ?? true) ||
         dialogOpen ||
         shield ||
@@ -622,6 +671,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   void turn(int delta) {
+    if (privacyLocked.value) return;
     if (!mounted || staleLibrary || pages.isEmpty) return;
     final step = showingSpread ? 2 : 1;
     if ((delta < 0 && chapter == 0 && page - step < 0) ||
@@ -651,7 +701,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   void turnImmediate(int delta) {
-    if (staleLibrary || !mounted) return;
+    if (staleLibrary || !mounted || privacyLocked.value) return;
     if (pages.isEmpty) return;
     autoSeconds = 0;
     final step = showingSpread ? 2 : 1;
@@ -736,6 +786,15 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> tools(String action) async {
+    if (privacyLocked.value) return;
+    if (action == 'search') {
+      await search();
+      return;
+    }
+    if (action == 'note') {
+      await addNote();
+      return;
+    }
     try {
       await toolAction(action);
     } catch (e) {
@@ -1156,14 +1215,17 @@ class _ReaderScreenState extends State<ReaderScreen>
                   book.title,
                   style: const TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.w400,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 actions: [
                   PopupMenuButton<String>(
                     tooltip: '阅读工具',
+                    icon: const ShuyeIcon(Icons.more_vert, size: 21),
                     onSelected: (v) => unawaited(tools(v)),
                     itemBuilder: (_) => [
+                      const PopupMenuItem(value: 'search', child: Text('全文搜索')),
+                      const PopupMenuItem(value: 'note', child: Text('摘录与笔记')),
                       PopupMenuItem(
                         value: 'auto',
                         child: Text(autoPaging ? '停止自动翻页' : '自动翻页'),
@@ -1204,19 +1266,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                       ),
                     ],
                   ),
-                  IconButton(
-                    tooltip: '全文搜索',
-                    onPressed: search,
-                    icon: const ShuyeIcon(Icons.search, size: 21),
-                  ),
-                  IconButton(
-                    tooltip: '摘录与笔记',
-                    onPressed: addNote,
-                    icon: const ShuyeIcon(
-                      Icons.bookmark_add_outlined,
-                      size: 21,
-                    ),
-                  ),
+
                   IconButton(
                     tooltip: '阅读设置',
                     onPressed: () async {
@@ -1399,8 +1449,9 @@ class _ReaderScreenState extends State<ReaderScreen>
                                                         ),
                                                     textDirection:
                                                         TextDirection.ltr,
-                                                    textAlign: ShuyeStyle
-                                                        .readerAlignment,
+                                                    textAlign: readerTextAlign(
+                                                      settings,
+                                                    ),
                                                     onSelectionChanged:
                                                         (s, cause) {
                                                           final visible = text
@@ -1510,8 +1561,10 @@ class _ReaderScreenState extends State<ReaderScreen>
                                                                 MediaQuery.textScalerOf(
                                                                   ctx,
                                                                 ),
-                                                            textAlign: ShuyeStyle
-                                                                .readerAlignment,
+                                                            textAlign:
+                                                                readerTextAlign(
+                                                                  settings,
+                                                                ),
                                                           )
                                                         : const SizedBox(),
                                                   ),

@@ -20,9 +20,11 @@ import 'services.dart';
 import 'workbench.dart';
 import 'shelf_layouts.dart';
 import 'privacy.dart';
+import 'runtime_maintenance.dart';
 import 'typography.dart';
 import 'appearance.dart';
 import 'branding.dart';
+import 'editorial_art.dart';
 import 'home_dashboard.dart';
 import 'statistics_period.dart';
 import 'reading_heatmap.dart';
@@ -52,6 +54,9 @@ void main() async {
     yield LicenseEntryWithLineBreaks([
       'Shuye Serif · Noto Serif SC',
     ], await rootBundle.loadString('assets/fonts/OFL.txt'));
+    yield LicenseEntryWithLineBreaks([
+      'Lucide / Feather icons',
+    ], await rootBundle.loadString('assets/licenses/Lucide.txt'));
   });
   try {
     await ChineseConverter.load();
@@ -352,13 +357,10 @@ class _LibraryHomeState extends State<LibraryHome> {
         });
         for (final font in await repo.entries('fonts')) {
           try {
-            final loader = FontLoader(font['name'] as String)
-              ..addFont(
-                Future.value(
-                  ByteData.sublistView(base64Decode(font['data'] as String)),
-                ),
-              );
-            await loader.load();
+            await importedFonts.load(
+              font['name'] as String,
+              font['data'] as String,
+            );
           } catch (_) {
             /* The original font may be invalid on this device. */
           }
@@ -771,15 +773,21 @@ class _LibraryHomeState extends State<LibraryHome> {
         mainAxisSize: MainAxisSize.min,
         children: [
           ShuyeIcon(
-            Icons.eco_outlined,
-            color: Theme.of(context).colorScheme.primary,
+            [
+              Icons.auto_stories,
+              Icons.bookmarks,
+              Icons.bar_chart,
+              Icons.tune,
+              Icons.eco_outlined,
+            ][tab],
+            color: Theme.of(context).colorScheme.onSurface,
           ),
           const SizedBox(width: 8),
           Text(
             ['书架', '我的摘录', '阅读足迹', '设置', '书叶'][tab],
             style: const TextStyle(
               letterSpacing: 0,
-              fontWeight: FontWeight.w400,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -1164,7 +1172,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 16,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w600,
                               color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
@@ -1272,7 +1280,7 @@ class _LibraryHomeState extends State<LibraryHome> {
                   Icons.bookmark_border,
                   noteQuery.isEmpty ? '把心动的句子留下来' : '没有找到匹配的摘录',
                   noteQuery.isEmpty ? '阅读时长按选择正文，点击摘录按钮保存。' : '试试其他关键词或标签。',
-                  compact: true,
+                  compact: noteQuery.isNotEmpty,
                 )
               : ListView.separated(
                   padding: const EdgeInsets.all(22),
@@ -1515,8 +1523,9 @@ class _LibraryHomeState extends State<LibraryHome> {
       Text(
         '阅读偏好',
         style: TextStyle(
-          fontSize: 12,
-          color: Theme.of(context).colorScheme.primary,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
       ),
       const SizedBox(height: 10),
@@ -1524,7 +1533,7 @@ class _LibraryHomeState extends State<LibraryHome> {
         child: Column(
           children: [
             ListTile(
-              leading: ShuyeIcon(Icons.palette_outlined),
+              leading: ShuyeIcon(Icons.font_download_outlined),
               title: Text('字体与纸色'),
               subtitle: Text('字号、行距、字体、中西文间距'),
               trailing: ShuyeIcon(Icons.chevron_right),
@@ -1573,8 +1582,9 @@ class _LibraryHomeState extends State<LibraryHome> {
       Text(
         '你的数据',
         style: TextStyle(
-          fontSize: 12,
-          color: Theme.of(context).colorScheme.primary,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
       ),
       const SizedBox(height: 10),
@@ -1688,38 +1698,41 @@ class _LibraryHomeState extends State<LibraryHome> {
     String subtitle, {
     bool compact = false,
   }) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(30),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (!compact)
-            ShuyeIcon(
-              icon,
-              size: 52,
-              color: Theme.of(context).colorScheme.primary
-                  .withValues(alpha: .5),
+    child: SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(30),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!compact)
+              EditorialArt(
+                icon == Icons.bookmark_border ||
+                        icon == Icons.bookmarks_outlined
+                    ? EditorialScene.notes
+                    : EditorialScene.library,
+              ),
+            if (!compact) const SizedBox(height: 18),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: compact ? 15 : 18,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
             ),
-          if (!compact) const SizedBox(height: 18),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: compact ? 15 : 18,
-              color: Theme.of(context).colorScheme.onSurface,
+            const SizedBox(height: 10),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                height: 1.7,
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              height: 1.7,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );

@@ -13,6 +13,7 @@ import 'package:pdfrx/pdfrx.dart';
 
 import 'models.dart';
 import 'pdf_controls.dart';
+import 'privacy.dart';
 import 'reader.dart';
 import 'repository.dart';
 import 'workbench.dart';
@@ -50,6 +51,7 @@ class _DocumentReaderState extends State<DocumentReader>
     super.initState();
     libraryGeneration = widget.repo.libraryGeneration;
     widget.repo.readingFlushers.add(flush);
+    privacyLocked.addListener(privacyChanged);
     bytes = base64Decode(widget.book.source!);
     WidgetsBinding.instance.addObserver(this);
     page = (widget.book.metadata['pdfPage'] as int? ?? 1);
@@ -58,6 +60,7 @@ class _DocumentReaderState extends State<DocumentReader>
       if (!staleLibrary &&
           !widget.repo.libraryChanging &&
           active &&
+          !privacyLocked.value &&
           !busy &&
           document != null &&
           (ModalRoute.of(context)?.isCurrent ?? true)) {
@@ -78,7 +81,26 @@ class _DocumentReaderState extends State<DocumentReader>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     active = state == AppLifecycleState.resumed;
-    if (!active) unawaited(flush());
+    if (!active) {
+      unawaited(flush());
+      unawaited(savePage());
+    }
+  }
+
+  void privacyChanged() {
+    if (privacyLocked.value) {
+      unawaited(flush());
+      unawaited(savePage());
+    }
+  }
+
+  Future<void> savePage() async {
+    if (staleLibrary || widget.repo.libraryChanging) return;
+    try {
+      await widget.repo.saveMetadata(widget.book);
+    } catch (e) {
+      if (mounted) toast(context, '页码保存失败：$e');
+    }
   }
 
   Future<void> flush() async {
@@ -105,11 +127,13 @@ class _DocumentReaderState extends State<DocumentReader>
 
   @override
   void dispose() {
+    privacyLocked.removeListener(privacyChanged);
     widget.repo.readingFlushers.remove(flush);
     timer?.cancel();
     searcher?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     unawaited(flush());
+    unawaited(savePage());
     super.dispose();
   }
 
@@ -346,10 +370,11 @@ class _DocumentReaderState extends State<DocumentReader>
                     page = page.clamp(1, d.pages.length);
                   });
                   widget.book.metadata['pdfPages'] = d.pages.length;
-                  unawaited(widget.repo.saveMetadata(widget.book));
+                  unawaited(savePage());
                 },
                 onPageChanged: (n) {
                   if (!mounted ||
+                      privacyLocked.value ||
                       staleLibrary ||
                       widget.repo.libraryChanging ||
                       n == null) {
@@ -358,7 +383,7 @@ class _DocumentReaderState extends State<DocumentReader>
                   setState(() => page = n);
                   widget.book.metadata['pdfPage'] = n;
                   widget.book.lastRead = DateTime.now().millisecondsSinceEpoch;
-                  unawaited(widget.repo.saveMetadata(widget.book));
+                  unawaited(savePage());
                 },
                 pageOverlaysBuilder: (c, rect, p) => [
                   Positioned.fill(

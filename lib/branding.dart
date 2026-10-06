@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import 'appearance.dart';
 import 'brand_illustration.dart';
+import 'editorial_art.dart';
 
-const shuyeVersion = '0.3.11';
+const shuyeVersion = '0.3.12';
 const shuyeCoverAsset = 'assets/art/shuye-cover.webp';
 const shuyeMarkAsset = 'assets/art/shuye-mark.webp';
 
@@ -24,21 +25,22 @@ class ShuyeMark extends StatelessWidget {
 }
 
 class ShuyeCover extends StatelessWidget {
-  const ShuyeCover({super.key});
+  final EditorialScene scene;
+  const ShuyeCover({super.key, this.scene = EditorialScene.library});
   @override
   Widget build(BuildContext context) => Semantics(
-    label: '展开的书页，生长成叶片',
+    label: scene == EditorialScene.library ? '书架上的书' : '阅读旅程',
     image: true,
     child: DecoratedBox(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(ShuyeStyle.cardRadius),
       ),
-      child: const AspectRatio(
+      child: AspectRatio(
         aspectRatio: 4.2,
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 6),
-          child: Center(child: ShuyeBookLeaf(width: 170, height: 100)),
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Center(child: EditorialArt(scene, width: 170, height: 100)),
         ),
       ),
     ),
@@ -136,7 +138,7 @@ class ShuyeIdentityCard extends StatelessWidget {
                   Text(
                     '书叶',
                     style: Theme.of(context).textTheme.titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w400),
+                        ?.copyWith(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -149,11 +151,6 @@ class ShuyeIdentityCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (constraints.maxWidth >= 270 &&
-                MediaQuery.textScalerOf(context).scale(12) <= 15) ...[
-              const SizedBox(width: 8),
-              const ShuyeBookLeaf(width: 76, height: 60),
-            ],
           ],
         ),
       ),
@@ -186,7 +183,7 @@ void showShuyeAbout(BuildContext context) => showDialog<void>(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const ShuyeCover(),
+        const ShuyeCover(scene: EditorialScene.balance),
         const SizedBox(height: 16),
         Text(
           '一本书，一段属于自己的时间。',

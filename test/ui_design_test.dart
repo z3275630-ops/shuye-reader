@@ -199,11 +199,16 @@ void main() {
         }
         expect(find.bySemanticsLabel('返回'), findsOneWidget);
         final leading = find.descendant(
-          of: find.bySemanticsLabel('返回'),
-          matching: find.byType(CustomPaint),
+          of: find.byWidgetPredicate(
+            (w) => w is ShuyeIcon && w.semanticLabel == '返回',
+          ),
+          matching: find.byType(Icon),
         );
-        expect(tester.getSize(leading).width, lessThanOrEqualTo(24));
-        expect(tester.getSize(leading).height, tester.getSize(leading).width);
+        expect(
+          tester.widget<Icon>(leading).size ??
+              IconTheme.of(tester.element(leading)).size,
+          lessThanOrEqualTo(24),
+        );
         await tester.tap(find.text('设置'));
         await tester.pumpAndSettle();
         expect(

@@ -1,4 +1,5 @@
 import 'app_icons.dart';
+import 'runtime_maintenance.dart';
 
 import 'dart:async';
 import 'dart:io';
@@ -154,7 +155,10 @@ class _AudioScreenState extends State<AudioScreen> with WidgetsBindingObserver {
       'position': 0,
       'speed': 1.0,
     };
-    await widget.repo.putEntry('audio', item, id: id);
+    await registerAudioCopy(
+      saved,
+      () => widget.repo.putEntry('audio', item, id: id),
+    );
     await AudioLibrary.open(item);
   }
 

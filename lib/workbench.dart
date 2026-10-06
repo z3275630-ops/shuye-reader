@@ -3,6 +3,7 @@ import 'edit_dialog.dart';
 
 export 'edit_dialog.dart';
 import 'app_icons.dart';
+import 'runtime_maintenance.dart';
 
 import 'dart:async';
 import 'dart:convert';
@@ -772,6 +773,7 @@ Future<void> showShareCard(
                 );
                 image.dispose();
                 final dir = await getTemporaryDirectory();
+                await cleanOldShareCards(dir);
                 final file = File(
                   '${dir.path}/shuye-share-${DateTime.now().microsecondsSinceEpoch}.png',
                 );
@@ -1234,9 +1236,7 @@ class _WorkshopScreenState extends State<WorkshopScreen>
     if (file.size > 10 * 1024 * 1024) throw const FormatException('字体超过 10 MB');
     final bytes = await File(file.path!).readAsBytes();
     final name = 'user-${DateTime.now().microsecondsSinceEpoch}';
-    final loader = FontLoader(name)
-      ..addFont(Future.value(ByteData.sublistView(bytes)));
-    await loader.load();
+    await importedFonts.load(name, base64Encode(bytes));
     await repo.putEntry('fonts', {
       'name': name,
       'title': file.name,

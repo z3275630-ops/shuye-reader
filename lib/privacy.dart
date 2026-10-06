@@ -9,6 +9,7 @@ import 'package:local_auth/local_auth.dart';
 import 'repository.dart';
 import 'services.dart';
 
+final privacyLocked = ValueNotifier<bool>(false);
 final privacyEnabled = ValueNotifier<bool>(false);
 Future<bool> authenticateLibrary() async =>
     LocalAuthentication().authenticate(localizedReason: '解锁书叶本地书库');
@@ -27,6 +28,7 @@ class _PrivacyGateState extends State<PrivacyGate> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    privacyLocked.value = true;
     WidgetsBinding.instance.addObserver(this);
     privacyEnabled.addListener(configure);
     unawaited(load());
@@ -40,6 +42,7 @@ class _PrivacyGateState extends State<PrivacyGate> with WidgetsBindingObserver {
       if (mounted) {
         setState(() {
           locked = privacyEnabled.value;
+          privacyLocked.value = locked;
           loading = false;
           if (s.flag('reader.configRecovered')) {
             error = '阅读设置损坏，已恢复默认设置。书籍和笔记保留；为保护原书库，请先解锁。';
@@ -50,6 +53,7 @@ class _PrivacyGateState extends State<PrivacyGate> with WidgetsBindingObserver {
       if (mounted) {
         setState(() {
           locked = true;
+          privacyLocked.value = true;
           loading = false;
           error = '读取隐私设置失败，请保留数据并重新打开应用。';
         });
@@ -68,6 +72,7 @@ class _PrivacyGateState extends State<PrivacyGate> with WidgetsBindingObserver {
       if (mounted && privacyEnabled.value) {
         setState(() {
           locked = true;
+          privacyLocked.value = true;
           error = '截图保护暂未开启，请重新打开应用或检查手机设置。';
         });
       }
@@ -79,7 +84,10 @@ class _PrivacyGateState extends State<PrivacyGate> with WidgetsBindingObserver {
     if (state != AppLifecycleState.resumed &&
         !checking &&
         privacyEnabled.value) {
-      setState(() => locked = true);
+      setState(() {
+        locked = true;
+        privacyLocked.value = true;
+      });
     }
   }
 
@@ -87,6 +95,7 @@ class _PrivacyGateState extends State<PrivacyGate> with WidgetsBindingObserver {
   void dispose() {
     privacyEnabled.removeListener(configure);
     WidgetsBinding.instance.removeObserver(this);
+    privacyLocked.value = false;
     super.dispose();
   }
 
@@ -95,7 +104,12 @@ class _PrivacyGateState extends State<PrivacyGate> with WidgetsBindingObserver {
     setState(() => checking = true);
     try {
       final ok = await authenticateLibrary();
-      if (mounted) setState(() => locked = !ok);
+      if (mounted) {
+        setState(() {
+          locked = !ok;
+          privacyLocked.value = locked;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => error = '解锁失败，请检查手机的屏幕锁或指纹设置。');
     } finally {

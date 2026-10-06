@@ -30,6 +30,40 @@ Future<void> ready(WidgetTester tester) async {
 
 void main() {
   sqfliteFfiInit();
+  testWidgets(
+    'empty notes remain usable at 320dp with large text and keyboard',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetViewInsets);
+      final repo = (await tester.runAsync(
+        () => ReaderRepository.open(
+          path: inMemoryDatabasePath,
+          factory: databaseFactoryFfi,
+        ),
+      ))!;
+      await tester.runAsync(
+        () => repo.saveSettings(ReaderSettings()..extra['app.textScale'] = 1.5),
+      );
+      await tester.pumpWidget(ShuyeApp(repository: repo));
+      await ready(tester);
+      await tester.tap(find.text('笔记'));
+      await tester.pumpAndSettle();
+      expect(find.text('把心动的句子留下来'), findsOneWidget);
+      await tester.tap(find.byType(TextField));
+      tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('把心动的句子留下来'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await ready(tester);
+      await tester.runAsync(repo.close);
+    },
+  );
+
   testWidgets('shelf and note queries survive tab changes and clear visibly', (
     tester,
   ) async {
@@ -80,6 +114,7 @@ void main() {
     expect(find.text('把心动的句子留下来'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
+    await ready(tester);
     await tester.runAsync(repo.close);
   });
 
@@ -129,6 +164,7 @@ void main() {
       await ready(tester);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
+      await ready(tester);
       await tester.runAsync(repo.close);
     },
   );
@@ -169,6 +205,7 @@ void main() {
     await ready(tester);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
+    await ready(tester);
     await tester.runAsync(repo.close);
   });
 
@@ -207,6 +244,7 @@ void main() {
       () => Future<void>.delayed(const Duration(milliseconds: 100)),
     );
     final stats = (await tester.runAsync(repo.statistics))!;
+    await tester.pump();
     expect(stats.values.fold<int>(0, (a, b) => a + b), inInclusiveRange(3, 4));
     expect(tester.takeException(), isNull);
     await tester.runAsync(repo.close);

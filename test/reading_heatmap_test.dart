@@ -198,7 +198,11 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('开始阅读后，方格会逐渐亮起来。'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('reading-heatmap-month')),
+        findsOneWidget,
+      );
+      expect(find.text('本期最长连续'), findsOneWidget);
       await tester.tap(find.text('全年'));
       await tester.pumpAndSettle();
       await tester.drag(

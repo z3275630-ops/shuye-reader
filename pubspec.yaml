@@ -1,7 +1,7 @@
 name: shuye_reader
 description: "书叶：安静、私有、本地优先的 Android 阅读器。"
 publish_to: 'none'
-version: 0.3.11+14
+version: 0.3.12+15
 
 environment:
   sdk: ^3.13.2
@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  lucide_icons_flutter:
+    path: third_party/lucide_icons_flutter
   archive: ^4.0.7
   crypto: ^3.0.6
   file_picker: ^10.3.10
@@ -47,10 +49,13 @@ flutter:
     - assets/art/shuye-mark.webp
     - assets/chinese/
     - assets/fonts/OFL.txt
+    - assets/licenses/Lucide.txt
   fonts:
     - family: ShuyeSerif
       fonts:
         - asset: assets/fonts/ShuyeSerif-Regular.ttf
           weight: 400
+        - asset: assets/fonts/ShuyeSerif-SemiBold.ttf
+          weight: 600
   shaders:
     - shaders/page_curl.frag

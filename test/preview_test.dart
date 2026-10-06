@@ -117,6 +117,7 @@ void main() {
     await tester.tap(find.widgetWithText(ChoiceChip, 'Claude'));
     await tester.pumpAndSettle();
     await capture('typography-claude');
+    await tester.ensureVisible(find.text('开始阅读'));
     await tester.tap(find.text('开始阅读'));
     await tester.pumpAndSettle();
     await tester.runAsync(
@@ -127,7 +128,9 @@ void main() {
     await tester.tap(find.byTooltip('下一页'));
     await tester.pumpAndSettle();
     await capture('reader-claude-page2');
-    await tester.tap(find.byTooltip('摘录与笔记'));
+    await tester.tap(find.byTooltip('阅读工具'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('摘录与笔记'));
     await tester.pumpAndSettle();
     await capture('note-editor');
     await tester.tap(find.text('取消'));
@@ -165,6 +168,9 @@ void main() {
       () async => Future<void>.delayed(const Duration(milliseconds: 100)),
     );
     await tester.pumpAndSettle();
+    await tester.tap(find.text('笔记'));
+    await tester.pumpAndSettle();
+    await capture('notes-empty');
     await tester.tap(find.text('统计'));
     await tester.pumpAndSettle();
     await capture('statistics');
