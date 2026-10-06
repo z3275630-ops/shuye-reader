@@ -25,8 +25,13 @@ void main() {
         ShuyeStyle.canvas,
         const Color(0xff22221f),
       ]);
-      expect(readerFont(claude), ShuyeStyle.fontFamily);
-      expect(readerFont(ReaderSettings(font: 'sans')), ShuyeStyle.fontFamily);
+      expect(readerFont(claude), ShuyeStyle.readerFontFamily);
+      final sans = ReaderSettings.fromJson(
+        ReaderSettings(font: 'sans').toJson(),
+      );
+      expect(readerFont(sans), ShuyeStyle.fontFamily);
+      sans.extra['reader.customFont'] = 'Imported Reader Font';
+      expect(readerFont(sans), 'Imported Reader Font');
       expect(
         readerColors(ReaderSettings(theme: 'night'))[0],
         const Color(0xff212121),
@@ -35,23 +40,26 @@ void main() {
   );
 
   for (final brightness in Brightness.values) {
-    test('interface typography is consistently serif: $brightness', () {
-      final theme = applicationTheme(brightness);
-      for (final style in [
-        theme.textTheme.headlineLarge,
-        theme.textTheme.headlineSmall,
-        theme.textTheme.bodyLarge,
-        theme.textTheme.bodyMedium,
-        theme.textTheme.labelLarge,
-        theme.appBarTheme.titleTextStyle,
-        theme.dialogTheme.titleTextStyle,
-        theme.listTileTheme.titleTextStyle,
-        theme.chipTheme.labelStyle,
-        theme.inputDecorationTheme.hintStyle,
-      ]) {
-        expect(style!.fontFamily, ShuyeStyle.fontFamily);
-      }
-    });
+    test(
+      'interface uses clear sans while reading retains its own font: $brightness',
+      () {
+        final theme = applicationTheme(brightness);
+        for (final style in [
+          theme.textTheme.headlineLarge,
+          theme.textTheme.headlineSmall,
+          theme.textTheme.bodyLarge,
+          theme.textTheme.bodyMedium,
+          theme.textTheme.labelLarge,
+          theme.appBarTheme.titleTextStyle,
+          theme.dialogTheme.titleTextStyle,
+          theme.listTileTheme.titleTextStyle,
+          theme.chipTheme.labelStyle,
+          theme.inputDecorationTheme.hintStyle,
+        ]) {
+          expect(style!.fontFamily, ShuyeStyle.fontFamily);
+        }
+      },
+    );
   }
 
   testWidgets(
@@ -64,7 +72,7 @@ void main() {
         '$paragraph\n\nEnglish words and an emoji 😀 stay intact.\n',
       ).join();
       const style = TextStyle(
-        fontFamily: ShuyeStyle.fontFamily,
+        fontFamily: ShuyeStyle.readerFontFamily,
         fontSize: 20,
         height: 1.85,
         letterSpacing: .35,

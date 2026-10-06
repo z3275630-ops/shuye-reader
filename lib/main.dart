@@ -55,6 +55,9 @@ void main() async {
       'Shuye Serif · Noto Serif SC',
     ], await rootBundle.loadString('assets/fonts/OFL.txt'));
     yield LicenseEntryWithLineBreaks([
+      'Shuye Sans · Noto Sans SC',
+    ], await rootBundle.loadString('assets/fonts/Sans-OFL.txt'));
+    yield LicenseEntryWithLineBreaks([
       'Lucide / Feather icons',
     ], await rootBundle.loadString('assets/licenses/Lucide.txt'));
   });

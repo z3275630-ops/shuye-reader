@@ -13,3 +13,5 @@
 引入新的代码、字体、插图、图标或模型时记录来源及许可，保留要求的声明。更新依赖时复核上游许可，不要仅凭包名猜测许可。
 
 Lucide 图形本身的 ISC 声明及其中 Feather 图形的 MIT 声明保留于 `assets/licenses/Lucide.txt`，来源为 [Lucide 固定提交](https://github.com/lucide-icons/lucide/blob/500620a2e8123f8d1db191538886dc0c223f69a9/LICENSE)。与 Flutter 包的 MIT 声明分别显示在 APP 开源许可页。
+
+- `assets/fonts/ShuyeSans-Regular.ttf` / `ShuyeSans-SemiBold.ttf`：Google / Noto Sans SC 的静态裁剪版，改名 Shuye Sans，OFL 1.1；固定上游、覆盖和哈希见字体 README / sans-audit.json。完整声明为 `assets/fonts/Sans-OFL.txt`，APP 开源许可页单独登记。

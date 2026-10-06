@@ -30,8 +30,18 @@ Future<void> loadShuyeSerif(WidgetTester tester) async {
   await (FontLoader(
     'packages/lucide_icons_flutter/Lucide',
   )..addFont(Future.value(ByteData.sublistView(lucide)))).load();
-  await (FontLoader(ShuyeStyle.fontFamily)
+  await (FontLoader(ShuyeStyle.readerFontFamily)
         ..addFont(Future.value(ByteData.sublistView(bytes)))
         ..addFont(Future.value(ByteData.sublistView(semibold))))
+      .load();
+  final sans = (await tester.runAsync(
+    () => File('assets/fonts/ShuyeSans-Regular.ttf').readAsBytes(),
+  ))!;
+  final sansBold = (await tester.runAsync(
+    () => File('assets/fonts/ShuyeSans-SemiBold.ttf').readAsBytes(),
+  ))!;
+  await (FontLoader(ShuyeStyle.fontFamily)
+        ..addFont(Future.value(ByteData.sublistView(sans)))
+        ..addFont(Future.value(ByteData.sublistView(sansBold))))
       .load();
 }

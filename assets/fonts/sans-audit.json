@@ -1,0 +1,22 @@
+{
+  "source_commit": "a85815a42757630ce188fdad368c2dfc444d4773",
+  "source_sha256": "a3041811a78c361b1de50f953c805e0244951c21c5bd412f7232ef0d899af0da",
+  "faces": [
+    {
+      "face": "Regular",
+      "weight": 400,
+      "bytes": 3305012,
+      "deflate_bytes": 2038112,
+      "codepoints": 10353,
+      "sha256": "30f29d1e538f1bb4c837ff4f81ceb1d4b46b677c90e2e88a08c6ad87c2f345c4"
+    },
+    {
+      "face": "SemiBold",
+      "weight": 600,
+      "bytes": 268576,
+      "deflate_bytes": 177808,
+      "codepoints": 1284,
+      "sha256": "e9150ab50b7651374ce4e681d36ff48bdf5c63f0ab74e1f746c9eb39faa9fe18"
+    }
+  ]
+}

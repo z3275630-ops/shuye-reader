@@ -4,7 +4,7 @@ import 'appearance.dart';
 import 'brand_illustration.dart';
 import 'editorial_art.dart';
 
-const shuyeVersion = '0.3.12';
+const shuyeVersion = '0.3.13';
 const shuyeCoverAsset = 'assets/art/shuye-cover.webp';
 const shuyeMarkAsset = 'assets/art/shuye-mark.webp';
 
@@ -74,6 +74,8 @@ class ShuyeWelcomeCard extends StatelessWidget {
                 Text(
                   '给自己，\n一页安静。',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontFamily: ShuyeStyle.readerFontFamily,
+                    fontWeight: FontWeight.w400,
                     fontSize: 22,
                     height: 1.35,
                     color: colors.onSurface,

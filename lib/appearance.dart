@@ -77,7 +77,8 @@ class ApplicationTextScaler extends TextScaler {
 // Mobile reader adaptation. Keep the palette and geometry in one place;
 // reader paper, imported fonts and cover artwork have their own settings.
 abstract final class ShuyeStyle {
-  static const fontFamily = 'ShuyeSerif';
+  static const fontFamily = 'ShuyeSans';
+  static const readerFontFamily = 'ShuyeSerif';
   static const readerAlignment = TextAlign.justify;
   static const canvas = Color(0xfffaf9f5);
   static const darkCanvas = Color(0xff212121);
@@ -209,7 +210,7 @@ ThemeData _buildApplicationTheme(
   return ThemeData(
     useMaterial3: true,
     fontFamily: ShuyeStyle.fontFamily,
-    fontFamilyFallback: const ['serif'],
+    fontFamilyFallback: const ['sans-serif'],
     colorScheme: colors,
     scaffoldBackgroundColor: colors.surface,
     textTheme: text.copyWith(
@@ -228,7 +229,7 @@ ThemeData _buildApplicationTheme(
       headlineSmall: text.headlineSmall?.copyWith(
         fontFamily: ShuyeStyle.fontFamily,
         fontSize: 22,
-        fontWeight: FontWeight.w400,
+        fontWeight: FontWeight.w600,
         height: 1.35,
         letterSpacing: 0,
       ),

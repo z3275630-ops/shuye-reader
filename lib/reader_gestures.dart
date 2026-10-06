@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 /// A selectable paragraph owns Flutter's tap recognizer. Observe brief pointer
@@ -10,6 +11,9 @@ class ReaderTapSurface extends StatefulWidget {
   final ValueChanged<Offset> onTap;
   final VoidCallback onDoubleTap;
   final GestureDragEndCallback onHorizontalDragEnd;
+  final GestureDragStartCallback? onHorizontalDragStart;
+  final GestureDragUpdateCallback? onHorizontalDragUpdate;
+  final GestureDragCancelCallback? onHorizontalDragCancel;
   const ReaderTapSurface({
     super.key,
     required this.child,
@@ -17,6 +21,9 @@ class ReaderTapSurface extends StatefulWidget {
     required this.onTap,
     required this.onDoubleTap,
     required this.onHorizontalDragEnd,
+    this.onHorizontalDragStart,
+    this.onHorizontalDragUpdate,
+    this.onHorizontalDragCancel,
   });
   @override
   State<ReaderTapSurface> createState() => _ReaderTapSurfaceState();
@@ -26,7 +33,7 @@ class _ReaderTapSurfaceState extends State<ReaderTapSurface> {
   Offset? down;
   Timer? hold;
   int? pointer;
-  bool allowed = false;
+  bool allowed = false, dragCancelled = false;
   Timer? pending;
   Offset? previous;
   @override
@@ -39,7 +46,23 @@ class _ReaderTapSurfaceState extends State<ReaderTapSurface> {
   @override
   Widget build(BuildContext context) => GestureDetector(
     behavior: HitTestBehavior.opaque,
-    onHorizontalDragEnd: widget.onHorizontalDragEnd,
+    dragStartBehavior: DragStartBehavior.down,
+    onHorizontalDragStart: (d) {
+      pending?.cancel();
+      down = null;
+      if (widget.canTurn()) widget.onHorizontalDragStart?.call(d);
+    },
+    onHorizontalDragUpdate: (d) {
+      if (widget.canTurn()) widget.onHorizontalDragUpdate?.call(d);
+    },
+    onHorizontalDragCancel: widget.onHorizontalDragCancel,
+    onHorizontalDragEnd: (d) {
+      if (!dragCancelled && widget.canTurn()) {
+        widget.onHorizontalDragEnd(d);
+      } else {
+        widget.onHorizontalDragCancel?.call();
+      }
+    },
     child: Listener(
       behavior: HitTestBehavior.opaque,
       onPointerDown: (e) {
@@ -48,6 +71,7 @@ class _ReaderTapSurfaceState extends State<ReaderTapSurface> {
           return;
         }
         pointer = e.pointer;
+        dragCancelled = false;
         down = e.localPosition;
         hold?.cancel();
         hold = Timer(const Duration(milliseconds: 250), () => down = null);
@@ -59,6 +83,9 @@ class _ReaderTapSurfaceState extends State<ReaderTapSurface> {
         }
       },
       onPointerCancel: (_) {
+        dragCancelled = true;
+        pending?.cancel();
+        widget.onHorizontalDragCancel?.call();
         hold?.cancel();
         pointer = null;
         down = null;

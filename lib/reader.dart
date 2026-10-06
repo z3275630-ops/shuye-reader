@@ -17,6 +17,7 @@ import 'workbench.dart';
 import 'page_turn.dart';
 import 'typography.dart';
 import 'reader_gestures.dart';
+import 'reader_viewport.dart';
 import 'privacy.dart';
 
 const readerSchemes = {
@@ -75,7 +76,10 @@ TextSelectionThemeData readerSelectionTheme(List<Color> scheme) {
 
 String readerFont(ReaderSettings settings) {
   final custom = settings.value('reader.customFont', '');
-  return custom.isEmpty ? ShuyeStyle.fontFamily : custom;
+  if (custom.isNotEmpty) return custom;
+  return settings.font == 'sans'
+      ? ShuyeStyle.fontFamily
+      : ShuyeStyle.readerFontFamily;
 }
 
 List<Color> readerColors(ReaderSettings settings, {DateTime? at}) {
@@ -246,7 +250,28 @@ Future<void> showReaderSettings(
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Text('书叶衬线字体', style: Theme.of(ctx).textTheme.titleMedium),
+                  Text('正文字体', style: Theme.of(ctx).textTheme.titleMedium),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    children: [
+                      for (final option in {
+                        'sans': '清晰黑体',
+                        'serif': '书页宋体',
+                      }.entries)
+                        ChoiceChip(
+                          label: Text(option.value),
+                          selected:
+                              s.value('reader.customFont', '').isEmpty &&
+                              s.font == option.key,
+                          onSelected: (_) => change(() {
+                            s.font = option.key;
+                            s.extra.remove('reader.customFont');
+                          }),
+                        ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
@@ -256,7 +281,7 @@ Future<void> showReaderSettings(
                     onChanged: (v) => change(() => s.cjkSpacing = v),
                   ),
                   Text(
-                    '使用内置衬线字体；导入的自定义阅读字体仍可使用。',
+                    '界面字体与正文独立；也可以在字体工具中使用已导入的字体。',
                     style: TextStyle(
                       fontSize: 12,
                       color: Theme.of(ctx).colorScheme.onSurfaceVariant,
@@ -407,12 +432,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   bool endNotified = false;
   void toggleChrome() {
     if (!mounted) return;
-    if (pages.isNotEmpty) initialOffset = sourceOffset(pages[page].start);
-    setState(() {
-      immersive = !immersive;
-      layoutKey = '';
-    });
-    unawaited(DeviceReader.setFullscreen(immersive));
+    setState(() => immersive = !immersive);
   }
 
   int autoSeconds = 0, reminderSeconds = 0;
@@ -528,9 +548,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       if (mounted) {
         unawaited(
           DeviceReader.setFullscreen(
-            immersive &&
-                !privacyLocked.value &&
-                (ModalRoute.of(context)?.isCurrent ?? true),
+            !privacyLocked.value && (ModalRoute.of(context)?.isCurrent ?? true),
           ),
         );
       }
@@ -543,9 +561,10 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (active &&
         !privacyLocked.value &&
         ModalRoute.of(context)?.isCurrent == true) {
-      unawaited(DeviceReader.setFullscreen(immersive));
+      unawaited(DeviceReader.setFullscreen(true));
     }
     if (!active) {
+      pageSurface.currentState?.cancel();
       speaking = false;
       unawaited(DeviceReader.stopSpeech());
       unawaited(flushTime());
@@ -555,6 +574,7 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   void privacyChanged() {
     if (privacyLocked.value) {
+      pageSurface.currentState?.cancel();
       unawaited(flushTime());
       unawaited(persist());
       speaking = false;
@@ -566,7 +586,7 @@ class _ReaderScreenState extends State<ReaderScreen>
         active &&
         (ModalRoute.of(context)?.isCurrent ?? true);
     unawaited(DeviceReader.configure(settings, reading: reading));
-    unawaited(DeviceReader.setFullscreen(reading && immersive));
+    unawaited(DeviceReader.setFullscreen(reading));
   }
 
   Future<void> flushTime() async {
@@ -674,10 +694,11 @@ class _ReaderScreenState extends State<ReaderScreen>
     if (privacyLocked.value) return;
     if (!mounted || staleLibrary || pages.isEmpty) return;
     final step = showingSpread ? 2 : 1;
-    if ((delta < 0 && chapter == 0 && page - step < 0) ||
-        (delta > 0 &&
-            chapter == book.chapters.length - 1 &&
-            page + step >= pages.length)) {
+    if (pageSurface.currentState?.busy != true &&
+        ((delta < 0 && chapter == 0 && page - step < 0) ||
+            (delta > 0 &&
+                chapter == book.chapters.length - 1 &&
+                page + step >= pages.length))) {
       turnImmediate(delta);
       return;
     }
@@ -833,6 +854,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       toggleChrome();
       return;
     }
+    pageSurface.currentState?.cancel();
     dialogOpen = true;
     try {
       if (action == 'ai') {
@@ -944,6 +966,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> outline() async {
+    pageSurface.currentState?.cancel();
     dialogOpen = true;
     await showModalBottomSheet<void>(
       context: context,
@@ -1003,6 +1026,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   }
 
   Future<void> search() async {
+    pageSurface.currentState?.cancel();
     dialogOpen = true;
     final controller = TextEditingController();
     var results = <({int chapter, int offset, String snippet})>[];
@@ -1098,6 +1122,7 @@ class _ReaderScreenState extends State<ReaderScreen>
 
   Future<void> addNote() async {
     if (saving || pages.isEmpty) return;
+    pageSurface.currentState?.cancel();
     dialogOpen = true;
     final slice = pages[page];
     final quote = selected.isEmpty
@@ -1193,6 +1218,63 @@ class _ReaderScreenState extends State<ReaderScreen>
           : null,
       letterSpacing: 0,
     );
+    final topControls = AppBar(
+      title: Text(
+        book.title,
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+      ),
+      actions: [
+        PopupMenuButton<String>(
+          tooltip: '阅读工具',
+          icon: const ShuyeIcon(Icons.more_vert, size: 21),
+          onSelected: (v) => unawaited(tools(v)),
+          itemBuilder: (_) => [
+            const PopupMenuItem(value: 'search', child: Text('全文搜索')),
+            const PopupMenuItem(value: 'note', child: Text('摘录与笔记')),
+            PopupMenuItem(
+              value: 'auto',
+              child: Text(autoPaging ? '停止自动翻页' : '自动翻页'),
+            ),
+            PopupMenuItem(
+              value: 'speech',
+              child: Text(speaking ? '停止听书' : '朗读本页并继续'),
+            ),
+            const PopupMenuItem(value: 'voice', child: Text('选择系统声音')),
+            const PopupMenuItem(value: 'progress', child: Text('全书进度跳转')),
+            const PopupMenuItem(value: 'ai', child: Text('AI 解读本页 / 摘录')),
+            const PopupMenuItem(value: 'word', child: Text('保存生词')),
+            const PopupMenuItem(value: 'share', child: Text('生成摘录卡片')),
+            if (book.chapters[chapter].images.isNotEmpty)
+              const PopupMenuItem(value: 'images', child: Text('本章插图')),
+            const PopupMenuItem(
+              value: 'immersive',
+              child: Text('全屏阅读（点中间恢复工具栏）'),
+            ),
+            const PopupMenuItem(value: 'shield', child: Text('临时隐藏书页')),
+          ],
+        ),
+
+        IconButton(
+          tooltip: '阅读设置',
+          onPressed: () async {
+            pageSurface.currentState?.cancel();
+            dialogOpen = true;
+            initialOffset = pages.isEmpty
+                ? book.offset
+                : sourceOffset(pages[page].start);
+            await showReaderSettings(
+              context,
+              settings,
+              () => repo.saveSettings(settings),
+              changed: () => setState(() => layoutKey = ''),
+            );
+            dialogOpen = false;
+            await DeviceReader.configure(settings);
+          },
+          icon: const ShuyeIcon(Icons.palette_outlined, size: 21),
+        ),
+      ],
+    );
     return Theme(
       data: Theme.of(context).copyWith(
         brightness: scheme[0].computeLuminance() < .5
@@ -1208,85 +1290,7 @@ class _ReaderScreenState extends State<ReaderScreen>
         textSelectionTheme: readerSelectionTheme(scheme),
       ),
       child: Scaffold(
-        appBar: immersive
-            ? null
-            : AppBar(
-                title: Text(
-                  book.title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                actions: [
-                  PopupMenuButton<String>(
-                    tooltip: '阅读工具',
-                    icon: const ShuyeIcon(Icons.more_vert, size: 21),
-                    onSelected: (v) => unawaited(tools(v)),
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(value: 'search', child: Text('全文搜索')),
-                      const PopupMenuItem(value: 'note', child: Text('摘录与笔记')),
-                      PopupMenuItem(
-                        value: 'auto',
-                        child: Text(autoPaging ? '停止自动翻页' : '自动翻页'),
-                      ),
-                      PopupMenuItem(
-                        value: 'speech',
-                        child: Text(speaking ? '停止听书' : '朗读本页并继续'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'voice',
-                        child: Text('选择系统声音'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'progress',
-                        child: Text('全书进度跳转'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'ai',
-                        child: Text('AI 解读本页 / 摘录'),
-                      ),
-                      const PopupMenuItem(value: 'word', child: Text('保存生词')),
-                      const PopupMenuItem(
-                        value: 'share',
-                        child: Text('生成摘录卡片'),
-                      ),
-                      if (book.chapters[chapter].images.isNotEmpty)
-                        const PopupMenuItem(
-                          value: 'images',
-                          child: Text('本章插图'),
-                        ),
-                      const PopupMenuItem(
-                        value: 'immersive',
-                        child: Text('全屏阅读（点中间恢复工具栏）'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'shield',
-                        child: Text('临时隐藏书页'),
-                      ),
-                    ],
-                  ),
-
-                  IconButton(
-                    tooltip: '阅读设置',
-                    onPressed: () async {
-                      dialogOpen = true;
-                      initialOffset = pages.isEmpty
-                          ? book.offset
-                          : sourceOffset(pages[page].start);
-                      await showReaderSettings(
-                        context,
-                        settings,
-                        () => repo.saveSettings(settings),
-                        changed: () => setState(() => layoutKey = ''),
-                      );
-                      dialogOpen = false;
-                      await DeviceReader.configure(settings);
-                    },
-                    icon: const ShuyeIcon(Icons.palette_outlined, size: 21),
-                  ),
-                ],
-              ),
+        resizeToAvoidBottomInset: false,
         body: shield
             ? GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -1299,7 +1303,18 @@ class _ReaderScreenState extends State<ReaderScreen>
                   ),
                 ),
               )
-            : SafeArea(
+            : ReaderViewport(
+                immersive: immersive,
+                topControls: topControls,
+                bottomControls: ReaderFooter(
+                  page: page + 1,
+                  pages: pages.length,
+                  progress: book.progress,
+                  ink: scheme[1],
+                  outline: outline,
+                  previous: () => turn(-1),
+                  next: () => turn(1),
+                ),
                 child: Column(
                   children: [
                     Padding(
@@ -1384,9 +1399,96 @@ class _ReaderScreenState extends State<ReaderScreen>
                                 }
                               });
                             }
+                            Widget? adjacent(int delta) {
+                              final step = doublePage ? 2 : 1;
+                              var targetChapter = chapter;
+                              var targetPage = page + delta * step;
+                              ReadingLayout target = ReadingLayout(
+                                text,
+                                sourceOffsets,
+                                pages,
+                              );
+                              if (targetPage < 0 ||
+                                  targetPage >= pages.length) {
+                                targetChapter += delta;
+                                if (targetChapter < 0 ||
+                                    targetChapter >= book.chapters.length) {
+                                  return null;
+                                }
+                                final targetKey =
+                                    '$targetChapter/${box.maxWidth}/${box.maxHeight}/${settings.toJson()}/${MediaQuery.textScalerOf(ctx).scale(1)}';
+                                if (!layoutCache.containsKey(targetKey) &&
+                                    layoutCache.length >= 3) {
+                                  final obsolete = layoutCache.keys.firstWhere(
+                                    (k) => k != layoutKey,
+                                  );
+                                  layoutCache.remove(obsolete);
+                                }
+                                target = layoutCache.putIfAbsent(targetKey, () {
+                                  final prepared = prepareText(
+                                    book.chapters[targetChapter].text,
+                                    settings,
+                                  );
+                                  return ReadingLayout(
+                                    prepared.text,
+                                    prepared.offsets,
+                                    paginate(
+                                      prepared.text,
+                                      style,
+                                      pageWidth,
+                                      box.maxHeight,
+                                      MediaQuery.textScalerOf(ctx),
+                                      settings: settings,
+                                    ),
+                                  );
+                                });
+                                targetPage = delta > 0
+                                    ? 0
+                                    : target.pages.length - 1;
+                              }
+                              Widget column(int index) {
+                                if (index >= target.pages.length) {
+                                  return const SizedBox();
+                                }
+                                final slice = target.pages[index];
+                                return RichText(
+                                  text: readerSpan(
+                                    target.text.substring(
+                                      slice.start,
+                                      slice.end,
+                                    ),
+                                    style,
+                                    settings,
+                                  ),
+                                  textScaler: MediaQuery.textScalerOf(ctx),
+                                  textAlign: readerTextAlign(settings),
+                                );
+                              }
+
+                              return ColoredBox(
+                                color: scheme[0],
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(child: column(targetPage)),
+                                    if (doublePage) ...[
+                                      const SizedBox(width: 32),
+                                      Expanded(child: column(targetPage + 1)),
+                                    ],
+                                  ],
+                                ),
+                              );
+                            }
+
+                            final previousPage = adjacent(-1);
+                            final nextPage = adjacent(1);
                             final slice = pages[page];
                             return ReaderTapSurface(
-                              canTurn: () => selected.isEmpty,
+                              canTurn: () =>
+                                  selected.isEmpty &&
+                                  !privacyLocked.value &&
+                                  !dialogOpen &&
+                                  !shield,
                               onDoubleTap: toggleChrome,
                               onTap: (location) {
                                 if (selected.isNotEmpty) return;
@@ -1408,14 +1510,51 @@ class _ReaderScreenState extends State<ReaderScreen>
                                   }
                                 }
                               },
+                              onHorizontalDragStart: (_) {
+                                if (settings.value(
+                                          'reader.animation',
+                                          'slide',
+                                        ) ==
+                                        'slide' &&
+                                    !settings.flag('reader.eink')) {
+                                  pageSurface.currentState?.beginDrag();
+                                }
+                              },
+                              onHorizontalDragUpdate: (d) => pageSurface
+                                  .currentState
+                                  ?.updateDrag(d.primaryDelta ?? 0),
+                              onHorizontalDragCancel: () =>
+                                  pageSurface.currentState?.cancel(),
                               onHorizontalDragEnd: (d) {
-                                if ((d.primaryVelocity ?? 0).abs() > 150) {
+                                final surface = pageSurface.currentState;
+                                if (settings.value(
+                                          'reader.animation',
+                                          'slide',
+                                        ) ==
+                                        'slide' &&
+                                    !settings.flag('reader.eink')) {
+                                  unawaited(
+                                    surface?.endDrag(
+                                      d.primaryVelocity ?? 0,
+                                      turnImmediate,
+                                    ),
+                                  );
+                                } else if ((d.primaryVelocity ?? 0).abs() >
+                                    150) {
                                   turn(d.primaryVelocity! < 0 ? 1 : -1);
                                 }
                               },
                               child: PageTurnSurface(
                                 key: pageSurface,
                                 color: scheme[0],
+                                adjacent: (d) =>
+                                    d > 0 ? nextPage : previousPage,
+                                pageIdentity: '$layoutKey:$page',
+                                enabled:
+                                    !privacyLocked.value &&
+                                    active &&
+                                    !shield &&
+                                    !dialogOpen,
                                 child: Stack(
                                   children: [
                                     Align(
@@ -1529,20 +1668,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                                                   ),
                                                 ),
                                                 if (doublePage) ...[
-                                                  Container(
-                                                    width: 32,
-                                                    decoration: BoxDecoration(
-                                                      gradient: LinearGradient(
-                                                        colors: [
-                                                          scheme[0],
-                                                          scheme[1].withValues(
-                                                            alpha: .12,
-                                                          ),
-                                                          scheme[0],
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ),
+                                                  const SizedBox(width: 32),
                                                   Expanded(
                                                     child:
                                                         page + 1 < pages.length
@@ -1595,16 +1721,18 @@ class _ReaderScreenState extends State<ReaderScreen>
                         ),
                       ),
                     ),
-                    if (!immersive)
-                      ReaderFooter(
-                        page: page + 1,
-                        pages: pages.length,
-                        progress: book.progress,
-                        ink: scheme[1],
-                        outline: outline,
-                        previous: () => turn(-1),
-                        next: () => turn(1),
+                    SizedBox(
+                      height: 24,
+                      child: Center(
+                        child: Text(
+                          '${page + 1} / ${pages.length} 页 · ${(book.progress * 100).round()}%',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: scheme[1].withValues(alpha: .7),
+                          ),
+                        ),
                       ),
+                    ),
                   ],
                 ),
               ),

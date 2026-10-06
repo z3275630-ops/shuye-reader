@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -6,9 +7,28 @@ import 'package:flutter/rendering.dart';
 class PageTurnSurface extends StatefulWidget {
   final Widget child;
   final Color color;
-  const PageTurnSurface({super.key, required this.child, required this.color});
+  // Prepared lazily once per turn, never while moving the finger.
+  final Widget? Function(int direction)? adjacent;
+  final Object? pageIdentity;
+  final bool enabled;
+  const PageTurnSurface({
+    super.key,
+    required this.child,
+    required this.color,
+    this.adjacent,
+    this.pageIdentity,
+    this.enabled = true,
+  });
   @override
   State<PageTurnSurface> createState() => PageTurnSurfaceState();
+}
+
+class _TurnRequest {
+  final VoidCallback action;
+  final String effect;
+  final int direction;
+  final done = Completer<void>();
+  _TurnRequest(this.action, this.effect, this.direction);
 }
 
 class PageTurnSurfaceState extends State<PageTurnSurface>
@@ -17,76 +37,206 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
   ui.Image? snapshot;
   ui.FragmentShader? shader;
   bool busy = false;
-  final _pendingTurns = <VoidCallback>[];
+  final _pendingTurns = <_TurnRequest>[];
   String mode = 'none';
   int direction = 1;
+  Widget? _incoming;
+  bool _dragging = false, _settling = false, _committing = false;
+  double _width = 0, _dragOffset = 0, _rawDrag = 0, _from = 0, _to = 0;
+  int _epoch = 0;
+  double get displacement => _settling
+      ? ui.lerpDouble(
+          _from,
+          _to,
+          Curves.easeOutCubic.transform(controller.value),
+        )!
+      : _dragOffset;
   late final AnimationController controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 360),
+    duration: const Duration(milliseconds: 240),
   );
-  Future<void> turn(
-    VoidCallback action,
-    String effect, {
-    int direction = 1,
-  }) async {
-    if (busy) {
-      _pendingTurns.add(action);
-      return;
-    }
-    if (effect == 'none' || MediaQuery.disableAnimationsOf(context)) {
-      action();
-      return;
-    }
+
+  bool beginDrag() {
+    if (busy || !widget.enabled) return false;
     busy = true;
-    mode = effect;
-    this.direction = direction;
+    _dragging = true;
+    _rawDrag = _dragOffset = 0;
+    mode = 'slide';
+    return true;
+  }
+
+  void updateDrag(double dx) {
+    if (!_dragging || !widget.enabled || _width <= 0) return;
+    _rawDrag += dx;
+    final nextDirection = _rawDrag <= 0 ? 1 : -1;
+    if (_incoming == null || direction != nextDirection) {
+      direction = nextDirection;
+      _incoming = widget.adjacent?.call(direction);
+    }
+    setState(() {
+      _dragOffset = _incoming == null ? 0 : _rawDrag.clamp(-_width, _width);
+    });
+  }
+
+  Future<void> endDrag(double velocity, ValueChanged<int> commit) async {
+    if (!_dragging) return;
+    _dragging = false;
+    final travel = _rawDrag;
+    direction = travel == 0 ? (velocity < 0 ? 1 : -1) : (travel < 0 ? 1 : -1);
+    _incoming ??= widget.adjacent?.call(direction);
+    final fling = velocity.abs() >= 450 && velocity * direction < 0;
+    final accept = widget.enabled && (travel.abs() >= _width * .22 || fling);
+    // At a book boundary there is no fictional page to animate.
+    if (_incoming == null) {
+      if (accept) commit(direction);
+      _reset();
+      _drain();
+      return;
+    }
+    await _settle(
+      accept ? -direction * _width : 0,
+      accept ? () => commit(direction) : null,
+      duration: Duration(milliseconds: fling ? 150 : 220),
+    );
+    _drain();
+  }
+
+  Future<void> turn(VoidCallback action, String effect, {int direction = 1}) {
+    final request = _TurnRequest(action, effect, direction >= 0 ? 1 : -1);
+    if (!widget.enabled) {
+      request.done.complete();
+    } else if (busy) {
+      _pendingTurns.add(request);
+    } else {
+      unawaited(_run(request));
+    }
+    return request.done.future;
+  }
+
+  Future<void> _run(_TurnRequest request) async {
+    busy = true;
+    final epoch = _epoch;
+    mode = request.effect;
+    direction = request.direction;
     try {
-      if (effect == 'curl') {
-        shader ??= (await ui.FragmentProgram.fromAsset(
-          'shaders/page_curl.frag',
-        )).fragmentShader();
-      }
-      if (!mounted) return;
-      final render =
-          boundary.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (render == null || render.debugNeedsPaint) {
-        action();
+      if (mode == 'none' || MediaQuery.disableAnimationsOf(context)) {
+        request.action();
         return;
       }
-      snapshot = await render.toImage(pixelRatio: 1.5);
-      if (!mounted) {
-        snapshot?.dispose();
-        snapshot = null;
+      _incoming = widget.adjacent?.call(direction);
+      if (_incoming == null) {
+        request.action();
         return;
       }
-      action();
-      controller.duration = Duration(
-        milliseconds: effect == 'slide' ? 300 : 360,
-      );
-      setState(() {});
-      await controller.forward(from: 0).orCancel;
-    } catch (_) {
-      if (mounted && snapshot == null) action();
-    } finally {
-      if (mounted) {
-        setState(() {
-          snapshot?.dispose();
-          snapshot = null;
-        });
-      }
-      busy = false;
-      final queued = List<VoidCallback>.of(_pendingTurns);
-      _pendingTurns.clear();
-      if (mounted) {
-        for (final turn in queued) {
-          turn();
+      if (mode == 'curl' || mode == 'fade') {
+        try {
+          if (mode == 'curl') {
+            shader ??= (await ui.FragmentProgram.fromAsset(
+              'shaders/page_curl.frag',
+            )).fragmentShader();
+          }
+          if (!mounted || epoch != _epoch) return;
+          final render = boundary.currentContext?.findRenderObject();
+          if (render is RenderRepaintBoundary && !render.debugNeedsPaint) {
+            final image = await render.toImage(pixelRatio: 1.5);
+            if (!mounted || epoch != _epoch) {
+              image.dispose();
+              return;
+            }
+            snapshot = image;
+          } else {
+            mode = 'slide';
+          }
+        } catch (_) {
+          // A shader or snapshot failure must not discard the requested turn.
+          if (!mounted || epoch != _epoch) return;
+          mode = 'slide';
         }
       }
+      if (!mounted || epoch != _epoch) return;
+      await _settle(-direction * _width, request.action);
+    } finally {
+      if (!request.done.isCompleted) request.done.complete();
+      if (mounted && epoch == _epoch) {
+        _reset();
+        _drain();
+      }
+    }
+  }
+
+  Future<void> _settle(
+    double target,
+    VoidCallback? commit, {
+    Duration duration = const Duration(milliseconds: 240),
+  }) async {
+    final epoch = _epoch;
+    _from = displacement;
+    _to = target;
+    _settling = true;
+    controller.duration = duration;
+    setState(() {});
+    try {
+      if (!MediaQuery.disableAnimationsOf(context)) {
+        await controller.forward(from: 0).orCancel;
+      } else {
+        controller.value = 1;
+      }
+      if (!mounted || epoch != _epoch || !widget.enabled) return;
+      if (commit != null) {
+        _committing = true;
+        commit();
+        // Keep the completed incoming page until the new child has painted.
+        await WidgetsBinding.instance.endOfFrame;
+        _committing = false;
+      }
+    } on TickerCanceled {
+      // Leaving the page or locking the library abandons the pending turn.
+    } finally {
+      if (mounted && epoch == _epoch) _reset();
+    }
+  }
+
+  void _reset() {
+    if (!mounted) return;
+    setState(() {
+      snapshot?.dispose();
+      snapshot = null;
+      _incoming = null;
+      _dragging = _settling = _committing = busy = false;
+      _dragOffset = _rawDrag = 0;
+    });
+  }
+
+  void _drain() {
+    if (!mounted || busy || _pendingTurns.isEmpty) return;
+    unawaited(_run(_pendingTurns.removeAt(0)));
+  }
+
+  void cancel() {
+    _epoch++;
+    controller.stop(canceled: true);
+    for (final request in _pendingTurns) {
+      if (!request.done.isCompleted) request.done.complete();
+    }
+    _pendingTurns.clear();
+    _reset();
+  }
+
+  @override
+  void didUpdateWidget(PageTurnSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.enabled ||
+        (!_committing && oldWidget.pageIdentity != widget.pageIdentity)) {
+      cancel();
     }
   }
 
   @override
   void dispose() {
+    _epoch++;
+    for (final request in _pendingTurns) {
+      if (!request.done.isCompleted) request.done.complete();
+    }
     controller.dispose();
     snapshot?.dispose();
     shader?.dispose();
@@ -94,30 +244,58 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
   }
 
   @override
-  Widget build(BuildContext context) => Stack(
-    children: [
-      RepaintBoundary(
-        key: boundary,
-        child: ColoredBox(color: widget.color, child: widget.child),
-      ),
-      if (snapshot != null)
-        Positioned.fill(
-          child: IgnorePointer(
-            child: AnimatedBuilder(
-              animation: controller,
-              builder: (c, w) => CustomPaint(
-                painter: TurnPainter(
-                  snapshot!,
-                  controller.value,
-                  mode == 'curl' ? shader : null,
-                  mode: mode,
-                  direction: direction,
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      _width = box.maxWidth;
+      return ClipRect(
+        child: AnimatedBuilder(
+          animation: controller,
+          builder: (context, _) {
+            final dx = displacement;
+            final imageEffect =
+                snapshot != null && (mode == 'fade' || mode == 'curl');
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                if (imageEffect && _incoming != null)
+                  IgnorePointer(child: _incoming!),
+                Transform.translate(
+                  key: const ValueKey('reader-page-translation'),
+                  offset: imageEffect ? Offset.zero : Offset(dx, 0),
+                  child: Offstage(
+                    offstage: imageEffect,
+                    child: RepaintBoundary(
+                      key: boundary,
+                      child: ColoredBox(
+                        color: widget.color,
+                        child: widget.child,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ),
+                if (!imageEffect && _incoming != null)
+                  Transform.translate(
+                    offset: Offset(dx + direction * _width, 0),
+                    child: IgnorePointer(child: _incoming!),
+                  ),
+                if (imageEffect)
+                  IgnorePointer(
+                    child: CustomPaint(
+                      painter: TurnPainter(
+                        snapshot!,
+                        controller.value,
+                        mode == 'curl' ? shader : null,
+                        mode: mode,
+                        direction: direction,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
-    ],
+      );
+    },
   );
 }
 
@@ -168,32 +346,6 @@ class TurnPainter extends CustomPainter {
       c.translate(dx, 0);
       c.drawImageRect(image, src, dst, Paint());
       c.restore();
-      final forward = direction >= 0;
-      final edge = forward
-          ? size.width - progress * size.width
-          : progress * size.width;
-      final shadow = Rect.fromLTWH(
-        forward ? edge : edge - 28,
-        0,
-        28,
-        size.height,
-      );
-      c.drawRect(
-        shadow,
-        Paint()
-          ..shader = ui.Gradient.linear(
-            Offset(shadow.left, 0),
-            Offset(shadow.right, 0),
-            [
-              forward
-                  ? Colors.black.withValues(alpha: .16)
-                  : Colors.transparent,
-              forward
-                  ? Colors.transparent
-                  : Colors.black.withValues(alpha: .16),
-            ],
-          ),
-      );
     }
     c.restore();
   }
