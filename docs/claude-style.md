@@ -1,4 +1,12 @@
-# 书叶 Android · Claude 风格 · 0.3.10
+# 书叶 Android · Claude 风格 · 0.3.11
+
+## 0.3.11：应用内品牌插画
+
+用户确认采用远端设计稿中有价值的部分。保留四份 SVG 原稿作设计资料，采用 [品牌配图概念](design/claude-style/shuye-hero-illustration.svg) 的“展开书页，生长成叶片”轮廓与 [首页概念](design/claude-style/shuye-home-theme-concept.svg) 的原生文字加插画布局。图形适配在 `lib/brand_illustration.dart`，用缓存 Path 原生绘制；不将固定尺寸首页 SVG 当页面、不打包 SVG 或新增渲染库。
+
+应用内横幅采用主题的 `surfaceContainerLow`；文字 / 轮廓使用 `onSurface`，纸页使用 `surface`，圆形点缀使用 `primary` / `secondaryContainer`。因此 Claude、海雾、纸白、青竹的浅深色同步改变。首页标题 22dp / 400，字幕 12dp，由实际衬线 Text 渲染并尊重系统缩放；窄屏 / 大字上下排列。设置品牌卡取消原来的大横幅，保留图标、名称、介绍，空间足够才显示小插画，避免压窄文字。书架和关于页复用紧凑主题横幅。
+
+不替换白绿桌面图标 / ShuyeMark，不增加开屏等待，不引入持续动画、渐变、发光或新增图片。普通与大字预览分开，成本及验证边界见 [0.3.11 验证](verification-0.3.11.md)。Issue #63 的应用内横幅建议落地，#65 的品牌 / 首页方向部分采纳；新 App Icon、Splash、全套空状态插画没有实施。
 
 ## 0.3.10：默认配色与清晰阅读
 

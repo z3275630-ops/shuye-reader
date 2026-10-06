@@ -135,14 +135,16 @@ class HomeDashboard extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        if (settings.flag('home.banner', true)) const ShuyeCover(),
-        const SizedBox(height: 18),
-        Text('给自己，一页安静。', style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: 6),
-        Text(
-          '${now.month} 月 ${now.day} 日 · 今天也留一点时间给阅读',
-          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
-        ),
+        if (settings.flag('home.banner', true))
+          ShuyeWelcomeCard(subtitle: '${now.month} 月 ${now.day} 日 · 留一点时间给阅读')
+        else ...[
+          Text('给自己，一页安静。', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 6),
+          Text(
+            '${now.month} 月 ${now.day} 日 · 今天也留一点时间给阅读',
+            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
+          ),
+        ],
         const SizedBox(height: 18),
         for (final section in visibleHomeSections(settings)) ...[
           switch (section) {

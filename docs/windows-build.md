@@ -34,3 +34,5 @@ GitHub Actions 使用 Linux runner，不使用这些本机路径、密码或代�
 追加修复后的回归副本为 `C:/tmp/shuye-main-039-verify-20261005`、临时目录 `C:/tmp/shuye-verify-temp-039`，与 APK 构建分别运行；源码与依赖锁、字体在交付前核对一致。不要把旧构建副本当作正式源码。
 
 0.3.10 使用 `C:/tmp/shuye-main-0310-verify` / `C:/tmp/shuye-temp-0310-verify` 验证，`C:/tmp/shuye-main-0310-build` / `C:/tmp/shuye-temp-0310-build` 构建；不占用其他 Agent 的副本。Windows aapt 在中文 APK 路径报 Illegal byte sequence 时，应核对同一哈希 APK 的英文构建路径，不把该路径错误误判为 APK 丢失 AndroidManifest。
+
+0.3.11 使用独立 C:/tmp/shuye-main-0311-verify / C:/tmp/shuye-temp-0311-verify 验证，C:/tmp/shuye-main-0311-build / C:/tmp/shuye-temp-0311-build 构建。最终运行源码 / pubspec / lock 与正式目录一致；未经用户要求不删除这些副本，不供其他 Agent 同时使用。

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'appearance.dart';
+import 'brand_illustration.dart';
 
-const shuyeVersion = '0.3.10';
+const shuyeVersion = '0.3.11';
 const shuyeCoverAsset = 'assets/art/shuye-cover.webp';
 const shuyeMarkAsset = 'assets/art/shuye-mark.webp';
 
@@ -25,17 +26,95 @@ class ShuyeMark extends StatelessWidget {
 class ShuyeCover extends StatelessWidget {
   const ShuyeCover({super.key});
   @override
-  Widget build(BuildContext context) => ClipRRect(
-    borderRadius: BorderRadius.circular(18),
-    child: AspectRatio(
-      aspectRatio: 4.2,
-      child: Image.asset(
-        shuyeCoverAsset,
-        fit: BoxFit.cover,
-        semanticLabel: '白绿叠页与黑色背景',
+  Widget build(BuildContext context) => Semantics(
+    label: '展开的书页，生长成叶片',
+    image: true,
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(ShuyeStyle.cardRadius),
+      ),
+      child: const AspectRatio(
+        aspectRatio: 4.2,
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 6),
+          child: Center(child: ShuyeBookLeaf(width: 170, height: 100)),
+        ),
       ),
     ),
   );
+}
+
+/// The homepage uses real text next to the concept art, rather than a screenshot
+/// of a homepage. Large text and narrow windows give the title the full width.
+class ShuyeWelcomeCard extends StatelessWidget {
+  final String subtitle;
+  const ShuyeWelcomeCard({super.key, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(ShuyeStyle.cardRadius),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final stacked =
+                constraints.maxWidth < 225 ||
+                MediaQuery.textScalerOf(context).scale(22) > 27;
+            final title = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '给自己，\n一页安静。',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontSize: 22,
+                    height: 1.35,
+                    color: colors.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.6,
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            );
+            return stacked
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      title,
+                      const SizedBox(height: 6),
+                      const Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: ShuyeBookLeaf(width: 126, height: 74),
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Expanded(child: title),
+                      const SizedBox(width: 8),
+                      ShuyeBookLeaf(
+                        width: constraints.maxWidth < 285 ? 92 : 124,
+                        height: 106,
+                      ),
+                    ],
+                  );
+          },
+        ),
+      ),
+    );
+  }
 }
 
 class ShuyeIdentityCard extends StatelessWidget {
@@ -43,40 +122,41 @@ class ShuyeIdentityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
     clipBehavior: Clip.antiAlias,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const ShuyeCover(),
-        Padding(
-          padding: const EdgeInsets.all(18),
-          child: Row(
-            children: [
-              const ShuyeMark(size: 42),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '书叶',
-                      style: Theme.of(context).textTheme.titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w400),
+    child: Padding(
+      padding: const EdgeInsets.all(18),
+      child: LayoutBuilder(
+        builder: (context, constraints) => Row(
+          children: [
+            const ShuyeMark(size: 42),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '书叶',
+                    style: Theme.of(context).textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w400),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '一本书，一段属于自己的时间。',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '一本书，一段属于自己的时间。',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
+            ),
+            if (constraints.maxWidth >= 270 &&
+                MediaQuery.textScalerOf(context).scale(12) <= 15) ...[
+              const SizedBox(width: 8),
+              const ShuyeBookLeaf(width: 76, height: 60),
             ],
-          ),
+          ],
         ),
-      ],
+      ),
     ),
   );
 }

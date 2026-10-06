@@ -4,9 +4,16 @@
 
 <table><tr><td><img src="docs/screenshots/home.png" width="240" alt="首页预览"></td><td><img src="docs/screenshots/claude-reader-default.png" width="240" alt="阅读预览"></td><td><img src="docs/screenshots/heatmap-month.png" width="240" alt="本月阅读热力图演示预览"></td></tr></table>
 
-实际 Flutter 界面预览，使用 APP 打包的衬线字体、本机字体回退，非安卓真机截图。热力图彩色预览使用仅限截图测试的演示数据；应用只显示真实记录。三幅示例书封由 Codex 内置生图能力生成；应用封面与桌面图标根据用户选定的白绿叠页图编辑适配。书名与作者由 APP 叠加。
+实际 Flutter 界面预览，使用 APP 打包的衬线字体、本机字体回退，非安卓真机截图。热力图彩色预览使用仅限截图测试的演示数据；应用只显示真实记录。三幅示例书封由 Codex 内置生图能力生成；桌面图标保留用户选定的白绿叠页图；应用内品牌图形参考协助 Agent 的书页生叶方向稿，以 Flutter 原生路径适配主题。书名与作者由 APP 叠加。
 
 书叶是一款 Android 本地阅读器，支持阅读、听书、摘录与记录阅读足迹。书籍和笔记保存在本机。
+
+## 0.3.11：使用 Claude 风格品牌稿
+
+- 首页整合衬线标题和书页生叶插画，书架 / 关于页横幅跟随浅深主题；设置品牌卡更紧凑，窄屏 / 大字时让文字优先。白绿桌面图标保留。
+- 采用仓库设计稿的有用部分，原生绘制缓存路径，未引入 SVG 库、图片、字体或持续动画。四配色浅深联动，原稿只作设计资料。
+- 106 项测试通过、52 张实际字体 Flutter 预览。正式 ARM64 包 **30.17 MB（30,168,064 字节）**，比 0.3.10 减少 4,276 字节；签名相同。见 [0.3.11 验证](docs/verification-0.3.11.md)。
+- 本轮落地 #63、部分采用 #65，其余功能 / 数据 / 性能提案按 [衔接表](docs/prd/review-2026-10-05.md) 保留；没有把使用插画说成这些 Bug 全部修好。
 
 ## 0.3.10：Claude 默认配色与阅读可用性
 
@@ -110,7 +117,7 @@
 
 ## 安装与更新
 
-从 [v0.3.10 下载页](https://github.com/z3275630-ops/shuye-reader/releases/tag/v0.3.10) 下载唯一的 `shuye-0.3.10.apk`（ARM64）。仓库现为公有。`SHA256SUMS.txt` 为文件校验，`upgrade-guide.md` 为更新说明，无需安装。
+从 [v0.3.11 下载页](https://github.com/z3275630-ops/shuye-reader/releases/tag/v0.3.11) 下载唯一的 `shuye-0.3.11.apk`（ARM64）。仓库现为公有。`SHA256SUMS.txt` 为文件校验，`upgrade-guide.md` 为更新说明，无需安装。
 
 只打入当前手机需要的 ARM64 运行库，并无损压缩原生库。压缩改变下载体积；安装时系统提取原生库，不能将 APK 大小当作安装后的总占用。
 
