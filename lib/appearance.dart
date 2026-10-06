@@ -531,6 +531,7 @@ class SettingSlider extends StatelessWidget {
   final int? divisions;
   final ValueChanged<double> onChanged;
   final ValueChanged<double>? onChangeEnd;
+  final bool compact;
   const SettingSlider({
     super.key,
     required this.title,
@@ -541,43 +542,56 @@ class SettingSlider extends StatelessWidget {
     required this.onChanged,
     this.divisions,
     this.onChangeEnd,
+    this.compact = false,
   });
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Wrap(
-        spacing: 12,
-        runSpacing: 8,
-        crossAxisAlignment: WrapCrossAlignment.center,
+  Widget build(BuildContext context) {
+    final slider = Slider(
+      value: value.clamp(min, max),
+      min: min,
+      max: max,
+      divisions: divisions,
+      label: displayValue,
+      semanticFormatterCallback: (_) => '$title，$displayValue',
+      onChanged: onChanged,
+      onChangeEnd: onChangeEnd,
+    );
+    if (compact) {
+      return Row(
         children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.secondaryContainer,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              displayValue,
-              style: Theme.of(context).textTheme.labelLarge,
-            ),
-          ),
+          Text(title, style: Theme.of(context).textTheme.titleSmall),
+          Expanded(child: slider),
+          Text(displayValue, style: Theme.of(context).textTheme.labelLarge),
         ],
-      ),
-      Slider(
-        value: value.clamp(min, max),
-        min: min,
-        max: max,
-        divisions: divisions,
-        label: displayValue,
-        semanticFormatterCallback: (_) => '$title，$displayValue',
-        onChanged: onChanged,
-        onChangeEnd: onChangeEnd,
-      ),
-    ],
-  );
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                displayValue,
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+            ),
+          ],
+        ),
+        slider,
+      ],
+    );
+  }
 }
 
 class SettingsSection extends StatelessWidget {

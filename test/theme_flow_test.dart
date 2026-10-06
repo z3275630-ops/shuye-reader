@@ -1,3 +1,5 @@
+import 'reader_test_support.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -101,6 +103,7 @@ void main() {
         tester.element(find.byType(LibraryHome, skipOffstage: false)),
       ).colorScheme.surface;
       await open();
+      await revealReaderControls(tester);
       await tester.tap(find.byTooltip('阅读设置'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.widgetWithText(ChoiceChip, '海雾'));
@@ -176,6 +179,7 @@ void main() {
       await ready(tester);
       expect(appPaper(), const Color(0xfff7fafc));
       await open();
+      await revealReaderControls(tester);
       await tester.tap(find.byTooltip('阅读设置'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.widgetWithText(ChoiceChip, '夜读'));

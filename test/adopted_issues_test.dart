@@ -1,3 +1,5 @@
+import 'reader_test_support.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -206,6 +208,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await revealReaderControls(tester);
       await tester.tap(find.byTooltip('阅读工具'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('自动翻页'));

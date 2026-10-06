@@ -150,7 +150,7 @@ void main() {
       repo.pending!.complete(book);
       await ready(tester);
       expect(find.byType(ReaderScreen, skipOffstage: false), findsOneWidget);
-      await tester.pageBack();
+      await tester.binding.handlePopRoute();
       await ready(tester);
       expect(find.byType(ReaderScreen, skipOffstage: false), findsNothing);
       repo.pending = null;
@@ -160,7 +160,7 @@ void main() {
       await ready(tester);
       expect(repo.opens, 2);
       expect(find.byType(ReaderScreen, skipOffstage: false), findsOneWidget);
-      await tester.pageBack();
+      await tester.binding.handlePopRoute();
       await ready(tester);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
@@ -195,13 +195,13 @@ void main() {
       books[1].id,
     );
     expect(find.byType(ReaderScreen, skipOffstage: false), findsNWidgets(2));
-    await tester.pageBack();
+    await tester.binding.handlePopRoute();
     await ready(tester);
     expect(
       tester.widget<ReaderScreen>(find.byType(ReaderScreen)).book.id,
       books[0].id,
     );
-    await tester.pageBack();
+    await tester.binding.handlePopRoute();
     await ready(tester);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());

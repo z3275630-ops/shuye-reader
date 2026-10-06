@@ -1,3 +1,5 @@
+import 'reader_test_support.dart';
+
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -163,11 +165,12 @@ void main() {
     await capture('claude-reader-default');
     await tester.tapAt(tester.getCenter(find.byType(SelectableText).first));
     await tester.pump(const Duration(milliseconds: 300));
-    await capture('claude-reader-fullscreen');
+    await capture('claude-reader-controls');
     await tester.tapAt(tester.getCenter(find.byType(SelectableText).first));
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pumpAndSettle();
     for (final palette in ['海雾', '夜读']) {
+      await revealReaderControls(tester);
       await tester.tap(find.byTooltip('阅读设置'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.widgetWithText(ChoiceChip, palette));
@@ -180,7 +183,7 @@ void main() {
       await tester.tap(find.text('开始阅读'));
       await ready(tester);
       await capture(palette == '海雾' ? 'mist-reader' : 'claude-night-reader');
-      await tester.pageBack();
+      await tester.binding.handlePopRoute();
       await ready(tester);
       await capture(
         palette == '海雾'
@@ -189,7 +192,7 @@ void main() {
       );
       await open();
     }
-    await tester.pageBack();
+    await tester.binding.handlePopRoute();
     await ready(tester);
     await tester.tap(find.text('首页'));
     await ready(tester);

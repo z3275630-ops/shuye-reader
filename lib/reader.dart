@@ -322,6 +322,139 @@ Future<void> showReaderSettings(
   }
 }
 
+/// In-reader controls use the real page above the dock as their preview.
+/// The complete editor remains available from settings and the More button.
+class ReaderQuickSettings extends StatelessWidget {
+  final ReaderSettings settings;
+  final VoidCallback changed, close, more;
+  const ReaderQuickSettings({
+    super.key,
+    required this.settings,
+    required this.changed,
+    required this.close,
+    required this.more,
+  });
+  @override
+  Widget build(BuildContext context) {
+    void change(VoidCallback action) {
+      action();
+      changed();
+    }
+
+    return SafeArea(
+      top: false,
+      child: Column(
+        children: [
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '阅读设置',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                IconButton(
+                  tooltip: '完整阅读设置',
+                  onPressed: more,
+                  icon: const ShuyeIcon(Icons.more_horiz),
+                ),
+                TextButton(onPressed: close, child: const Text('开始阅读')),
+              ],
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SettingSlider(
+                    title: '字号',
+                    compact: true,
+                    displayValue: '${settings.fontSize.round()}',
+                    value: settings.fontSize,
+                    min: 14,
+                    max: 32,
+                    divisions: 18,
+                    onChanged: (v) => change(() => settings.fontSize = v),
+                  ),
+                  SettingSlider(
+                    title: '行距',
+                    compact: true,
+                    displayValue: settings.lineHeight.toStringAsFixed(2),
+                    value: settings.lineHeight,
+                    min: 1.3,
+                    max: 2.4,
+                    divisions: 22,
+                    onChanged: (v) => change(() => settings.lineHeight = v),
+                  ),
+                  Wrap(
+                    spacing: 10,
+                    children: [
+                      for (final option in {
+                        'sans': '清晰黑体',
+                        'serif': '书页宋体',
+                      }.entries)
+                        ChoiceChip(
+                          label: Text(option.value),
+                          selected:
+                              settings.value('reader.customFont', '').isEmpty &&
+                              settings.font == option.key,
+                          onSelected: (_) => change(() {
+                            settings.font = option.key;
+                            settings.extra.remove('reader.customFont');
+                          }),
+                        ),
+                    ],
+                  ),
+                  Wrap(
+                    spacing: 10,
+                    children: [
+                      for (final option in readerSchemes.entries.where(
+                        (e) => e.key != 'paper',
+                      ))
+                        ChoiceChip(
+                          label: Text(readerNames[option.key]!),
+                          avatar: CircleAvatar(
+                            backgroundColor: option.value[0],
+                            radius: 8,
+                          ),
+                          selected: settings.theme == 'follow'
+                              ? (option.key == 'night'
+                                    ? AppAppearance.fromSettings(settings)
+                                              .mode ==
+                                          'dark'
+                                    : AppAppearance.fromSettings(settings)
+                                                  .mode !=
+                                              'dark' &&
+                                          AppAppearance.fromSettings(settings)
+                                                  .theme ==
+                                              option.key)
+                              : settings.theme == option.key,
+                          onSelected: (_) => change(
+                            () => selectAppPalette(
+                              settings,
+                              option.key == 'night' ? 'claude' : option.key,
+                              mode: option.key == 'night' ? 'dark' : 'light',
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class PageSlice {
   final int start, end;
   const PageSlice(this.start, this.end);
@@ -424,7 +557,9 @@ class _ReaderScreenState extends State<ReaderScreen>
   List<int> sourceOffsets = [];
   Timer? timer;
   bool active = true, dialogOpen = false, saving = false;
-  bool autoPaging = false, speaking = false, shield = false, immersive = false;
+  bool autoPaging = false, speaking = false, shield = false, immersive = true;
+  bool settingsOpen = false;
+  int? settingsAnchor;
   late final int libraryGeneration;
   bool? routeCurrent;
   bool get staleLibrary => libraryGeneration != repo.libraryGeneration;
@@ -432,7 +567,40 @@ class _ReaderScreenState extends State<ReaderScreen>
   bool endNotified = false;
   void toggleChrome() {
     if (!mounted) return;
+    if (settingsOpen) {
+      toggleSettings();
+      return;
+    }
     setState(() => immersive = !immersive);
+  }
+
+  void toggleSettings() {
+    pageSurface.currentState?.cancel();
+    if (!settingsOpen) {
+      settingsAnchor = pages.isEmpty
+          ? book.offset
+          : sourceOffset(pages[page].start);
+    }
+    initialOffset = settingsAnchor ?? book.offset;
+    setState(() {
+      settingsOpen = !settingsOpen;
+      dialogOpen = settingsOpen;
+      immersive = false;
+      layoutKey = '';
+    });
+    if (!settingsOpen) unawaited(saveReadingSettings());
+  }
+
+  Future<void> saveReadingSettings() async {
+    try {
+      await repo.saveSettings(settings);
+      await DeviceReader.configure(settings);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('设置保存失败：$e')));
+      }
+    }
   }
 
   int autoSeconds = 0, reminderSeconds = 0;
@@ -1209,6 +1377,8 @@ class _ReaderScreenState extends State<ReaderScreen>
     }
     final scheme = readerColors(settings);
     final style = TextStyle(
+      inherit: false,
+      textBaseline: TextBaseline.alphabetic,
       color: scheme[1],
       fontSize: settings.fontSize,
       height: settings.lineHeight,
@@ -1219,6 +1389,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       letterSpacing: 0,
     );
     final topControls = AppBar(
+      primary: false,
       title: Text(
         book.title,
         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
@@ -1256,39 +1427,28 @@ class _ReaderScreenState extends State<ReaderScreen>
 
         IconButton(
           tooltip: '阅读设置',
-          onPressed: () async {
-            pageSurface.currentState?.cancel();
-            dialogOpen = true;
-            initialOffset = pages.isEmpty
-                ? book.offset
-                : sourceOffset(pages[page].start);
-            await showReaderSettings(
-              context,
-              settings,
-              () => repo.saveSettings(settings),
-              changed: () => setState(() => layoutKey = ''),
-            );
-            dialogOpen = false;
-            await DeviceReader.configure(settings);
-          },
+          onPressed: toggleSettings,
           icon: const ShuyeIcon(Icons.palette_outlined, size: 21),
         ),
       ],
     );
     return Theme(
-      data: Theme.of(context).copyWith(
-        brightness: scheme[0].computeLuminance() < .5
-            ? Brightness.dark
-            : Brightness.light,
-        scaffoldBackgroundColor: scheme[0],
-        appBarTheme: AppBarTheme(
-          backgroundColor: scheme[0],
-          foregroundColor: scheme[1],
-          surfaceTintColor: Colors.transparent,
-        ),
-        iconTheme: IconThemeData(color: scheme[1]),
-        textSelectionTheme: readerSelectionTheme(scheme),
-      ),
+      data:
+          applicationTheme(
+            scheme[0].computeLuminance() < .5
+                ? Brightness.dark
+                : Brightness.light,
+            palette: AppAppearance.fromSettings(settings).theme,
+          ).copyWith(
+            scaffoldBackgroundColor: scheme[0],
+            appBarTheme: AppBarTheme(
+              backgroundColor: scheme[0],
+              foregroundColor: scheme[1],
+              surfaceTintColor: Colors.transparent,
+            ),
+            iconTheme: IconThemeData(color: scheme[1]),
+            textSelectionTheme: readerSelectionTheme(scheme),
+          ),
       child: Scaffold(
         resizeToAvoidBottomInset: false,
         body: shield
@@ -1305,7 +1465,32 @@ class _ReaderScreenState extends State<ReaderScreen>
               )
             : ReaderViewport(
                 immersive: immersive,
+                closePanel: toggleSettings,
                 topControls: topControls,
+                bottomPanel: settingsOpen
+                    ? ReaderQuickSettings(
+                        settings: settings,
+                        changed: () {
+                          initialOffset = settingsAnchor ?? book.offset;
+                          setState(() => layoutKey = '');
+                        },
+                        close: toggleSettings,
+                        more: () async {
+                          await showReaderSettings(
+                            context,
+                            settings,
+                            () => repo.saveSettings(settings),
+                            changed: () {
+                              if (mounted) {
+                                initialOffset = settingsAnchor ?? book.offset;
+                                setState(() => layoutKey = '');
+                              }
+                            },
+                          );
+                          if (mounted) await DeviceReader.configure(settings);
+                        },
+                      )
+                    : null,
                 bottomControls: ReaderFooter(
                   page: page + 1,
                   pages: pages.length,
@@ -1317,29 +1502,32 @@ class _ReaderScreenState extends State<ReaderScreen>
                 ),
                 child: Column(
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(28, 10, 28, 14),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              book.chapters[chapter].title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                    SizedBox(
+                      height: ReaderViewport.headerExtent,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 28),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                book.chapters[chapter].title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: scheme[1].withValues(alpha: .8),
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '${chapter + 1} / ${book.chapters.length} 章',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: scheme[1].withValues(alpha: .8),
                               ),
                             ),
-                          ),
-                          Text(
-                            '${chapter + 1} / ${book.chapters.length} 章',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: scheme[1].withValues(alpha: .8),
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                     Expanded(
@@ -1451,8 +1639,8 @@ class _ReaderScreenState extends State<ReaderScreen>
                                   return const SizedBox();
                                 }
                                 final slice = target.pages[index];
-                                return RichText(
-                                  text: readerSpan(
+                                return SelectableText.rich(
+                                  readerSpan(
                                     target.text.substring(
                                       slice.start,
                                       slice.end,
@@ -1460,6 +1648,10 @@ class _ReaderScreenState extends State<ReaderScreen>
                                     style,
                                     settings,
                                   ),
+                                  style: style,
+                                  cursorWidth: 0,
+                                  enableInteractiveSelection: false,
+                                  textDirection: TextDirection.ltr,
                                   textScaler: MediaQuery.textScalerOf(ctx),
                                   textAlign: readerTextAlign(settings),
                                 );
@@ -1487,10 +1679,14 @@ class _ReaderScreenState extends State<ReaderScreen>
                               canTurn: () =>
                                   selected.isEmpty &&
                                   !privacyLocked.value &&
-                                  !dialogOpen &&
+                                  (!dialogOpen || settingsOpen) &&
                                   !shield,
                               onDoubleTap: toggleChrome,
                               onTap: (location) {
+                                if (settingsOpen) {
+                                  toggleSettings();
+                                  return;
+                                }
                                 if (selected.isNotEmpty) return;
                                 if (location.dx >= box.maxWidth * .3 &&
                                     location.dx <= box.maxWidth * .7) {
@@ -1582,6 +1778,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                                                       '$layoutKey:$page',
                                                     ),
                                                     style: style,
+                                                    cursorWidth: 0,
                                                     textScaler:
                                                         MediaQuery.textScalerOf(
                                                           ctx,
@@ -1683,6 +1880,11 @@ class _ReaderScreenState extends State<ReaderScreen>
                                                               style,
                                                               settings,
                                                             ),
+                                                            style: style,
+                                                            cursorWidth: 0,
+                                                            textDirection:
+                                                                TextDirection
+                                                                    .ltr,
                                                             textScaler:
                                                                 MediaQuery.textScalerOf(
                                                                   ctx,
@@ -1722,7 +1924,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                       ),
                     ),
                     SizedBox(
-                      height: 24,
+                      height: ReaderViewport.footerExtent(context),
                       child: Center(
                         child: Text(
                           '${page + 1} / ${pages.length} 页 · ${(book.progress * 100).round()}%',

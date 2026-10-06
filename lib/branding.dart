@@ -4,7 +4,7 @@ import 'appearance.dart';
 import 'brand_illustration.dart';
 import 'editorial_art.dart';
 
-const shuyeVersion = '0.3.13';
+const shuyeVersion = '0.3.14';
 const shuyeCoverAsset = 'assets/art/shuye-cover.webp';
 const shuyeMarkAsset = 'assets/art/shuye-mark.webp';
 

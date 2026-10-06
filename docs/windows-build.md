@@ -40,3 +40,5 @@ GitHub Actions 使用 Linux runner，不使用这些本机路径、密码或代�
 0.3.12 使用 C:/tmp/shuye-main-0312-verify / C:/tmp/shuye-temp-0312-verify 验证和截图，C:/tmp/shuye-main-0312-build / C:/tmp/shuye-temp-0312-build 构建。两个副本分别串行运行其 Flutter 命令，最终与正式源码及字体逐文件校验。
 
 0.3.13 使用独立 C:/tmp/shuye-main-0313-verify / C:/tmp/shuye-temp-0313-verify 验证及预览、C:/tmp/shuye-main-0313-build / C:/tmp/shuye-temp-0313-build 构建，不使用其他 Agent 的运行副本，不修改共享 SDK。
+
+0.3.14 使用 C:/tmp/shuye-main-0314-verify / C:/tmp/shuye-temp-0314-verify 验证及预览，C:/tmp/shuye-main-0314-build / C:/tmp/shuye-temp-0314-build 构建。沿用已有 C:/tmp/shuye-gradle-20261004 依赖缓存，各副本内串行执行 Flutter；共享缓存遵守自身锁，不清理缓存、停止他人进程或升级 SDK。正式签名配置仅保存在构建副本，不同步回仓库。

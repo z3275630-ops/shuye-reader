@@ -82,6 +82,11 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
     if (!_dragging) return;
     _dragging = false;
     final travel = _rawDrag;
+    if (travel == 0 && velocity == 0) {
+      _reset();
+      _drain();
+      return;
+    }
     direction = travel == 0 ? (velocity < 0 ? 1 : -1) : (travel < 0 ? 1 : -1);
     _incoming ??= widget.adjacent?.call(direction);
     final fling = velocity.abs() >= 450 && velocity * direction < 0;
@@ -171,6 +176,9 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
   }) async {
     final epoch = _epoch;
     _from = displacement;
+    // Reset the old completed animation before exposing the new settlement.
+    // This keeps consecutive drags from briefly using the previous endpoint.
+    controller.value = 0;
     _to = target;
     _settling = true;
     controller.duration = duration;
@@ -339,8 +347,7 @@ class TurnPainter extends CustomPainter {
       );
     } else {
       // Horizontal slide: the outgoing page glides away in the reading
-      // direction and reveals the incoming page beneath it, with a soft
-      // shadow cast onto the revealed page by the moving page's edge.
+      // direction and reveals the incoming page with no decorative effects.
       final dx = -progress * size.width * (direction >= 0 ? 1 : -1);
       c.save();
       c.translate(dx, 0);

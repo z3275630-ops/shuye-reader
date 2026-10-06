@@ -1,3 +1,5 @@
+import 'reader_test_support.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -74,9 +76,11 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byType(SelectableText), findsOneWidget);
+      await revealReaderControls(tester);
       await tester.tap(find.byTooltip('下一页'));
       await tester.pumpAndSettle();
       expect(find.textContaining('2 /'), findsWidgets);
+      await revealReaderControls(tester);
       await tester.tap(find.byTooltip('阅读工具'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('摘录与笔记'));
@@ -88,8 +92,10 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 100));
         expect((await repo.notes()).single.comment, '测试笔记');
       });
+      await revealReaderControls(tester);
       await tester.tap(find.byTooltip('阅读设置'));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.widgetWithText(ChoiceChip, '夜读'));
       await tester.tap(
         find.ancestor(of: find.text('夜读'), matching: find.byType(ChoiceChip)),
       );
@@ -112,6 +118,7 @@ void main() {
       await tester.tap(find.text('第二章 慢一点的日子'));
       await tester.pumpAndSettle();
       expect(find.text('第二章 慢一点的日子'), findsOneWidget);
+      await revealReaderControls(tester);
       await tester.tap(find.byTooltip('阅读工具'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('全文搜索'));
