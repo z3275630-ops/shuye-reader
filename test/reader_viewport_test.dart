@@ -111,6 +111,101 @@ void main() {
   }
 
   testWidgets(
+    'prepared page text is laid out before drag and not repainted each frame',
+    (tester) async {
+      final key = GlobalKey<PageTurnSurfaceState>();
+      final current = _WorkCounts(), next = _WorkCounts();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SizedBox(
+            width: 300,
+            height: 400,
+            child: PageTurnSurface(
+              key: key,
+              color: Colors.white,
+              next: _CountWork(
+                counts: next,
+                child: const SelectableText('Prepared next page'),
+              ),
+              child: _CountWork(
+                counts: current,
+                child: const SelectableText('Current page'),
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(next.layouts, greaterThan(0));
+      expect(next.paints, 0);
+      final surface = key.currentState!;
+      surface.beginDrag();
+      surface.updateDrag(-30);
+      await tester.pump();
+      final layouts = [current.layouts, next.layouts];
+      final paints = [current.paints, next.paints];
+      expect(next.paints, greaterThan(0));
+      for (var i = 0; i < 10; i++) {
+        surface.updateDrag(-10);
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect([current.layouts, next.layouts], layouts);
+      expect([current.paints, next.paints], paints);
+      final done = surface.endDrag(-1000, (_) {});
+      await tester.pump();
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect([current.layouts, next.layouts], layouts);
+        expect([current.paints, next.paints], paints);
+      }
+      await tester.pumpAndSettle();
+      await done;
+    },
+  );
+
+  testWidgets(
+    'release velocity stays continuous and a new drag can interrupt settling',
+    (tester) async {
+      final key = GlobalKey<PageTurnSurfaceState>();
+      final commits = <int>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SizedBox(
+            width: 300,
+            height: 400,
+            child: PageTurnSurface(
+              key: key,
+              color: Colors.white,
+              next: const ColoredBox(color: Colors.blue),
+              child: const ColoredBox(color: Colors.white),
+            ),
+          ),
+        ),
+      );
+      final surface = key.currentState!;
+      surface.beginDrag();
+      surface.updateDrag(-80);
+      final oldTurn = surface.endDrag(-1000, commits.add);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(surface.displacement + 80, closeTo(-1, .1));
+      await tester.pump(const Duration(milliseconds: 40));
+      final offset = surface.displacement;
+      expect(surface.beginDrag(), isTrue);
+      expect(surface.displacement, offset);
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(surface.displacement, offset);
+      expect(commits, isEmpty);
+      surface.updateDrag(15);
+      expect(surface.displacement, offset + 15);
+      final returning = surface.endDrag(1000, commits.add);
+      await tester.pumpAndSettle();
+      await Future.wait([oldTurn, returning]);
+      expect(commits, isEmpty);
+      expect(surface.busy, isFalse);
+    },
+  );
+
+  testWidgets(
     'short drag and cancelled animation preserve progress; queue settles in order',
     (tester) async {
       final key = GlobalKey<PageTurnSurfaceState>();
@@ -444,6 +539,24 @@ void main() {
       surface.beginDrag();
       surface.updateDrag(-140);
       await tester.pump();
+      final header = tester.getRect(find.text('第一章'));
+      final nextHeader = tester.getRect(find.text('第二章'));
+      expect(header.left, closeTo(28 - 140, .01));
+      expect(nextHeader.left, closeTo(28 - 140 + 390, .01));
+      expect(
+        tester.getRect(find.text('1 / 2 章')).right,
+        closeTo(390 - 28 - 140, .01),
+      );
+      expect(
+        tester.getRect(find.text('2 / 2 章')).right,
+        closeTo(390 - 28 - 140 + 390, .01),
+      );
+      final footers = find.byWidgetPredicate(
+        (w) => w is Text && (w.data?.contains(' 页 · ') ?? false),
+      );
+      expect(footers, findsNWidgets(2));
+      expect(tester.getCenter(footers.first).dx, closeTo(195 - 140, .01));
+      expect(tester.getCenter(footers.last).dx, closeTo(195 - 140 + 390, .01));
       final outgoingRect = tester.getRect(find.byType(SelectableText).first);
       final incomingRect = tester.getRect(find.byType(SelectableText).last);
       expect(incomingRect.left - outgoingRect.right, closeTo(56, .01));
@@ -460,6 +573,7 @@ void main() {
       );
       final height = incoming.size.height;
       final rect = tester.getRect(find.byType(SelectableText).last);
+      final previewFooter = tester.widget<Text>(footers.last).data;
       surface.cancel();
       await tester.pumpAndSettle();
       await tester.fling(
@@ -481,6 +595,8 @@ void main() {
         boxes,
       );
       expect(tester.getRect(find.byType(SelectableText).first), rect);
+      expect(tester.widget<Text>(footers).data, previewFooter);
+      expect(previewFooter, endsWith('${(book.progress * 100).round()}%'));
       expect(
         committed.size.height,
         lessThanOrEqualTo(tester.getSize(find.byType(PageTurnSurface)).height),
@@ -574,4 +690,32 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.android),
   );
+}
+
+class _WorkCounts {
+  int layouts = 0, paints = 0;
+}
+
+class _CountWork extends SingleChildRenderObjectWidget {
+  final _WorkCounts counts;
+  const _CountWork({required this.counts, required super.child});
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _CountRenderWork(counts);
+}
+
+class _CountRenderWork extends RenderProxyBox {
+  final _WorkCounts counts;
+  _CountRenderWork(this.counts);
+  @override
+  void performLayout() {
+    counts.layouts++;
+    super.performLayout();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    counts.paints++;
+    super.paint(context, offset);
+  }
 }

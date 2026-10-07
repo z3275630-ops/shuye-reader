@@ -9,19 +9,30 @@ class ReaderPage extends StatelessWidget {
   final Widget child;
   final Color color;
   final double margin;
+  final Widget? header, footer;
   const ReaderPage({
     super.key,
     required this.child,
     required this.color,
     required this.margin,
+    this.header,
+    this.footer,
   });
   @override
   Widget build(BuildContext context) => ClipRect(
     child: ColoredBox(
       color: color,
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: margin),
-        child: child,
+      child: Column(
+        children: [
+          ?header,
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: margin),
+              child: child,
+            ),
+          ),
+          ?footer,
+        ],
       ),
     ),
   );
@@ -30,8 +41,10 @@ class ReaderPage extends StatelessWidget {
 class PageTurnSurface extends StatefulWidget {
   final Widget child;
   final Color color;
-  // Prepared lazily once per turn, never while moving the finger.
+  // Fallback for callers that do not supply prepared neighboring sheets.
   final Widget? Function(int direction)? adjacent;
+  // Mounted offstage at rest so text layout precedes the first drag frame.
+  final Widget? previous, next;
   final Object? pageIdentity;
   final bool enabled;
   const PageTurnSurface({
@@ -39,6 +52,8 @@ class PageTurnSurface extends StatefulWidget {
     required this.child,
     required this.color,
     this.adjacent,
+    this.previous,
+    this.next,
     this.pageIdentity,
     this.enabled = true,
   });
@@ -66,13 +81,20 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
   Widget? _incoming;
   bool _dragging = false, _settling = false, _committing = false;
   double _width = 0, _dragOffset = 0, _rawDrag = 0, _from = 0, _to = 0;
+  double? _releaseSlope;
+  double _slideProgress(double t) {
+    final slope = _releaseSlope;
+    if (slope == null) return Curves.easeOutCubic.transform(t);
+    // Hermite settlement preserves release velocity and ends at rest.
+    // Limiting the slope to [0, 3] keeps the movement monotonic.
+    return ((slope - 2) * t + (3 - 2 * slope)) * t * t + slope * t;
+  }
+
+  Widget? _neighbor(int d) =>
+      (d > 0 ? widget.next : widget.previous) ?? widget.adjacent?.call(d);
   int _epoch = 0;
   double get displacement => _settling
-      ? ui.lerpDouble(
-          _from,
-          _to,
-          Curves.easeOutCubic.transform(controller.value),
-        )!
+      ? ui.lerpDouble(_from, _to, _slideProgress(controller.value))!
       : _dragOffset;
   late final AnimationController controller = AnimationController(
     vsync: this,
@@ -80,10 +102,19 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
   );
 
   bool beginDrag() {
-    if (busy || !widget.enabled) return false;
+    if (!widget.enabled || _committing) return false;
+    if (busy) {
+      if (!_settling || mode != 'slide') return false;
+      final offset = displacement;
+      _epoch++;
+      controller.stop(canceled: true);
+      _settling = false;
+      _rawDrag = _dragOffset = offset;
+    } else {
+      _rawDrag = _dragOffset = 0;
+    }
     busy = true;
     _dragging = true;
-    _rawDrag = _dragOffset = 0;
     mode = 'slide';
     return true;
   }
@@ -94,7 +125,7 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
     final nextDirection = _rawDrag <= 0 ? 1 : -1;
     if (_incoming == null || direction != nextDirection) {
       direction = nextDirection;
-      _incoming = widget.adjacent?.call(direction);
+      _incoming = _neighbor(direction);
     }
     setState(() {
       _dragOffset = _incoming == null ? 0 : _rawDrag.clamp(-_width, _width);
@@ -111,7 +142,7 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
       return;
     }
     direction = travel == 0 ? (velocity < 0 ? 1 : -1) : (travel < 0 ? 1 : -1);
-    _incoming ??= widget.adjacent?.call(direction);
+    _incoming ??= _neighbor(direction);
     final projected = travel + velocity * .14;
     final reversing = velocity.abs() >= 450 && velocity * direction > 0;
     final accept =
@@ -133,6 +164,7 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
     await _settle(
       target,
       accept ? () => commit(direction) : null,
+      velocity: velocity,
       duration: Duration(
         milliseconds: ((accept ? 90 : 80) + remaining * (fast ? 85 : 125))
             .round(),
@@ -163,7 +195,7 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
         request.action();
         return;
       }
-      _incoming = widget.adjacent?.call(direction);
+      _incoming = _neighbor(direction);
       if (_incoming == null) {
         request.action();
         return;
@@ -208,6 +240,7 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
     double target,
     VoidCallback? commit, {
     Duration duration = const Duration(milliseconds: 240),
+    double? velocity,
   }) async {
     final epoch = _epoch;
     _from = displacement;
@@ -215,11 +248,19 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
     // This keeps consecutive drags from briefly using the previous endpoint.
     controller.value = 0;
     _to = target;
+    final distance = _to - _from;
+    _releaseSlope = velocity == null || distance.abs() < .01
+        ? null
+        : (velocity * duration.inMicroseconds / 1000000 / distance).clamp(
+            0.0,
+            3.0,
+          );
     _settling = true;
     controller.duration = duration;
     setState(() {});
     try {
-      if (!MediaQuery.disableAnimationsOf(context)) {
+      if ((_to - _from).abs() >= .01 &&
+          !MediaQuery.disableAnimationsOf(context)) {
         await controller.forward(from: 0).orCancel;
       } else {
         controller.value = 1;
@@ -300,8 +341,6 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
             return Stack(
               fit: StackFit.expand,
               children: [
-                if (imageEffect && _incoming != null)
-                  IgnorePointer(child: _incoming!),
                 Transform.translate(
                   key: const ValueKey('reader-page-translation'),
                   offset: imageEffect ? Offset.zero : Offset(dx, 0),
@@ -316,11 +355,25 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
                     ),
                   ),
                 ),
-                if (!imageEffect && _incoming != null)
-                  Transform.translate(
-                    offset: Offset(dx + direction * _width, 0),
-                    child: IgnorePointer(child: _incoming!),
-                  ),
+                for (final d in [-1, 1])
+                  if ((d > 0 ? widget.next : widget.previous) != null ||
+                      (direction == d && _incoming != null))
+                    Transform.translate(
+                      key: ValueKey('reader-neighbor-$d'),
+                      offset: Offset(imageEffect ? 0 : dx + d * _width, 0),
+                      child: Offstage(
+                        offstage: direction != d || _incoming == null,
+                        child: ExcludeSemantics(
+                          child: IgnorePointer(
+                            child: RepaintBoundary(
+                              child: direction == d && _incoming != null
+                                  ? _incoming!
+                                  : (d > 0 ? widget.next : widget.previous)!,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                 if (imageEffect)
                   IgnorePointer(
                     child: CustomPaint(

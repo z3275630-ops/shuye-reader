@@ -1523,9 +1523,20 @@ class _ReaderScreenState extends State<ReaderScreen>
                   previous: () => turn(-1),
                   next: () => turn(1),
                 ),
-                child: Column(
-                  children: [
-                    SizedBox(
+                child: LayoutBuilder(
+                  builder: (ctx, box) {
+                    final bodyHeight =
+                        box.maxHeight -
+                        ReaderViewport.headerExtent -
+                        ReaderViewport.footerExtent(ctx);
+                    final margin = settings
+                        .number('reader.margin', 28)
+                        .clamp(12.0, 48.0);
+                    final contentWidth = box.maxWidth - margin * 2;
+                    final doublePage =
+                        settings.flag('reader.doublePage') &&
+                        contentWidth > 644;
+                    Widget header(int c) => SizedBox(
                       height: ReaderViewport.headerExtent,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -1533,7 +1544,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                           children: [
                             Expanded(
                               child: Text(
-                                book.chapters[chapter].title,
+                                book.chapters[c].title,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -1543,7 +1554,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                               ),
                             ),
                             Text(
-                              '${chapter + 1} / ${book.chapters.length} 章',
+                              '${c + 1} / ${book.chapters.length} 章',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: scheme[1].withValues(alpha: .65),
@@ -1552,449 +1563,429 @@ class _ReaderScreenState extends State<ReaderScreen>
                           ],
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.zero,
-                        child: LayoutBuilder(
-                          builder: (ctx, box) {
-                            final margin = settings
-                                .number('reader.margin', 28)
-                                .clamp(12.0, 48.0);
-                            final contentWidth = box.maxWidth - margin * 2;
-                            final key =
-                                '$chapter/${box.maxWidth}/${box.maxHeight}/${readerLayoutSettingsKey(settings)}/${MediaQuery.textScalerOf(ctx).scale(settings.fontSize)}';
-                            final doublePage =
-                                settings.flag('reader.doublePage') &&
-                                contentWidth > 644;
-                            showingSpread = doublePage;
-                            final pageWidth = doublePage
-                                ? (contentWidth - 32) / 2
-                                : contentWidth;
-                            if (layoutKey != key) {
-                              final cached = layoutCache[key];
-                              if (cached != null) {
-                                text = cached.text;
-                                sourceOffsets = cached.offsets;
-                                pages = cached.pages;
-                              } else {
-                                buildText();
-                                pages = paginate(
-                                  text,
+                    );
+                    Widget footer(int c, int p, ReadingLayout layout) {
+                      final end =
+                          p + (doublePage ? 1 : 0) >= layout.pages.length - 1;
+                      final source =
+                          layout.offsets[(end
+                                  ? layout.pages.last.end
+                                  : layout.pages[p].start)
+                              .clamp(0, layout.offsets.length - 1)];
+                      final progress =
+                          book.chapters
+                              .take(c)
+                              .fold<int>(0, (sum, ch) => sum + ch.text.length) +
+                          source;
+                      final total = book.chapters.fold<int>(
+                        0,
+                        (sum, ch) => sum + ch.text.length,
+                      );
+                      return SizedBox(
+                        height: ReaderViewport.footerExtent(ctx),
+                        child: Center(
+                          child: Text(
+                            '${p + 1} / ${layout.pages.length} 页 · ${total == 0 ? 0 : (progress * 100 / total).clamp(0, 100).round()}%',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: scheme[1].withValues(alpha: .7),
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
+                    final key =
+                        '$chapter/${box.maxWidth}/$bodyHeight/${readerLayoutSettingsKey(settings)}/${MediaQuery.textScalerOf(ctx).scale(settings.fontSize)}';
+                    showingSpread = doublePage;
+                    final pageWidth = doublePage
+                        ? (contentWidth - 32) / 2
+                        : contentWidth;
+                    if (layoutKey != key) {
+                      final cached = layoutCache[key];
+                      if (cached != null) {
+                        text = cached.text;
+                        sourceOffsets = cached.offsets;
+                        pages = cached.pages;
+                      } else {
+                        buildText();
+                        pages = paginate(
+                          text,
+                          style,
+                          pageWidth,
+                          bodyHeight,
+                          MediaQuery.textScalerOf(ctx),
+                          settings: settings,
+                        );
+                        if (layoutCache.length >= 3) {
+                          layoutCache.remove(layoutCache.keys.first);
+                        }
+                        layoutCache[key] = ReadingLayout(
+                          text,
+                          sourceOffsets,
+                          pages,
+                        );
+                      }
+                      selected = '';
+                      final rendered = sourceOffsets.indexWhere(
+                        (p) => p >= initialOffset,
+                      );
+                      page = pages.indexWhere((p) => p.end > rendered);
+                      if (page < 0) page = pages.length - 1;
+                      layoutKey = key;
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) {
+                          setState(() {});
+                          updateProgress();
+                        }
+                      });
+                    }
+                    Widget? adjacent(int delta) {
+                      final step = doublePage ? 2 : 1;
+                      var targetChapter = chapter;
+                      var targetPage = page + delta * step;
+                      ReadingLayout target = ReadingLayout(
+                        text,
+                        sourceOffsets,
+                        pages,
+                      );
+                      if (targetPage < 0 || targetPage >= pages.length) {
+                        targetChapter += delta;
+                        if (targetChapter < 0 ||
+                            targetChapter >= book.chapters.length) {
+                          return null;
+                        }
+                        final targetKey =
+                            '$targetChapter/${box.maxWidth}/$bodyHeight/${readerLayoutSettingsKey(settings)}/${MediaQuery.textScalerOf(ctx).scale(settings.fontSize)}';
+                        final cached = layoutCache[targetKey];
+                        if (cached == null) {
+                          if (pendingLayouts.add(targetKey)) {
+                            final activeKey = layoutKey;
+                            final targetText =
+                                book.chapters[targetChapter].text;
+                            final capturedSettings = ReaderSettings.fromJson(
+                              settings.toJson(),
+                            );
+                            final scaler = MediaQuery.textScalerOf(ctx);
+                            void prepareNeighbor(Duration _) {
+                              if (mounted &&
+                                  pageSurface.currentState?.busy == true) {
+                                WidgetsBinding.instance.addPostFrameCallback(
+                                  prepareNeighbor,
+                                );
+                                return;
+                              }
+                              pendingLayouts.remove(targetKey);
+                              if (!mounted ||
+                                  staleLibrary ||
+                                  layoutKey != activeKey) {
+                                return;
+                              }
+                              final prepared = prepareText(
+                                targetText,
+                                capturedSettings,
+                              );
+                              final preparedLayout = ReadingLayout(
+                                prepared.text,
+                                prepared.offsets,
+                                paginate(
+                                  prepared.text,
                                   style,
                                   pageWidth,
-                                  box.maxHeight,
-                                  MediaQuery.textScalerOf(ctx),
-                                  settings: settings,
-                                );
-                                if (layoutCache.length >= 3) {
-                                  layoutCache.remove(layoutCache.keys.first);
-                                }
-                                layoutCache[key] = ReadingLayout(
-                                  text,
-                                  sourceOffsets,
-                                  pages,
-                                );
-                              }
-                              selected = '';
-                              final rendered = sourceOffsets.indexWhere(
-                                (p) => p >= initialOffset,
-                              );
-                              page = pages.indexWhere((p) => p.end > rendered);
-                              if (page < 0) page = pages.length - 1;
-                              layoutKey = key;
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (mounted) {
-                                  setState(() {});
-                                  updateProgress();
-                                }
-                              });
-                            }
-                            Widget? adjacent(int delta) {
-                              final step = doublePage ? 2 : 1;
-                              var targetChapter = chapter;
-                              var targetPage = page + delta * step;
-                              ReadingLayout target = ReadingLayout(
-                                text,
-                                sourceOffsets,
-                                pages,
-                              );
-                              if (targetPage < 0 ||
-                                  targetPage >= pages.length) {
-                                targetChapter += delta;
-                                if (targetChapter < 0 ||
-                                    targetChapter >= book.chapters.length) {
-                                  return null;
-                                }
-                                final targetKey =
-                                    '$targetChapter/${box.maxWidth}/${box.maxHeight}/${readerLayoutSettingsKey(settings)}/${MediaQuery.textScalerOf(ctx).scale(settings.fontSize)}';
-                                final cached = layoutCache[targetKey];
-                                if (cached == null) {
-                                  if (pendingLayouts.add(targetKey)) {
-                                    final activeKey = layoutKey;
-                                    final targetText =
-                                        book.chapters[targetChapter].text;
-                                    final capturedSettings =
-                                        ReaderSettings.fromJson(
-                                          settings.toJson(),
-                                        );
-                                    final scaler = MediaQuery.textScalerOf(ctx);
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
-                                          pendingLayouts.remove(targetKey);
-                                          if (!mounted ||
-                                              staleLibrary ||
-                                              layoutKey != activeKey) {
-                                            return;
-                                          }
-                                          final prepared = prepareText(
-                                            targetText,
-                                            capturedSettings,
-                                          );
-                                          final preparedLayout = ReadingLayout(
-                                            prepared.text,
-                                            prepared.offsets,
-                                            paginate(
-                                              prepared.text,
-                                              style,
-                                              pageWidth,
-                                              box.maxHeight,
-                                              scaler,
-                                              settings: capturedSettings,
-                                            ),
-                                          );
-                                          if (layoutCache.length >= 3) {
-                                            layoutCache.remove(
-                                              layoutCache.keys.firstWhere(
-                                                (k) => k != layoutKey,
-                                              ),
-                                            );
-                                          }
-                                          setState(
-                                            () => layoutCache[targetKey] =
-                                                preparedLayout,
-                                          );
-                                        });
-                                  }
-                                  return null;
-                                }
-                                target = cached;
-                                targetPage = delta > 0
-                                    ? 0
-                                    : target.pages.length - 1;
-                              }
-                              Widget column(int index) {
-                                if (index >= target.pages.length) {
-                                  return const SizedBox();
-                                }
-                                final slice = target.pages[index];
-                                return SelectableText.rich(
-                                  readerSpan(
-                                    target.text.substring(
-                                      slice.start,
-                                      slice.end,
-                                    ),
-                                    style,
-                                    settings,
-                                  ),
-                                  style: style,
-                                  cursorWidth: 0,
-                                  enableInteractiveSelection: false,
-                                  textDirection: TextDirection.ltr,
-                                  textScaler: MediaQuery.textScalerOf(ctx),
-                                  textAlign: readerTextAlign(settings),
-                                );
-                              }
-
-                              return ReaderPage(
-                                color: scheme[0],
-                                margin: margin,
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(child: column(targetPage)),
-                                    if (doublePage) ...[
-                                      const SizedBox(width: 32),
-                                      Expanded(child: column(targetPage + 1)),
-                                    ],
-                                  ],
+                                  bodyHeight,
+                                  scaler,
+                                  settings: capturedSettings,
                                 ),
                               );
+                              if (layoutCache.length >= 3) {
+                                layoutCache.remove(
+                                  layoutCache.keys.firstWhere(
+                                    (k) => k != layoutKey,
+                                  ),
+                                );
+                              }
+                              setState(
+                                () => layoutCache[targetKey] = preparedLayout,
+                              );
                             }
 
-                            final previousPage = adjacent(-1);
-                            final nextPage = adjacent(1);
-                            final slice = pages[page];
-                            return ReaderTapSurface(
-                              canTurn: () =>
-                                  selected.isEmpty &&
-                                  !privacyLocked.value &&
-                                  (!dialogOpen || settingsOpen) &&
-                                  !shield,
-                              onTap: (location) {
-                                if (settingsOpen) {
-                                  toggleSettings();
-                                  return;
-                                }
-                                if (selected.isNotEmpty) return;
-                                if (location.dx >= box.maxWidth * .3 &&
-                                    location.dx <= box.maxWidth * .7) {
-                                  toggleChrome();
-                                  return;
-                                }
-                                if (settings.flag('reader.oneHand')) {
-                                  turn(1);
-                                } else if (settings.flag(
-                                  'reader.tapPages',
-                                  true,
-                                )) {
-                                  if (location.dx < box.maxWidth * .3) {
-                                    turn(-1);
-                                  } else if (location.dx > box.maxWidth * .7) {
-                                    turn(1);
-                                  }
-                                }
-                              },
-                              onHorizontalDragStart: (_) {
-                                if (settings.value(
-                                          'reader.animation',
-                                          'slide',
-                                        ) ==
-                                        'slide' &&
-                                    !settings.flag('reader.eink')) {
-                                  pageSurface.currentState?.beginDrag();
-                                }
-                              },
-                              onHorizontalDragUpdate: (d) => pageSurface
-                                  .currentState
-                                  ?.updateDrag(d.primaryDelta ?? 0),
-                              onHorizontalDragCancel: () =>
-                                  pageSurface.currentState?.cancel(),
-                              onHorizontalDragEnd: (d) {
-                                final surface = pageSurface.currentState;
-                                if (settings.value(
-                                          'reader.animation',
-                                          'slide',
-                                        ) ==
-                                        'slide' &&
-                                    !settings.flag('reader.eink')) {
-                                  unawaited(
-                                    surface?.endDrag(
-                                      d.primaryVelocity ?? 0,
-                                      turnImmediate,
-                                    ),
-                                  );
-                                } else if ((d.primaryVelocity ?? 0).abs() >
-                                    150) {
-                                  turn(d.primaryVelocity! < 0 ? 1 : -1);
-                                }
-                              },
-                              child: PageTurnSurface(
-                                key: pageSurface,
-                                color: scheme[0],
-                                adjacent: (d) =>
-                                    d > 0 ? nextPage : previousPage,
-                                pageIdentity: '$layoutKey:$page',
-                                enabled:
-                                    !privacyLocked.value &&
-                                    active &&
-                                    !shield &&
-                                    !dialogOpen,
-                                child: ReaderPage(
-                                  color: scheme[0],
-                                  margin: margin,
-                                  child: Stack(
-                                    children: [
-                                      Align(
-                                        alignment: Alignment.topLeft,
-                                        child: text.isEmpty
-                                            ? Text(
-                                                '本章正文已被净化规则隐藏。可以在设置中修改规则。',
-                                                style: style,
-                                              )
-                                            : Row(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Expanded(
-                                                    child: SelectableText.rich(
+                            WidgetsBinding.instance.addPostFrameCallback(
+                              prepareNeighbor,
+                            );
+                          }
+                          return null;
+                        }
+                        target = cached;
+                        targetPage = delta > 0 ? 0 : target.pages.length - 1;
+                      }
+                      Widget column(int index) {
+                        if (index >= target.pages.length) {
+                          return const SizedBox();
+                        }
+                        final slice = target.pages[index];
+                        return SelectableText.rich(
+                          readerSpan(
+                            target.text.substring(slice.start, slice.end),
+                            style,
+                            settings,
+                          ),
+                          style: style,
+                          cursorWidth: 0,
+                          enableInteractiveSelection: false,
+                          textDirection: TextDirection.ltr,
+                          textScaler: MediaQuery.textScalerOf(ctx),
+                          textAlign: readerTextAlign(settings),
+                        );
+                      }
+
+                      return ReaderPage(
+                        color: scheme[0],
+                        margin: margin,
+                        header: header(targetChapter),
+                        footer: footer(targetChapter, targetPage, target),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: column(targetPage)),
+                            if (doublePage) ...[
+                              const SizedBox(width: 32),
+                              Expanded(child: column(targetPage + 1)),
+                            ],
+                          ],
+                        ),
+                      );
+                    }
+
+                    final previousPage = adjacent(-1);
+                    final nextPage = adjacent(1);
+                    final slice = pages[page];
+                    return ReaderTapSurface(
+                      canTurn: () =>
+                          selected.isEmpty &&
+                          !privacyLocked.value &&
+                          (!dialogOpen || settingsOpen) &&
+                          !shield,
+                      onTap: (location) {
+                        if (settingsOpen) {
+                          toggleSettings();
+                          return;
+                        }
+                        if (selected.isNotEmpty) return;
+                        if (location.dx >= box.maxWidth * .3 &&
+                            location.dx <= box.maxWidth * .7) {
+                          toggleChrome();
+                          return;
+                        }
+                        if (settings.flag('reader.oneHand')) {
+                          turn(1);
+                        } else if (settings.flag('reader.tapPages', true)) {
+                          if (location.dx < box.maxWidth * .3) {
+                            turn(-1);
+                          } else if (location.dx > box.maxWidth * .7) {
+                            turn(1);
+                          }
+                        }
+                      },
+                      onHorizontalDragStart: (_) {
+                        if (settings.value('reader.animation', 'slide') ==
+                                'slide' &&
+                            !settings.flag('reader.eink')) {
+                          pageSurface.currentState?.beginDrag();
+                        }
+                      },
+                      onHorizontalDragUpdate: (d) => pageSurface.currentState
+                          ?.updateDrag(d.primaryDelta ?? 0),
+                      onHorizontalDragCancel: () =>
+                          pageSurface.currentState?.cancel(),
+                      onHorizontalDragEnd: (d) {
+                        final surface = pageSurface.currentState;
+                        if (settings.value('reader.animation', 'slide') ==
+                                'slide' &&
+                            !settings.flag('reader.eink')) {
+                          unawaited(
+                            surface?.endDrag(
+                              d.primaryVelocity ?? 0,
+                              turnImmediate,
+                            ),
+                          );
+                        } else if ((d.primaryVelocity ?? 0).abs() > 150) {
+                          turn(d.primaryVelocity! < 0 ? 1 : -1);
+                        }
+                      },
+                      child: PageTurnSurface(
+                        key: pageSurface,
+                        color: scheme[0],
+                        previous: previousPage,
+                        next: nextPage,
+                        pageIdentity: '$layoutKey:$page',
+                        enabled:
+                            !privacyLocked.value &&
+                            active &&
+                            !shield &&
+                            !dialogOpen,
+                        child: ReaderPage(
+                          color: scheme[0],
+                          margin: margin,
+                          header: header(chapter),
+                          footer: footer(
+                            chapter,
+                            page,
+                            ReadingLayout(text, sourceOffsets, pages),
+                          ),
+                          child: Stack(
+                            children: [
+                              Align(
+                                alignment: Alignment.topLeft,
+                                child: text.isEmpty
+                                    ? Text(
+                                        '本章正文已被净化规则隐藏。可以在设置中修改规则。',
+                                        style: style,
+                                      )
+                                    : Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: SelectableText.rich(
+                                              readerSpan(
+                                                text.substring(
+                                                  slice.start,
+                                                  slice.end,
+                                                ),
+                                                style,
+                                                settings,
+                                              ),
+                                              key: ValueKey('$layoutKey:$page'),
+                                              style: style,
+                                              cursorWidth: 0,
+                                              textScaler:
+                                                  MediaQuery.textScalerOf(ctx),
+                                              textDirection: TextDirection.ltr,
+                                              textAlign: readerTextAlign(
+                                                settings,
+                                              ),
+                                              onSelectionChanged: (s, cause) {
+                                                final visible = text.substring(
+                                                  slice.start,
+                                                  slice.end,
+                                                );
+                                                selected =
+                                                    s.isValid && !s.isCollapsed
+                                                    ? visible.substring(
+                                                        s.start.clamp(
+                                                          0,
+                                                          visible.length,
+                                                        ),
+                                                        s.end.clamp(
+                                                          0,
+                                                          visible.length,
+                                                        ),
+                                                      )
+                                                    : '';
+                                              },
+                                              contextMenuBuilder: (ctx, editable) =>
+                                                  AdaptiveTextSelectionToolbar.buttonItems(
+                                                    anchors: editable
+                                                        .contextMenuAnchors,
+                                                    buttonItems: [
+                                                      ContextMenuButtonItem(
+                                                        label: '复制',
+                                                        onPressed: () {
+                                                          Clipboard.setData(
+                                                            ClipboardData(
+                                                              text: selected,
+                                                            ),
+                                                          );
+                                                          editable
+                                                              .hideToolbar();
+                                                        },
+                                                      ),
+                                                      ContextMenuButtonItem(
+                                                        label: '摘录',
+                                                        onPressed: () {
+                                                          editable
+                                                              .hideToolbar();
+                                                          addNote();
+                                                        },
+                                                      ),
+                                                      ContextMenuButtonItem(
+                                                        label: 'AI 解读',
+                                                        onPressed: () {
+                                                          editable
+                                                              .hideToolbar();
+                                                          tools('ai');
+                                                        },
+                                                      ),
+                                                      ContextMenuButtonItem(
+                                                        label: '生词',
+                                                        onPressed: () {
+                                                          editable
+                                                              .hideToolbar();
+                                                          tools('word');
+                                                        },
+                                                      ),
+                                                      ContextMenuButtonItem(
+                                                        label: '分享卡片',
+                                                        onPressed: () {
+                                                          editable
+                                                              .hideToolbar();
+                                                          tools('share');
+                                                        },
+                                                      ),
+                                                    ],
+                                                  ),
+                                            ),
+                                          ),
+                                          if (doublePage) ...[
+                                            const SizedBox(width: 32),
+                                            Expanded(
+                                              child: page + 1 < pages.length
+                                                  ? SelectableText.rich(
                                                       readerSpan(
                                                         text.substring(
-                                                          slice.start,
-                                                          slice.end,
+                                                          pages[page + 1].start,
+                                                          pages[page + 1].end,
                                                         ),
                                                         style,
                                                         settings,
                                                       ),
-                                                      key: ValueKey(
-                                                        '$layoutKey:$page',
-                                                      ),
                                                       style: style,
                                                       cursorWidth: 0,
+                                                      textDirection:
+                                                          TextDirection.ltr,
                                                       textScaler:
                                                           MediaQuery.textScalerOf(
                                                             ctx,
                                                           ),
-                                                      textDirection:
-                                                          TextDirection.ltr,
                                                       textAlign:
                                                           readerTextAlign(
                                                             settings,
                                                           ),
-                                                      onSelectionChanged: (s, cause) {
-                                                        final visible = text
-                                                            .substring(
-                                                              slice.start,
-                                                              slice.end,
-                                                            );
-                                                        selected =
-                                                            s.isValid &&
-                                                                !s.isCollapsed
-                                                            ? visible.substring(
-                                                                s.start.clamp(
-                                                                  0,
-                                                                  visible
-                                                                      .length,
-                                                                ),
-                                                                s.end.clamp(
-                                                                  0,
-                                                                  visible
-                                                                      .length,
-                                                                ),
-                                                              )
-                                                            : '';
-                                                      },
-                                                      contextMenuBuilder: (ctx, editable) => AdaptiveTextSelectionToolbar.buttonItems(
-                                                        anchors: editable
-                                                            .contextMenuAnchors,
-                                                        buttonItems: [
-                                                          ContextMenuButtonItem(
-                                                            label: '复制',
-                                                            onPressed: () {
-                                                              Clipboard.setData(
-                                                                ClipboardData(
-                                                                  text:
-                                                                      selected,
-                                                                ),
-                                                              );
-                                                              editable
-                                                                  .hideToolbar();
-                                                            },
-                                                          ),
-                                                          ContextMenuButtonItem(
-                                                            label: '摘录',
-                                                            onPressed: () {
-                                                              editable
-                                                                  .hideToolbar();
-                                                              addNote();
-                                                            },
-                                                          ),
-                                                          ContextMenuButtonItem(
-                                                            label: 'AI 解读',
-                                                            onPressed: () {
-                                                              editable
-                                                                  .hideToolbar();
-                                                              tools('ai');
-                                                            },
-                                                          ),
-                                                          ContextMenuButtonItem(
-                                                            label: '生词',
-                                                            onPressed: () {
-                                                              editable
-                                                                  .hideToolbar();
-                                                              tools('word');
-                                                            },
-                                                          ),
-                                                          ContextMenuButtonItem(
-                                                            label: '分享卡片',
-                                                            onPressed: () {
-                                                              editable
-                                                                  .hideToolbar();
-                                                              tools('share');
-                                                            },
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  if (doublePage) ...[
-                                                    const SizedBox(width: 32),
-                                                    Expanded(
-                                                      child:
-                                                          page + 1 <
-                                                              pages.length
-                                                          ? SelectableText.rich(
-                                                              readerSpan(
-                                                                text.substring(
-                                                                  pages[page +
-                                                                          1]
-                                                                      .start,
-                                                                  pages[page +
-                                                                          1]
-                                                                      .end,
-                                                                ),
-                                                                style,
-                                                                settings,
-                                                              ),
-                                                              style: style,
-                                                              cursorWidth: 0,
-                                                              textDirection:
-                                                                  TextDirection
-                                                                      .ltr,
-                                                              textScaler:
-                                                                  MediaQuery.textScalerOf(
-                                                                    ctx,
-                                                                  ),
-                                                              textAlign:
-                                                                  readerTextAlign(
-                                                                    settings,
-                                                                  ),
-                                                            )
-                                                          : const SizedBox(),
-                                                    ),
-                                                  ],
-                                                ],
-                                              ),
-                                      ),
-                                      if (!settings.flag('reader.eink') &&
-                                          !MediaQuery.disableAnimationsOf(
-                                            ctx,
-                                          ) &&
-                                          settings.value(
-                                                'reader.atmosphere',
-                                                'none',
-                                              ) !=
-                                              'none')
-                                        Positioned.fill(
-                                          child: Atmosphere(
-                                            kind: settings.value(
-                                              'reader.atmosphere',
-                                              'none',
+                                                    )
+                                                  : const SizedBox(),
                                             ),
-                                          ),
-                                        ),
-                                    ],
+                                          ],
+                                        ],
+                                      ),
+                              ),
+                              if (!settings.flag('reader.eink') &&
+                                  !MediaQuery.disableAnimationsOf(ctx) &&
+                                  settings.value('reader.atmosphere', 'none') !=
+                                      'none')
+                                Positioned.fill(
+                                  child: Atmosphere(
+                                    kind: settings.value(
+                                      'reader.atmosphere',
+                                      'none',
+                                    ),
                                   ),
                                 ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      height: ReaderViewport.footerExtent(context),
-                      child: Center(
-                        child: Text(
-                          '${page + 1} / ${pages.length} 页 · ${(book.progress * 100).round()}%',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: scheme[1].withValues(alpha: .7),
+                            ],
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ),
       ),
