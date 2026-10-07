@@ -130,6 +130,7 @@ void main() {
         readerColors((await tester.runAsync(repo.settings))!)[0],
         const Color(0xfff7fafc),
       );
+      await revealReaderControls(tester);
       final surface = find.byType(SelectableText).first;
       await tester.tapAt(tester.getCenter(surface));
       await tester.pump(const Duration(milliseconds: 300));
@@ -172,6 +173,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pumpAndSettle();
       expect(find.byType(ReaderFooter), findsOneWidget);
+      await revealReaderControls(tester);
       await tester.pageBack();
       await ready(tester);
       expect(appPaper(), const Color(0xfff7fafc));
@@ -193,6 +195,7 @@ void main() {
             .brightness,
         Brightness.dark,
       );
+      await revealReaderControls(tester);
       await tester.pageBack();
       await ready(tester);
       await tester.pumpWidget(const SizedBox());

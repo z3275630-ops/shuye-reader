@@ -27,12 +27,21 @@ void main() {
         c.surface,
         c.surfaceContainer,
         c.surfaceContainerLowest,
+        c.surfaceContainerLow,
+        c.surfaceContainerHigh,
+        c.surfaceContainerHighest,
       ]) {
         expect(contrast(c.onSurface, surface), greaterThanOrEqualTo(4.5));
         expect(
           contrast(c.onSurfaceVariant, surface),
           greaterThanOrEqualTo(4.5),
         );
+      }
+      for (final surface in [
+        c.surface,
+        c.surfaceContainer,
+        c.surfaceContainerLowest,
+      ]) {
         expect(contrast(c.primary, surface), greaterThanOrEqualTo(4.5));
       }
       expect(contrast(c.primary, c.onPrimary), greaterThanOrEqualTo(4.5));

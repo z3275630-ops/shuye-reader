@@ -492,16 +492,15 @@ void main() {
   });
 
   testWidgets(
-    'selectable reader text accepts page taps, double taps and preserves long presses',
+    'reader taps respond immediately without a double-tap delay; long presses select',
     (tester) async {
-      var taps = 0, doubles = 0;
+      var taps = 0;
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: ReaderTapSurface(
               canTurn: () => true,
               onTap: (_) => taps++,
-              onDoubleTap: () => doubles++,
               onHorizontalDragEnd: (_) {},
               child: const SizedBox.expand(child: SelectableText('可选择的正文')),
             ),
@@ -509,17 +508,15 @@ void main() {
         ),
       );
       await tester.tap(find.byType(SelectableText));
-      await tester.pump(const Duration(milliseconds: 350));
       expect(taps, 1);
       await tester.tapAt(const Offset(200, 200));
       await tester.pump(const Duration(milliseconds: 80));
       await tester.tapAt(const Offset(200, 200));
       await tester.pump(const Duration(milliseconds: 350));
-      expect(doubles, 1);
-      expect(taps, 1);
+      expect(taps, 3);
       await tester.longPress(find.byType(SelectableText));
       await tester.pump(const Duration(milliseconds: 350));
-      expect(taps, 1);
+      expect(taps, 3);
       await tester.pumpWidget(const SizedBox());
     },
   );

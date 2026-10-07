@@ -2,8 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// Toolbars occupy the page margins. A settings dock has its own space below
-/// the page; only opening that dock or resizing the window changes pagination.
+/// Controls never change the page's layout. Settings crop its visible lower
+/// portion while retaining the complete canvas and current reading position.
 class ReaderViewport extends StatefulWidget {
   final Widget child, topControls, bottomControls;
   final Widget? bottomPanel;
@@ -71,15 +71,27 @@ class _ReaderViewportState extends State<ReaderViewport> {
               left: 0,
               right: 0,
               height: canvas!.height - panelHeight,
-              child: Padding(padding: safe, child: widget.child),
+              child: ClipRect(
+                key: const ValueKey('reader-visible-page'),
+                child: OverflowBox(
+                  alignment: Alignment.topCenter,
+                  minHeight: canvas!.height,
+                  maxHeight: canvas!.height,
+                  child: Padding(padding: safe, child: widget.child),
+                ),
+              ),
             ),
-            if (!widget.immersive) ...[
+            ...[
               Positioned(
                 top: safe.top,
                 left: safe.left,
                 right: safe.right,
                 height: ReaderViewport.headerExtent,
-                child: widget.topControls,
+                child: ReaderChrome(
+                  visible: !widget.immersive,
+                  top: true,
+                  child: widget.topControls,
+                ),
               ),
               if (widget.bottomPanel == null)
                 Positioned(
@@ -87,9 +99,13 @@ class _ReaderViewportState extends State<ReaderViewport> {
                   left: 0,
                   right: 0,
                   height: ReaderViewport.footerExtent(context),
-                  child: Material(
-                    color: Theme.of(context).scaffoldBackgroundColor,
-                    child: widget.bottomControls,
+                  child: ReaderChrome(
+                    visible: !widget.immersive,
+                    top: false,
+                    child: Material(
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      child: widget.bottomControls,
+                    ),
                   ),
                 ),
             ],
@@ -108,6 +124,44 @@ class _ReaderViewportState extends State<ReaderViewport> {
           ],
         );
       },
+    ),
+  );
+}
+
+class ReaderChrome extends StatelessWidget {
+  final bool visible, top;
+  final Widget child;
+  const ReaderChrome({
+    super.key,
+    required this.visible,
+    required this.top,
+    required this.child,
+  });
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    ignoring: !visible,
+    child: ExcludeSemantics(
+      excluding: !visible,
+      child: AnimatedSwitcher(
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 150),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) => FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: Offset(0, top ? -.08 : .08),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          ),
+        ),
+        child: visible
+            ? KeyedSubtree(key: const ValueKey('visible'), child: child)
+            : const SizedBox(key: ValueKey('hidden')),
+      ),
     ),
   );
 }

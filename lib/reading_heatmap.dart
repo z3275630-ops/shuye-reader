@@ -2,6 +2,7 @@ import 'appearance.dart';
 import 'app_icons.dart';
 
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -469,6 +470,7 @@ class _ReadingHeatmapState extends State<ReadingHeatmap> {
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           fontWeight: FontWeight.w400,
+                          fontFeatures: [ui.FontFeature.tabularFigures()],
                           fontSize: 16,
                         ),
                       ),
@@ -566,7 +568,7 @@ class _ReadingHeatmapState extends State<ReadingHeatmap> {
           child: Material(
             color: future ? palette.first.withValues(alpha: .4) : fill,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(3),
               side: picked
                   ? BorderSide(color: colors.onSurface, width: 2)
                   : BorderSide.none,
@@ -657,13 +659,13 @@ class _ReadingHeatmapState extends State<ReadingHeatmap> {
             child: Column(
               children: [
                 const SizedBox(height: top),
-                for (final weekday in heatmapWeekdays)
+                for (var index = 0; index < 7; index++)
                   SizedBox(
                     height: pitch,
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        weekday,
+                        index.isEven ? heatmapWeekdays[index] : '',
                         textScaler: labelScale,
                         style: TextStyle(
                           fontSize: 11,

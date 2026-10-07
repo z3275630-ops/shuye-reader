@@ -197,6 +197,18 @@ ThemeData _buildApplicationTheme(
           : const Color(0xffeeeeee),
     );
   }
+  if (id == 'claude' && !dark) {
+    colors = colors.copyWith(
+      onSurface: const Color(0xff2b2a27),
+      onSurfaceVariant: const Color(0xff66645c),
+    );
+  }
+  final card = id == 'claude'
+      ? (dark ? colors.surfaceContainer : colors.surfaceContainerLowest)
+      : colors.surfaceContainerLow;
+  final control = id == 'claude'
+      ? (dark ? colors.surfaceContainerHigh : colors.surfaceContainerLow)
+      : (dark ? colors.surfaceContainer : colors.surface);
   final panel = dark ? colors.surfaceContainer : colors.surface;
   final border = colors.outlineVariant;
   final buttonShape = RoundedRectangleBorder(
@@ -243,6 +255,11 @@ ThemeData _buildApplicationTheme(
         fontWeight: FontWeight.w600,
         letterSpacing: 0,
       ),
+      titleSmall: text.titleSmall?.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0,
+      ),
       bodyLarge: text.bodyLarge?.copyWith(
         fontSize: 16,
         height: 1.5,
@@ -284,7 +301,7 @@ ThemeData _buildApplicationTheme(
       ),
     ),
     cardTheme: CardThemeData(
-      color: colors.surfaceContainerLow,
+      color: card,
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
@@ -306,10 +323,12 @@ ThemeData _buildApplicationTheme(
         (states) => TextStyle(
           fontFamily: ShuyeStyle.fontFamily,
           fontSize: 14,
-          fontWeight: FontWeight.w600,
+          fontWeight: states.contains(WidgetState.selected)
+              ? FontWeight.w600
+              : FontWeight.w400,
           color: states.contains(WidgetState.selected)
               ? colors.onSurface
-              : colors.onSurface,
+              : colors.onSurfaceVariant,
         ),
       ),
       iconTheme: WidgetStateProperty.resolveWith(
@@ -379,7 +398,7 @@ ThemeData _buildApplicationTheme(
         fontFamily: ShuyeStyle.fontFamily,
         color: colors.onSurface,
         fontSize: 15,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w400,
         height: 1.35,
       ),
       subtitleTextStyle: TextStyle(
@@ -426,8 +445,8 @@ ThemeData _buildApplicationTheme(
     ),
     chipTheme: ChipThemeData(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      backgroundColor: panel,
-      selectedColor: colors.secondaryContainer,
+      backgroundColor: control,
+      selectedColor: id == 'claude' ? card : colors.secondaryContainer,
       side: BorderSide(color: colors.outlineVariant),
       labelStyle: TextStyle(
         fontFamily: ShuyeStyle.fontFamily,
@@ -457,9 +476,10 @@ ThemeData _buildApplicationTheme(
       ),
     ),
     sliderTheme: SliderThemeData(
-      activeTrackColor: colors.onSurface,
+      activeTrackColor: colors.secondary,
       inactiveTrackColor: colors.surfaceContainerHighest,
-      thumbColor: colors.onSurface,
+      thumbColor: colors.secondary,
+      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
       trackHeight: 3,
     ),
     switchTheme: SwitchThemeData(
@@ -502,7 +522,7 @@ ThemeData _buildApplicationTheme(
     inputDecorationTheme: InputDecorationTheme(
       floatingLabelBehavior: FloatingLabelBehavior.never,
       filled: true,
-      fillColor: panel,
+      fillColor: control,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       hintStyle: TextStyle(
         fontFamily: ShuyeStyle.fontFamily,

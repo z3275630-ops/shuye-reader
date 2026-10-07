@@ -113,6 +113,7 @@ void main() {
       );
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
+      await revealReaderControls(tester);
       await tester.tap(find.byTooltip('章节目录'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('第二章 慢一点的日子'));

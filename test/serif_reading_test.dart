@@ -23,7 +23,7 @@ void main() {
       expect(claude.theme, 'follow');
       expect(readerColors(claude), [
         ShuyeStyle.canvas,
-        const Color(0xff22221f),
+        applicationTheme(Brightness.light).colorScheme.onSurface,
       ]);
       expect(readerFont(claude), ShuyeStyle.readerFontFamily);
       final sans = ReaderSettings.fromJson(

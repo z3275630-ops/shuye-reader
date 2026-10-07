@@ -4,6 +4,29 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+/// Margins belong to each moving sheet, not to the stationary viewport.
+class ReaderPage extends StatelessWidget {
+  final Widget child;
+  final Color color;
+  final double margin;
+  const ReaderPage({
+    super.key,
+    required this.child,
+    required this.color,
+    required this.margin,
+  });
+  @override
+  Widget build(BuildContext context) => ClipRect(
+    child: ColoredBox(
+      color: color,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: margin),
+        child: child,
+      ),
+    ),
+  );
+}
+
 class PageTurnSurface extends StatefulWidget {
   final Widget child;
   final Color color;
@@ -89,8 +112,14 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
     }
     direction = travel == 0 ? (velocity < 0 ? 1 : -1) : (travel < 0 ? 1 : -1);
     _incoming ??= widget.adjacent?.call(direction);
-    final fling = velocity.abs() >= 450 && velocity * direction < 0;
-    final accept = widget.enabled && (travel.abs() >= _width * .22 || fling);
+    final projected = travel + velocity * .14;
+    final reversing = velocity.abs() >= 450 && velocity * direction > 0;
+    final accept =
+        widget.enabled &&
+        !reversing &&
+        (travel.abs() >= _width * .22 ||
+            velocity * direction <= -650 ||
+            (projected * direction < 0 && projected.abs() >= _width * .3));
     // At a book boundary there is no fictional page to animate.
     if (_incoming == null) {
       if (accept) commit(direction);
@@ -98,10 +127,16 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
       _drain();
       return;
     }
+    final target = accept ? -direction * _width : 0.0;
+    final remaining = ((target - displacement).abs() / _width).clamp(0.0, 1.0);
+    final fast = velocity.abs() >= 450;
     await _settle(
-      accept ? -direction * _width : 0,
+      target,
       accept ? () => commit(direction) : null,
-      duration: Duration(milliseconds: fling ? 150 : 220),
+      duration: Duration(
+        milliseconds: ((accept ? 90 : 80) + remaining * (fast ? 85 : 125))
+            .round(),
+      ),
     );
     _drain();
   }

@@ -74,6 +74,29 @@ TextSelectionThemeData readerSelectionTheme(List<Color> scheme) {
   );
 }
 
+// Only typography and text transformations belong to pagination identity.
+String readerLayoutSettingsKey(ReaderSettings s) => jsonEncode({
+  'font': readerFont(s),
+  'size': s.fontSize,
+  'height': s.lineHeight,
+  'cjk': s.cjkSpacing,
+  'rules': s.purifyLines,
+  'highlightGeometry': s.flag('reader.bionic')
+      ? s.value('reader.highlights', '')
+      : '',
+  for (final key in [
+    'reader.margin',
+    'reader.alignment',
+    'reader.punctuation',
+    'reader.chinese',
+    'reader.ignoreBlank',
+    'reader.hyphenation',
+    'reader.bionic',
+    'reader.doublePage',
+  ])
+    key: s.extra[key],
+});
+
 String readerFont(ReaderSettings settings) {
   final custom = settings.value('reader.customFont', '');
   if (custom.isNotEmpty) return custom;
@@ -585,8 +608,7 @@ class _ReaderScreenState extends State<ReaderScreen>
     setState(() {
       settingsOpen = !settingsOpen;
       dialogOpen = settingsOpen;
-      immersive = false;
-      layoutKey = '';
+      immersive = !settingsOpen;
     });
     if (!settingsOpen) unawaited(saveReadingSettings());
   }
@@ -609,6 +631,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   int speechIndex = 0;
   final pageSurface = GlobalKey<PageTurnSurfaceState>();
   final layoutCache = <String, ReadingLayout>{};
+  final pendingLayouts = <String>{};
   StreamSubscription<MethodCall>? deviceEvents;
   Book get book => widget.book;
   ReaderSettings get settings => widget.settings;
@@ -1392,7 +1415,7 @@ class _ReaderScreenState extends State<ReaderScreen>
       primary: false,
       title: Text(
         book.title,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
       ),
       actions: [
         PopupMenuButton<String>(
@@ -1472,7 +1495,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                         settings: settings,
                         changed: () {
                           initialOffset = settingsAnchor ?? book.offset;
-                          setState(() => layoutKey = '');
+                          setState(() {});
                         },
                         close: toggleSettings,
                         more: () async {
@@ -1483,7 +1506,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                             changed: () {
                               if (mounted) {
                                 initialOffset = settingsAnchor ?? book.offset;
-                                setState(() => layoutKey = '');
+                                setState(() {});
                               }
                             },
                           );
@@ -1514,16 +1537,16 @@ class _ReaderScreenState extends State<ReaderScreen>
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontSize: 13,
-                                  color: scheme[1].withValues(alpha: .8),
+                                  fontSize: 12,
+                                  color: scheme[1].withValues(alpha: .65),
                                 ),
                               ),
                             ),
                             Text(
                               '${chapter + 1} / ${book.chapters.length} 章',
                               style: TextStyle(
-                                fontSize: 13,
-                                color: scheme[1].withValues(alpha: .8),
+                                fontSize: 12,
+                                color: scheme[1].withValues(alpha: .65),
                               ),
                             ),
                           ],
@@ -1532,22 +1555,22 @@ class _ReaderScreenState extends State<ReaderScreen>
                     ),
                     Expanded(
                       child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: settings
-                              .number('reader.margin', 28)
-                              .clamp(12, 48),
-                        ),
+                        padding: EdgeInsets.zero,
                         child: LayoutBuilder(
                           builder: (ctx, box) {
+                            final margin = settings
+                                .number('reader.margin', 28)
+                                .clamp(12.0, 48.0);
+                            final contentWidth = box.maxWidth - margin * 2;
                             final key =
-                                '$chapter/${box.maxWidth}/${box.maxHeight}/${settings.toJson()}/${MediaQuery.textScalerOf(ctx).scale(1)}';
+                                '$chapter/${box.maxWidth}/${box.maxHeight}/${readerLayoutSettingsKey(settings)}/${MediaQuery.textScalerOf(ctx).scale(settings.fontSize)}';
                             final doublePage =
                                 settings.flag('reader.doublePage') &&
-                                box.maxWidth > 644;
+                                contentWidth > 644;
                             showingSpread = doublePage;
                             final pageWidth = doublePage
-                                ? (box.maxWidth - 32) / 2
-                                : box.maxWidth;
+                                ? (contentWidth - 32) / 2
+                                : contentWidth;
                             if (layoutKey != key) {
                               final cached = layoutCache[key];
                               if (cached != null) {
@@ -1604,32 +1627,58 @@ class _ReaderScreenState extends State<ReaderScreen>
                                   return null;
                                 }
                                 final targetKey =
-                                    '$targetChapter/${box.maxWidth}/${box.maxHeight}/${settings.toJson()}/${MediaQuery.textScalerOf(ctx).scale(1)}';
-                                if (!layoutCache.containsKey(targetKey) &&
-                                    layoutCache.length >= 3) {
-                                  final obsolete = layoutCache.keys.firstWhere(
-                                    (k) => k != layoutKey,
-                                  );
-                                  layoutCache.remove(obsolete);
+                                    '$targetChapter/${box.maxWidth}/${box.maxHeight}/${readerLayoutSettingsKey(settings)}/${MediaQuery.textScalerOf(ctx).scale(settings.fontSize)}';
+                                final cached = layoutCache[targetKey];
+                                if (cached == null) {
+                                  if (pendingLayouts.add(targetKey)) {
+                                    final activeKey = layoutKey;
+                                    final targetText =
+                                        book.chapters[targetChapter].text;
+                                    final capturedSettings =
+                                        ReaderSettings.fromJson(
+                                          settings.toJson(),
+                                        );
+                                    final scaler = MediaQuery.textScalerOf(ctx);
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                          pendingLayouts.remove(targetKey);
+                                          if (!mounted ||
+                                              staleLibrary ||
+                                              layoutKey != activeKey) {
+                                            return;
+                                          }
+                                          final prepared = prepareText(
+                                            targetText,
+                                            capturedSettings,
+                                          );
+                                          final preparedLayout = ReadingLayout(
+                                            prepared.text,
+                                            prepared.offsets,
+                                            paginate(
+                                              prepared.text,
+                                              style,
+                                              pageWidth,
+                                              box.maxHeight,
+                                              scaler,
+                                              settings: capturedSettings,
+                                            ),
+                                          );
+                                          if (layoutCache.length >= 3) {
+                                            layoutCache.remove(
+                                              layoutCache.keys.firstWhere(
+                                                (k) => k != layoutKey,
+                                              ),
+                                            );
+                                          }
+                                          setState(
+                                            () => layoutCache[targetKey] =
+                                                preparedLayout,
+                                          );
+                                        });
+                                  }
+                                  return null;
                                 }
-                                target = layoutCache.putIfAbsent(targetKey, () {
-                                  final prepared = prepareText(
-                                    book.chapters[targetChapter].text,
-                                    settings,
-                                  );
-                                  return ReadingLayout(
-                                    prepared.text,
-                                    prepared.offsets,
-                                    paginate(
-                                      prepared.text,
-                                      style,
-                                      pageWidth,
-                                      box.maxHeight,
-                                      MediaQuery.textScalerOf(ctx),
-                                      settings: settings,
-                                    ),
-                                  );
-                                });
+                                target = cached;
                                 targetPage = delta > 0
                                     ? 0
                                     : target.pages.length - 1;
@@ -1657,8 +1706,9 @@ class _ReaderScreenState extends State<ReaderScreen>
                                 );
                               }
 
-                              return ColoredBox(
+                              return ReaderPage(
                                 color: scheme[0],
+                                margin: margin,
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -1681,7 +1731,6 @@ class _ReaderScreenState extends State<ReaderScreen>
                                   !privacyLocked.value &&
                                   (!dialogOpen || settingsOpen) &&
                                   !shield,
-                              onDoubleTap: toggleChrome,
                               onTap: (location) {
                                 if (settingsOpen) {
                                   toggleSettings();
@@ -1751,171 +1800,181 @@ class _ReaderScreenState extends State<ReaderScreen>
                                     active &&
                                     !shield &&
                                     !dialogOpen,
-                                child: Stack(
-                                  children: [
-                                    Align(
-                                      alignment: Alignment.topLeft,
-                                      child: text.isEmpty
-                                          ? Text(
-                                              '本章正文已被净化规则隐藏。可以在设置中修改规则。',
-                                              style: style,
-                                            )
-                                          : Row(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Expanded(
-                                                  child: SelectableText.rich(
-                                                    readerSpan(
-                                                      text.substring(
-                                                        slice.start,
-                                                        slice.end,
-                                                      ),
-                                                      style,
-                                                      settings,
-                                                    ),
-                                                    key: ValueKey(
-                                                      '$layoutKey:$page',
-                                                    ),
-                                                    style: style,
-                                                    cursorWidth: 0,
-                                                    textScaler:
-                                                        MediaQuery.textScalerOf(
-                                                          ctx,
-                                                        ),
-                                                    textDirection:
-                                                        TextDirection.ltr,
-                                                    textAlign: readerTextAlign(
-                                                      settings,
-                                                    ),
-                                                    onSelectionChanged:
-                                                        (s, cause) {
-                                                          final visible = text
-                                                              .substring(
-                                                                slice.start,
-                                                                slice.end,
-                                                              );
-                                                          selected =
-                                                              s.isValid &&
-                                                                  !s.isCollapsed
-                                                              ? visible.substring(
-                                                                  s.start.clamp(
-                                                                    0,
-                                                                    visible
-                                                                        .length,
-                                                                  ),
-                                                                  s.end.clamp(
-                                                                    0,
-                                                                    visible
-                                                                        .length,
-                                                                  ),
-                                                                )
-                                                              : '';
-                                                        },
-                                                    contextMenuBuilder: (ctx, editable) => AdaptiveTextSelectionToolbar.buttonItems(
-                                                      anchors: editable
-                                                          .contextMenuAnchors,
-                                                      buttonItems: [
-                                                        ContextMenuButtonItem(
-                                                          label: '复制',
-                                                          onPressed: () {
-                                                            Clipboard.setData(
-                                                              ClipboardData(
-                                                                text: selected,
-                                                              ),
-                                                            );
-                                                            editable
-                                                                .hideToolbar();
-                                                          },
-                                                        ),
-                                                        ContextMenuButtonItem(
-                                                          label: '摘录',
-                                                          onPressed: () {
-                                                            editable
-                                                                .hideToolbar();
-                                                            addNote();
-                                                          },
-                                                        ),
-                                                        ContextMenuButtonItem(
-                                                          label: 'AI 解读',
-                                                          onPressed: () {
-                                                            editable
-                                                                .hideToolbar();
-                                                            tools('ai');
-                                                          },
-                                                        ),
-                                                        ContextMenuButtonItem(
-                                                          label: '生词',
-                                                          onPressed: () {
-                                                            editable
-                                                                .hideToolbar();
-                                                            tools('word');
-                                                          },
-                                                        ),
-                                                        ContextMenuButtonItem(
-                                                          label: '分享卡片',
-                                                          onPressed: () {
-                                                            editable
-                                                                .hideToolbar();
-                                                            tools('share');
-                                                          },
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                                if (doublePage) ...[
-                                                  const SizedBox(width: 32),
+                                child: ReaderPage(
+                                  color: scheme[0],
+                                  margin: margin,
+                                  child: Stack(
+                                    children: [
+                                      Align(
+                                        alignment: Alignment.topLeft,
+                                        child: text.isEmpty
+                                            ? Text(
+                                                '本章正文已被净化规则隐藏。可以在设置中修改规则。',
+                                                style: style,
+                                              )
+                                            : Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
                                                   Expanded(
-                                                    child:
-                                                        page + 1 < pages.length
-                                                        ? SelectableText.rich(
-                                                            readerSpan(
-                                                              text.substring(
-                                                                pages[page + 1]
-                                                                    .start,
-                                                                pages[page + 1]
-                                                                    .end,
-                                                              ),
-                                                              style,
-                                                              settings,
-                                                            ),
-                                                            style: style,
-                                                            cursorWidth: 0,
-                                                            textDirection:
-                                                                TextDirection
-                                                                    .ltr,
-                                                            textScaler:
-                                                                MediaQuery.textScalerOf(
-                                                                  ctx,
+                                                    child: SelectableText.rich(
+                                                      readerSpan(
+                                                        text.substring(
+                                                          slice.start,
+                                                          slice.end,
+                                                        ),
+                                                        style,
+                                                        settings,
+                                                      ),
+                                                      key: ValueKey(
+                                                        '$layoutKey:$page',
+                                                      ),
+                                                      style: style,
+                                                      cursorWidth: 0,
+                                                      textScaler:
+                                                          MediaQuery.textScalerOf(
+                                                            ctx,
+                                                          ),
+                                                      textDirection:
+                                                          TextDirection.ltr,
+                                                      textAlign:
+                                                          readerTextAlign(
+                                                            settings,
+                                                          ),
+                                                      onSelectionChanged: (s, cause) {
+                                                        final visible = text
+                                                            .substring(
+                                                              slice.start,
+                                                              slice.end,
+                                                            );
+                                                        selected =
+                                                            s.isValid &&
+                                                                !s.isCollapsed
+                                                            ? visible.substring(
+                                                                s.start.clamp(
+                                                                  0,
+                                                                  visible
+                                                                      .length,
                                                                 ),
-                                                            textAlign:
-                                                                readerTextAlign(
-                                                                  settings,
+                                                                s.end.clamp(
+                                                                  0,
+                                                                  visible
+                                                                      .length,
                                                                 ),
-                                                          )
-                                                        : const SizedBox(),
+                                                              )
+                                                            : '';
+                                                      },
+                                                      contextMenuBuilder: (ctx, editable) => AdaptiveTextSelectionToolbar.buttonItems(
+                                                        anchors: editable
+                                                            .contextMenuAnchors,
+                                                        buttonItems: [
+                                                          ContextMenuButtonItem(
+                                                            label: '复制',
+                                                            onPressed: () {
+                                                              Clipboard.setData(
+                                                                ClipboardData(
+                                                                  text:
+                                                                      selected,
+                                                                ),
+                                                              );
+                                                              editable
+                                                                  .hideToolbar();
+                                                            },
+                                                          ),
+                                                          ContextMenuButtonItem(
+                                                            label: '摘录',
+                                                            onPressed: () {
+                                                              editable
+                                                                  .hideToolbar();
+                                                              addNote();
+                                                            },
+                                                          ),
+                                                          ContextMenuButtonItem(
+                                                            label: 'AI 解读',
+                                                            onPressed: () {
+                                                              editable
+                                                                  .hideToolbar();
+                                                              tools('ai');
+                                                            },
+                                                          ),
+                                                          ContextMenuButtonItem(
+                                                            label: '生词',
+                                                            onPressed: () {
+                                                              editable
+                                                                  .hideToolbar();
+                                                              tools('word');
+                                                            },
+                                                          ),
+                                                          ContextMenuButtonItem(
+                                                            label: '分享卡片',
+                                                            onPressed: () {
+                                                              editable
+                                                                  .hideToolbar();
+                                                              tools('share');
+                                                            },
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
                                                   ),
+                                                  if (doublePage) ...[
+                                                    const SizedBox(width: 32),
+                                                    Expanded(
+                                                      child:
+                                                          page + 1 <
+                                                              pages.length
+                                                          ? SelectableText.rich(
+                                                              readerSpan(
+                                                                text.substring(
+                                                                  pages[page +
+                                                                          1]
+                                                                      .start,
+                                                                  pages[page +
+                                                                          1]
+                                                                      .end,
+                                                                ),
+                                                                style,
+                                                                settings,
+                                                              ),
+                                                              style: style,
+                                                              cursorWidth: 0,
+                                                              textDirection:
+                                                                  TextDirection
+                                                                      .ltr,
+                                                              textScaler:
+                                                                  MediaQuery.textScalerOf(
+                                                                    ctx,
+                                                                  ),
+                                                              textAlign:
+                                                                  readerTextAlign(
+                                                                    settings,
+                                                                  ),
+                                                            )
+                                                          : const SizedBox(),
+                                                    ),
+                                                  ],
                                                 ],
-                                              ],
-                                            ),
-                                    ),
-                                    if (!settings.flag('reader.eink') &&
-                                        !MediaQuery.disableAnimationsOf(ctx) &&
-                                        settings.value(
+                                              ),
+                                      ),
+                                      if (!settings.flag('reader.eink') &&
+                                          !MediaQuery.disableAnimationsOf(
+                                            ctx,
+                                          ) &&
+                                          settings.value(
+                                                'reader.atmosphere',
+                                                'none',
+                                              ) !=
+                                              'none')
+                                        Positioned.fill(
+                                          child: Atmosphere(
+                                            kind: settings.value(
                                               'reader.atmosphere',
                                               'none',
-                                            ) !=
-                                            'none')
-                                      Positioned.fill(
-                                        child: Atmosphere(
-                                          kind: settings.value(
-                                            'reader.atmosphere',
-                                            'none',
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             );

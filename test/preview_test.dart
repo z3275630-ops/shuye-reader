@@ -175,6 +175,7 @@ void main() {
       await tester.ensureVisible(find.text('开始阅读'));
       await tester.tap(find.text('开始阅读'));
       await tester.pumpAndSettle();
+      await revealReaderControls(tester);
       await capture('reader-sans');
       await tester.tapAt(const Offset(195, 400));
       await tester.pump(const Duration(milliseconds: 300));

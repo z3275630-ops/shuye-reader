@@ -1,4 +1,5 @@
 import 'preview_fonts.dart';
+import 'reader_test_support.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -149,6 +150,70 @@ void main() {
     },
   );
 
+  testWidgets(
+    'release direction and remaining distance control the slide settle',
+    (tester) async {
+      final key = GlobalKey<PageTurnSurfaceState>();
+      final commits = <int>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Center(
+            child: SizedBox(
+              width: 300,
+              height: 400,
+              child: PageTurnSurface(
+                key: key,
+                color: Colors.white,
+                adjacent: (_) => const ColoredBox(color: Colors.blue),
+                child: const ColoredBox(color: Colors.red),
+              ),
+            ),
+          ),
+        ),
+      );
+      final surface = key.currentState!;
+      surface.beginDrag();
+      surface.updateDrag(-180);
+      final reverse = surface.endDrag(1000, commits.add);
+      await tester.pumpAndSettle();
+      await reverse;
+      expect(commits, isEmpty);
+      expect(surface.displacement, 0);
+      surface.beginDrag();
+      surface.updateDrag(-25);
+      final flick = surface.endDrag(-1000, commits.add);
+      final flickDuration = surface.controller.duration!;
+      await tester.pumpAndSettle();
+      await flick;
+      expect(commits, [1]);
+      surface.beginDrag();
+      surface.updateDrag(-270);
+      final nearEnd = surface.endDrag(-1000, commits.add);
+      expect(surface.controller.duration!, lessThan(flickDuration));
+      expect(commits, [1]);
+      await tester.pumpAndSettle();
+      await nearEnd;
+      expect(commits, [1, 1]);
+    },
+  );
+
+  test('pagination identity ignores paper and tool preferences but tracks typography', () {
+    final s = ReaderSettings();
+    final key = readerLayoutSettingsKey(s);
+    s.theme = 'night';
+    s.extra['reader.animation'] = 'none';
+    s.extra['reader.brightness'] = .3;
+    expect(readerLayoutSettingsKey(s), key);
+    s.fontSize += 1;
+    expect(readerLayoutSettingsKey(s), isNot(key));
+    s.fontSize -= 1;
+    s.extra['reader.bionic'] = true;
+    expect(readerLayoutSettingsKey(s), isNot(key));
+    final bionicKey = readerLayoutSettingsKey(s);
+    s.extra['reader.highlights'] = 'quiet';
+    expect(readerLayoutSettingsKey(s), isNot(bionicKey));
+  });
+
   testWidgets('book boundaries stay still and emit no invented preview', (
     tester,
   ) async {
@@ -223,7 +288,8 @@ void main() {
         expect(find.byType(AppBar), findsNothing);
         expect(find.byType(ReaderFooter), findsNothing);
         await tester.tapAt(tester.getCenter(find.byType(ReaderTapSurface)));
-        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump();
+        expect(find.byType(AppBar), findsOneWidget);
         await tester.pumpAndSettle();
         expect(find.byType(AppBar), findsOneWidget);
         final current = find.byType(SelectableText).first;
@@ -239,7 +305,7 @@ void main() {
         final key = tester.widget<SelectableText>(current).key;
         final offset = book.offset;
         final tap = find.byType(ReaderTapSurface);
-        tester.widget<ReaderTapSurface>(tap).onDoubleTap();
+        await tester.tapAt(tester.getCenter(tap));
         await tester.pumpAndSettle();
         expect(find.byType(AppBar), findsNothing);
         expect(tester.getRect(current), rect);
@@ -266,15 +332,30 @@ void main() {
         await tester.pumpAndSettle();
         await cancel;
         expect(book.chapter, 0);
-        tester.widget<ReaderTapSurface>(tap).onDoubleTap();
+        await tester.tapAt(tester.getCenter(tap));
         await tester.pumpAndSettle();
+        await revealReaderControls(tester);
         await tester.tap(find.byTooltip('阅读设置'));
         await tester.pumpAndSettle();
         final dock = find.byKey(const ValueKey('reader-settings-dock'));
         expect(
-          tester.getBottomRight(find.byType(PageTurnSurface)).dy,
+          tester
+              .getBottomRight(find.byKey(const ValueKey('reader-visible-page')))
+              .dy,
           lessThanOrEqualTo(tester.getTopLeft(dock).dy),
         );
+        expect(tester.getRect(current), rect);
+        expect(tester.widget<SelectableText>(current).key, key);
+        await tester.ensureVisible(find.widgetWithText(ChoiceChip, '夜读'));
+        await tester.tap(find.widgetWithText(ChoiceChip, '夜读'));
+        await tester.pumpAndSettle();
+        expect(
+          readerColors(settings)[0],
+          applicationTheme(Brightness.dark).colorScheme.surface,
+        );
+        expect(tester.getRect(current), rect);
+        expect(tester.widget<SelectableText>(current).key, key);
+        expect(book.offset, offset);
         expect(
           find.byKey(const ValueKey('reader-settings-preview')),
           findsNothing,
@@ -284,6 +365,7 @@ void main() {
         expect(tester.getRect(current), rect);
         expect(tester.widget<SelectableText>(current).key, key);
         expect(book.offset, offset);
+        await revealReaderControls(tester);
         await tester.tap(find.byTooltip('下一页'));
         await tester.pump(const Duration(milliseconds: 80));
         expect(book.chapter, 0);
@@ -360,7 +442,14 @@ void main() {
         find.byType(PageTurnSurface),
       );
       surface.beginDrag();
-      surface.updateDrag(-tester.getSize(find.byType(PageTurnSurface)).width);
+      surface.updateDrag(-140);
+      await tester.pump();
+      final outgoingRect = tester.getRect(find.byType(SelectableText).first);
+      final incomingRect = tester.getRect(find.byType(SelectableText).last);
+      expect(incomingRect.left - outgoingRect.right, closeTo(56, .01));
+      surface.updateDrag(
+        -tester.getSize(find.byType(PageTurnSurface)).width + 140,
+      );
       await tester.pump();
       final RenderEditable incoming = tester
           .state<EditableTextState>(find.byType(EditableText).last)
@@ -410,14 +499,16 @@ void main() {
       );
       expect(saved.key, isNot(firstPageKey));
       final savedOffset = book.offset;
-      tester
-          .widget<ReaderTapSurface>(find.byType(ReaderTapSurface))
-          .onDoubleTap();
+      final savedRect = tester.getRect(find.byType(SelectableText).first);
+      await revealReaderControls(tester);
       await tester.pumpAndSettle();
+      await revealReaderControls(tester);
       await tester.tap(find.byTooltip('阅读设置'));
       await tester.pumpAndSettle();
       expect(
-        tester.getBottomRight(find.byType(PageTurnSurface)).dy,
+        tester
+            .getBottomRight(find.byKey(const ValueKey('reader-visible-page')))
+            .dy,
         lessThanOrEqualTo(
           tester
               .getTopLeft(find.byKey(const ValueKey('reader-settings-dock')))
@@ -426,6 +517,7 @@ void main() {
       );
       await tester.tap(find.text('开始阅读'));
       await tester.pumpAndSettle();
+      expect(tester.getRect(find.byType(SelectableText).first), savedRect);
       final restored = tester.widget<SelectableText>(
         find.byType(SelectableText).first,
       );
@@ -457,10 +549,13 @@ void main() {
       tester.platformDispatcher.textScaleFactorTestValue = 2.25;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       await tester.pumpAndSettle();
+      await revealReaderControls(tester);
       await tester.tap(find.byTooltip('阅读设置'));
       await tester.pumpAndSettle();
       expect(
-        tester.getBottomRight(find.byType(PageTurnSurface)).dy,
+        tester
+            .getBottomRight(find.byKey(const ValueKey('reader-visible-page')))
+            .dy,
         lessThanOrEqualTo(
           tester
               .getTopLeft(find.byKey(const ValueKey('reader-settings-dock')))

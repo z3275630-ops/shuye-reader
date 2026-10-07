@@ -9,7 +9,6 @@ class ReaderTapSurface extends StatefulWidget {
   final Widget child;
   final bool Function() canTurn;
   final ValueChanged<Offset> onTap;
-  final VoidCallback onDoubleTap;
   final GestureDragEndCallback onHorizontalDragEnd;
   final GestureDragStartCallback? onHorizontalDragStart;
   final GestureDragUpdateCallback? onHorizontalDragUpdate;
@@ -19,7 +18,6 @@ class ReaderTapSurface extends StatefulWidget {
     required this.child,
     required this.canTurn,
     required this.onTap,
-    required this.onDoubleTap,
     required this.onHorizontalDragEnd,
     this.onHorizontalDragStart,
     this.onHorizontalDragUpdate,
@@ -42,11 +40,8 @@ class _ReaderTapSurfaceState extends State<ReaderTapSurface> {
   Timer? hold;
   int? pointer;
   bool allowed = false, dragCancelled = false;
-  Timer? pending;
-  Offset? previous;
   @override
   void dispose() {
-    pending?.cancel();
     hold?.cancel();
     super.dispose();
   }
@@ -63,7 +58,6 @@ class _ReaderTapSurfaceState extends State<ReaderTapSurface> {
               recognizer
                 ..dragStartBehavior = DragStartBehavior.down
                 ..onStart = (d) {
-                  pending?.cancel();
                   // Over page whitespace this can win the arena on pointer down, before
                   // any movement. Only pointer travel / holding should disqualify a tap.
                   if (widget.canTurn()) widget.onHorizontalDragStart?.call(d);
@@ -126,7 +120,6 @@ class _ReaderTapSurfaceState extends State<ReaderTapSurface> {
       },
       onPointerCancel: (_) {
         dragCancelled = true;
-        pending?.cancel();
         widget.onHorizontalDragCancel?.call();
         hold?.cancel();
         pointer = null;
@@ -141,20 +134,9 @@ class _ReaderTapSurfaceState extends State<ReaderTapSurface> {
         final isTap = down != null;
         down = null;
         if (!isTap) return;
-        if (pending?.isActive == true &&
-            previous != null &&
-            (e.localPosition - previous!).distance < 32) {
-          pending!.cancel();
-          widget.onDoubleTap();
-          return;
+        if (mounted && allowed && widget.canTurn()) {
+          widget.onTap(e.localPosition);
         }
-        pending?.cancel();
-        previous = e.localPosition;
-        final location = e.localPosition;
-        final permit = allowed;
-        pending = Timer(const Duration(milliseconds: 280), () {
-          if (mounted && permit && widget.canTurn()) widget.onTap(location);
-        });
       },
       child: widget.child,
     ),
