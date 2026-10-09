@@ -111,7 +111,7 @@ void main() {
   }
 
   testWidgets(
-    'prepared page text is laid out before drag and not repainted each frame',
+    'prepared page text is painted before drag and not repainted each frame',
     (tester) async {
       final key = GlobalKey<PageTurnSurfaceState>();
       final current = _WorkCounts(), next = _WorkCounts();
@@ -136,13 +136,15 @@ void main() {
         ),
       );
       expect(next.layouts, greaterThan(0));
-      expect(next.paints, 0);
+      expect(next.paints, greaterThan(0));
+      final preparedPaints = [current.paints, next.paints];
       final surface = key.currentState!;
       surface.beginDrag();
       surface.updateDrag(-30);
       await tester.pump();
       final layouts = [current.layouts, next.layouts];
       final paints = [current.paints, next.paints];
+      expect(paints, preparedPaints);
       expect(next.paints, greaterThan(0));
       for (var i = 0; i < 10; i++) {
         surface.updateDrag(-10);
@@ -162,8 +164,82 @@ void main() {
     },
   );
 
+  testWidgets('prepared paragraphs survive promotion in both directions', (
+    tester,
+  ) async {
+    final key = GlobalKey<PageTurnSurfaceState>();
+    var page = 0;
+    late StateSetter update;
+    Widget paragraph(int index) =>
+        SelectableText('Page $index', key: ValueKey('paragraph-$index'));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            update = setState;
+            return PageTurnSurface(
+              key: key,
+              color: Colors.white,
+              pageIdentity: page,
+              previousIdentity: page > 0 ? page - 1 : null,
+              nextIdentity: page < 7 ? page + 1 : null,
+              previous: page > 0 ? paragraph(page - 1) : null,
+              next: page < 7 ? paragraph(page + 1) : null,
+              child: paragraph(page),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    for (final direction in [...List.filled(6, 1), ...List.filled(6, -1)]) {
+      final target = page + direction;
+      final prepared = tester
+          .state<EditableTextState>(
+            find.descendant(
+              of: find.byKey(
+                ValueKey('paragraph-$target'),
+                skipOffstage: false,
+              ),
+              matching: find.byType(EditableText, skipOffstage: false),
+            ),
+          )
+          .renderEditable;
+      final surface = key.currentState!;
+      surface.beginDrag();
+      surface.updateDrag(-direction * 120.0);
+      final done = surface.endDrag(
+        -direction * 1000.0,
+        (d) => update(() => page += d),
+      );
+      await tester.pumpAndSettle();
+      await done;
+      final current = find.byKey(ValueKey('paragraph-$target'));
+      expect(
+        identical(
+          tester
+              .state<EditableTextState>(
+                find.descendant(
+                  of: current,
+                  matching: find.byType(EditableText),
+                ),
+              )
+              .renderEditable,
+          prepared,
+        ),
+        isTrue,
+      );
+      expect(tester.getTopLeft(current).dx, 0);
+      expect(
+        find.byType(SelectableText, skipOffstage: false).evaluate().length,
+        lessThanOrEqualTo(3),
+      );
+    }
+    expect(page, 0);
+  });
+
   testWidgets(
-    'release velocity stays continuous and a new drag can interrupt settling',
+    'new drag completes the accepted sheet once and starts the next gesture',
     (tester) async {
       final key = GlobalKey<PageTurnSurfaceState>();
       final commits = <int>[];
@@ -175,6 +251,7 @@ void main() {
             child: PageTurnSurface(
               key: key,
               color: Colors.white,
+              previous: const ColoredBox(color: Colors.green),
               next: const ColoredBox(color: Colors.blue),
               child: const ColoredBox(color: Colors.white),
             ),
@@ -186,21 +263,18 @@ void main() {
       surface.updateDrag(-80);
       final oldTurn = surface.endDrag(-1000, commits.add);
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 1));
-      expect(surface.displacement + 80, closeTo(-1, .1));
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(surface.displacement, lessThan(-80));
       await tester.pump(const Duration(milliseconds: 40));
-      final offset = surface.displacement;
       expect(surface.beginDrag(), isTrue);
-      expect(surface.displacement, offset);
-      await tester.pump(const Duration(milliseconds: 40));
-      expect(surface.displacement, offset);
-      expect(commits, isEmpty);
+      expect(commits, [1]);
       surface.updateDrag(15);
-      expect(surface.displacement, offset + 15);
-      final returning = surface.endDrag(1000, commits.add);
+      await tester.pump();
+      expect(surface.displacement, 15);
+      final returning = surface.endDrag(0, commits.add);
       await tester.pumpAndSettle();
       await Future.wait([oldTurn, returning]);
-      expect(commits, isEmpty);
+      expect(commits, [1]);
       expect(surface.busy, isFalse);
     },
   );
@@ -277,20 +351,145 @@ void main() {
       surface.beginDrag();
       surface.updateDrag(-25);
       final flick = surface.endDrag(-1000, commits.add);
-      final flickDuration = surface.controller.duration!;
-      await tester.pumpAndSettle();
+      final flickFrames = await tester.pumpAndSettle(
+        const Duration(milliseconds: 16),
+      );
       await flick;
       expect(commits, [1]);
       surface.beginDrag();
       surface.updateDrag(-270);
       final nearEnd = surface.endDrag(-1000, commits.add);
-      expect(surface.controller.duration!, lessThan(flickDuration));
       expect(commits, [1]);
-      await tester.pumpAndSettle();
+      final nearEndFrames = await tester.pumpAndSettle(
+        const Duration(milliseconds: 16),
+      );
+      expect(nearEndFrames, lessThan(flickFrames));
       await nearEnd;
       expect(commits, [1, 1]);
     },
   );
+
+  testWidgets('fast release reaches the page without overshoot or rebound', (
+    tester,
+  ) async {
+    final key = GlobalKey<PageTurnSurfaceState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Center(
+          child: SizedBox(
+            width: 300,
+            height: 400,
+            child: PageTurnSurface(
+              key: key,
+              color: Colors.white,
+              next: const SizedBox.expand(),
+              child: const SizedBox.expand(),
+            ),
+          ),
+        ),
+      ),
+    );
+    final surface = key.currentState!;
+    var committed = false;
+    surface.beginDrag();
+    surface.updateDrag(-250);
+    final done = surface.endDrag(-6000, (_) => committed = true);
+    await tester.pump();
+    var previous = -250.0;
+    for (var i = 0; i < 120 && !committed; i++) {
+      await tester.pump(const Duration(milliseconds: 8));
+      if (committed) break;
+      expect(surface.displacement, lessThanOrEqualTo(previous));
+      expect(surface.displacement, greaterThanOrEqualTo(-300));
+      previous = surface.displacement;
+    }
+    expect(committed, isTrue);
+    await tester.pumpAndSettle();
+    await done;
+  });
+
+  testWidgets('rapid repeated flicks advance without a long settlement tail', (
+    tester,
+  ) async {
+    final key = GlobalKey<PageTurnSurfaceState>();
+    var page = 0;
+    late StateSetter update;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            update = setState;
+            return Center(
+              child: SizedBox(
+                width: 300,
+                height: 400,
+                child: PageTurnSurface(
+                  key: key,
+                  color: Colors.white,
+                  pageIdentity: page,
+                  previousIdentity: page - 1,
+                  nextIdentity: page + 1,
+                  previous: const SizedBox.expand(),
+                  next: const SizedBox.expand(),
+                  child: Text('Page $page'),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    final turns = <Future<void>>[];
+    for (var i = 0; i < 6; i++) {
+      final surface = key.currentState!;
+      expect(surface.beginDrag(), isTrue);
+      // Another flick arrives before the old snap has finished. It must
+      // complete that page exactly once and drag the newly bound sheet.
+      expect(page, i);
+      surface.updateDrag(-120);
+      turns.add(
+        surface.endDrag(-2000, (direction) => update(() => page += direction)),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 64));
+    }
+    await tester.pumpAndSettle();
+    await Future.wait(turns);
+    expect(page, 6);
+    expect(key.currentState!.busy, isFalse);
+  });
+
+  testWidgets('cancelling a buffered follow-up cannot turn an extra page', (
+    tester,
+  ) async {
+    final key = GlobalKey<PageTurnSurfaceState>();
+    final commits = <int>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PageTurnSurface(
+          key: key,
+          color: Colors.white,
+          next: const SizedBox.expand(),
+          child: const SizedBox.expand(),
+        ),
+      ),
+    );
+    final surface = key.currentState!;
+    surface.beginDrag();
+    surface.updateDrag(-120);
+    final first = surface.endDrag(-2000, commits.add);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 32));
+    surface.beginDrag();
+    surface.updateDrag(-140);
+    final followUp = surface.endDrag(-2000, commits.add);
+    surface.cancel();
+    await tester.pumpAndSettle();
+    await Future.wait([first, followUp]);
+    expect(commits, [1]);
+    expect(surface.busy, isFalse);
+    expect(surface.displacement, 0);
+  });
 
   test('pagination identity ignores paper and tool preferences but tracks typography', () {
     final s = ReaderSettings();
@@ -586,6 +785,8 @@ void main() {
       final committed = tester
           .state<EditableTextState>(find.byType(EditableText).first)
           .renderEditable;
+      // Promotion must retain the prepared paragraph, not mount a second copy.
+      expect(identical(committed, incoming), isTrue);
       expect(committed.text!.toPlainText(), text);
       expect(committed.size.height, height);
       expect(
@@ -595,7 +796,7 @@ void main() {
         boxes,
       );
       expect(tester.getRect(find.byType(SelectableText).first), rect);
-      expect(tester.widget<Text>(footers).data, previewFooter);
+      expect(tester.widget<Text>(footers.first).data, previewFooter);
       expect(previewFooter, endsWith('${(book.progress * 100).round()}%'));
       expect(
         committed.size.height,

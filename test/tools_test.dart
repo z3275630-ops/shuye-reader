@@ -1,3 +1,5 @@
+import 'reader_test_support.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -110,7 +112,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byType(SelectableText), findsNWidgets(2));
+      expect(currentReaderText(tester), findsNWidgets(2));
       final initial = b.offset;
       await tester.sendKeyDownEvent(LogicalKeyboardKey.space);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.space);

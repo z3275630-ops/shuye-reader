@@ -75,7 +75,7 @@ void main() {
         () async => Future<void>.delayed(const Duration(milliseconds: 250)),
       );
       await tester.pumpAndSettle();
-      expect(find.byType(SelectableText), findsOneWidget);
+      expect(currentReaderText(tester), findsOneWidget);
       await revealReaderControls(tester);
       await tester.tap(find.byTooltip('下一页'));
       await tester.pumpAndSettle();
@@ -108,7 +108,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(
-        tester.widget<SelectableText>(find.byType(SelectableText)).style!.color,
+        tester.widget<SelectableText>(currentReaderText(tester)).style!.color,
         const Color(0xfff5f5f3),
       );
       await tester.pump(const Duration(seconds: 5));
@@ -116,9 +116,15 @@ void main() {
       await revealReaderControls(tester);
       await tester.tap(find.byTooltip('章节目录'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('第二章 慢一点的日子'));
+      await tester.tap(find.widgetWithText(ListTile, '第二章 慢一点的日子'));
       await tester.pumpAndSettle();
-      expect(find.text('第二章 慢一点的日子'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: currentReaderSheet(tester),
+          matching: find.text('第二章 慢一点的日子'),
+        ),
+        findsOneWidget,
+      );
       await revealReaderControls(tester);
       await tester.tap(find.byTooltip('阅读工具'));
       await tester.pumpAndSettle();
@@ -127,8 +133,14 @@ void main() {
       await tester.enterText(find.byType(TextField), '邮局');
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
-      expect(find.textContaining('找到'), findsOneWidget);
-      await tester.tap(find.text('第一章 风从山里来').first);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Text && (widget.data?.startsWith('找到 ') ?? false),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.widgetWithText(ListTile, '第一章 风从山里来').first);
       await tester.pumpAndSettle();
       await tester.pageBack();
       await tester.pumpAndSettle();

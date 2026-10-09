@@ -4,6 +4,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import 'reader_scroller.dart';
+
 /// Margins belong to each moving sheet, not to the stationary viewport.
 class ReaderPage extends StatelessWidget {
   final Widget child;
@@ -43,9 +45,10 @@ class PageTurnSurface extends StatefulWidget {
   final Color color;
   // Fallback for callers that do not supply prepared neighboring sheets.
   final Widget? Function(int direction)? adjacent;
-  // Mounted offstage at rest so text layout precedes the first drag frame.
+  // Mounted and painted outside the clip before dragging. The framework keeps
+  // their display lists; movement only composites the prepared sheet layers.
   final Widget? previous, next;
-  final Object? pageIdentity;
+  final Object? pageIdentity, previousIdentity, nextIdentity;
   final bool enabled;
   const PageTurnSurface({
     super.key,
@@ -55,6 +58,8 @@ class PageTurnSurface extends StatefulWidget {
     this.previous,
     this.next,
     this.pageIdentity,
+    this.previousIdentity,
+    this.nextIdentity,
     this.enabled = true,
   });
   @override
@@ -69,9 +74,26 @@ class _TurnRequest {
   _TurnRequest(this.action, this.effect, this.direction);
 }
 
+enum _SheetRole { current, previous, next }
+
+class _DeferredRelease {
+  final double velocity;
+  final ValueChanged<int> commit;
+  final done = Completer<void>();
+  _DeferredRelease(this.velocity, this.commit);
+}
+
 class PageTurnSurfaceState extends State<PageTurnSurface>
     with SingleTickerProviderStateMixin {
-  final boundary = GlobalKey();
+  final _sheetKeys = <Object, GlobalKey>{};
+  Object _identity(int d) => switch (d) {
+    -1 => widget.previousIdentity ?? _SheetRole.previous,
+    1 => widget.nextIdentity ?? _SheetRole.next,
+    _ => widget.pageIdentity ?? _SheetRole.current,
+  };
+  GlobalKey _sheetKey(Object identity) =>
+      _sheetKeys.putIfAbsent(identity, GlobalKey.new);
+  GlobalKey get boundary => _sheetKey(_identity(0));
   ui.Image? snapshot;
   ui.FragmentShader? shader;
   bool busy = false;
@@ -80,39 +102,68 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
   int direction = 1;
   Widget? _incoming;
   bool _dragging = false, _settling = false, _committing = false;
+  bool _handoff = false;
   double _width = 0, _dragOffset = 0, _rawDrag = 0, _from = 0, _to = 0;
-  double? _releaseSlope;
-  double _slideProgress(double t) {
-    final slope = _releaseSlope;
-    if (slope == null) return Curves.easeOutCubic.transform(t);
-    // Hermite settlement preserves release velocity and ends at rest.
-    // Limiting the slope to [0, 3] keeps the movement monotonic.
-    return ((slope - 2) * t + (3 - 2 * slope)) * t * t + slope * t;
-  }
+  bool _pagerSettling = false, _waitingForSheet = false;
+  double _queuedTravel = 0;
+  _DeferredRelease? _queuedRelease;
+  VoidCallback? _settleCommit;
+  double _slideProgress(double t) => _pagerSettling
+      ? const ReaderPagerCurve().transform(t)
+      : Curves.easeOutCubic.transform(t);
 
   Widget? _neighbor(int d) =>
       (d > 0 ? widget.next : widget.previous) ?? widget.adjacent?.call(d);
   int _epoch = 0;
-  double get displacement => _settling
+  double get displacement => _handoff
+      ? 0
+      : _settling
       ? ui.lerpDouble(_from, _to, _slideProgress(controller.value))!
       : _dragOffset;
-  late final AnimationController controller = AnimationController(
+  late final AnimationController controller = AnimationController.unbounded(
     vsync: this,
     duration: const Duration(milliseconds: 240),
   );
 
   bool beginDrag() {
-    if (!widget.enabled || _committing) return false;
+    if (!widget.enabled || _waitingForSheet) return false;
     if (busy) {
-      if (!_settling || mode != 'slide') return false;
-      final offset = displacement;
+      if (mode != 'slide' || (!_settling && !_committing)) return false;
+      // A new gesture belongs to the next sheet, not the unfinished old turn.
+      // Finish an accepted turn once, then buffer motion until Flutter binds
+      // its prepared sheet. A restoring turn completes without a commit.
       _epoch++;
+      final epoch = _epoch;
       controller.stop(canceled: true);
+      final complete = _settleCommit;
+      _settleCommit = null;
+      _dragOffset = _to;
       _settling = false;
-      _rawDrag = _dragOffset = offset;
-    } else {
-      _rawDrag = _dragOffset = 0;
+      _committing = _waitingForSheet = true;
+      _queuedTravel = 0;
+      complete?.call();
+      setState(() {});
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || epoch != _epoch || !widget.enabled) return;
+        final travel = _queuedTravel;
+        final release = _queuedRelease;
+        _queuedRelease = null;
+        _waitingForSheet = _committing = _handoff = false;
+        _incoming = null;
+        _rawDrag = _dragOffset = 0;
+        _dragging = true;
+        updateDrag(travel);
+        if (release != null) {
+          unawaited(
+            endDrag(release.velocity, release.commit).whenComplete(() {
+              if (!release.done.isCompleted) release.done.complete();
+            }),
+          );
+        }
+      });
+      return true;
     }
+    _rawDrag = _dragOffset = 0;
     busy = true;
     _dragging = true;
     mode = 'slide';
@@ -120,6 +171,10 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
   }
 
   void updateDrag(double dx) {
+    if (_waitingForSheet) {
+      _queuedTravel += dx;
+      return;
+    }
     if (!_dragging || !widget.enabled || _width <= 0) return;
     _rawDrag += dx;
     final nextDirection = _rawDrag <= 0 ? 1 : -1;
@@ -133,6 +188,13 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
   }
 
   Future<void> endDrag(double velocity, ValueChanged<int> commit) async {
+    if (_waitingForSheet) {
+      _queuedRelease?.done.complete();
+      final release = _DeferredRelease(velocity, commit);
+      _queuedRelease = release;
+      await release.done.future;
+      return;
+    }
     if (!_dragging) return;
     _dragging = false;
     final travel = _rawDrag;
@@ -159,16 +221,10 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
       return;
     }
     final target = accept ? -direction * _width : 0.0;
-    final remaining = ((target - displacement).abs() / _width).clamp(0.0, 1.0);
-    final fast = velocity.abs() >= 450;
     await _settle(
       target,
       accept ? () => commit(direction) : null,
       velocity: velocity,
-      duration: Duration(
-        milliseconds: ((accept ? 90 : 80) + remaining * (fast ? 85 : 125))
-            .round(),
-      ),
     );
     _drain();
   }
@@ -249,28 +305,29 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
     controller.value = 0;
     _to = target;
     final distance = _to - _from;
-    _releaseSlope = velocity == null || distance.abs() < .01
-        ? null
-        : (velocity * duration.inMicroseconds / 1000000 / distance).clamp(
-            0.0,
-            3.0,
-          );
+    _pagerSettling = mode == 'slide';
     _settling = true;
-    controller.duration = duration;
+    _settleCommit = commit;
+    final settleDuration = _pagerSettling
+        ? readerPagerDuration(distance, _width, velocity ?? 0)
+        : duration;
+    controller.duration = settleDuration;
     setState(() {});
     try {
       if ((_to - _from).abs() >= .01 &&
           !MediaQuery.disableAnimationsOf(context)) {
-        await controller.forward(from: 0).orCancel;
+        await controller.animateTo(1, duration: settleDuration).orCancel;
       } else {
         controller.value = 1;
       }
       if (!mounted || epoch != _epoch || !widget.enabled) return;
       if (commit != null) {
+        _settleCommit = null;
         _committing = true;
         commit();
         // Keep the completed incoming page until the new child has painted.
         await WidgetsBinding.instance.endOfFrame;
+        if (!mounted || epoch != _epoch) return;
         _committing = false;
       }
     } on TickerCanceled {
@@ -286,7 +343,13 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
       snapshot?.dispose();
       snapshot = null;
       _incoming = null;
+      _settleCommit = null;
+      _queuedRelease?.done.complete();
+      _queuedRelease = null;
+      _waitingForSheet = false;
+      _queuedTravel = 0;
       _dragging = _settling = _committing = busy = false;
+      _handoff = false;
       _dragOffset = _rawDrag = 0;
     });
   }
@@ -309,6 +372,11 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
   @override
   void didUpdateWidget(PageTurnSurface oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (_committing && oldWidget.pageIdentity != widget.pageIdentity) {
+      // The incoming sheet has become current. Keep its existing subtree at
+      // zero instead of painting a second paragraph for the committed page.
+      _handoff = true;
+    }
     if (!widget.enabled ||
         (!_committing && oldWidget.pageIdentity != widget.pageIdentity)) {
       cancel();
@@ -318,6 +386,7 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
   @override
   void dispose() {
     _epoch++;
+    _queuedRelease?.done.complete();
     for (final request in _pendingTurns) {
       if (!request.done.isCompleted) request.done.complete();
     }
@@ -338,41 +407,46 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
             final dx = displacement;
             final imageEffect =
                 snapshot != null && (mode == 'fade' || mode == 'curl');
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                Transform.translate(
-                  key: const ValueKey('reader-page-translation'),
-                  offset: imageEffect ? Offset.zero : Offset(dx, 0),
-                  child: Offstage(
-                    offstage: imageEffect,
+            final identities = {_identity(0), _identity(-1), _identity(1)};
+            _sheetKeys.removeWhere((id, _) => !identities.contains(id));
+            Widget sheet(
+              int d,
+              Widget child, {
+              required bool visible,
+            }) => Transform.translate(
+              key: ValueKey(('reader-sheet', _identity(d))),
+              offset: Offset(imageEffect ? 0 : dx + d * _width, 0),
+              child: Offstage(
+                // For slide, even clipped neighbors record their whole
+                // display list at rest. They still cannot receive input or
+                // semantics. Snapshot effects retain their visibility rules.
+                offstage: imageEffect && !visible,
+                child: ExcludeSemantics(
+                  excluding: d != 0,
+                  child: IgnorePointer(
+                    ignoring: d != 0,
                     child: RepaintBoundary(
-                      key: boundary,
-                      child: ColoredBox(
-                        color: widget.color,
-                        child: widget.child,
-                      ),
+                      key: _sheetKey(_identity(d)),
+                      child: ColoredBox(color: widget.color, child: child),
                     ),
                   ),
                 ),
+              ),
+            );
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                sheet(0, widget.child, visible: !imageEffect || _handoff),
                 for (final d in [-1, 1])
                   if ((d > 0 ? widget.next : widget.previous) != null ||
-                      (direction == d && _incoming != null))
-                    Transform.translate(
-                      key: ValueKey('reader-neighbor-$d'),
-                      offset: Offset(imageEffect ? 0 : dx + d * _width, 0),
-                      child: Offstage(
-                        offstage: direction != d || _incoming == null,
-                        child: ExcludeSemantics(
-                          child: IgnorePointer(
-                            child: RepaintBoundary(
-                              child: direction == d && _incoming != null
-                                  ? _incoming!
-                                  : (d > 0 ? widget.next : widget.previous)!,
-                            ),
-                          ),
-                        ),
-                      ),
+                      (!_handoff && direction == d && _incoming != null))
+                    sheet(
+                      d,
+                      !_handoff && direction == d && _incoming != null
+                          ? _incoming!
+                          : (d > 0 ? widget.next : widget.previous) ??
+                                _incoming!,
+                      visible: !_handoff && direction == d && _incoming != null,
                     ),
                 if (imageEffect)
                   IgnorePointer(

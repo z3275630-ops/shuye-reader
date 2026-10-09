@@ -12,6 +12,8 @@
 
 引入新的代码、字体、插图、图标或模型时记录来源及许可，保留要求的声明。更新依赖时复核上游许可，不要仅凭包名猜测许可。
 
+- `lib/reader_scroller.dart`：Readium Kotlin Toolkit `R2WebView` 的分页减速曲线和时长公式移植为 Dart，来源固定为 [1b1f6b3](https://github.com/readium/kotlin-toolkit/blob/1b1f6b308a7b6f968b2bf1e66c84912879466f75/readium/navigator/src/main/java/org/readium/r2/navigator/R2WebView.kt)。保留 Readium Foundation 2018 版权标注，BSD-3-Clause 完整原文见 `assets/licenses/Readium.txt`，在 APP 开源许可页登记。整页绘制记录及新触摸结束旧动画的处理参考 Legado / NBReader 的方法，使用 Flutter 自带 RepaintBoundary 和动画控制器适配；未复制其 GPL 源码到 MIT 项目。
+
 Lucide 图形本身的 ISC 声明及其中 Feather 图形的 MIT 声明保留于 `assets/licenses/Lucide.txt`，来源为 [Lucide 固定提交](https://github.com/lucide-icons/lucide/blob/500620a2e8123f8d1db191538886dc0c223f69a9/LICENSE)。与 Flutter 包的 MIT 声明分别显示在 APP 开源许可页。
 
 - `assets/fonts/ShuyeSans-Regular.ttf` / `ShuyeSans-SemiBold.ttf`：Google / Noto Sans SC 的静态裁剪版，改名 Shuye Sans，OFL 1.1；固定上游、覆盖和哈希见字体 README / sans-audit.json。完整声明为 `assets/fonts/Sans-OFL.txt`，APP 开源许可页单独登记。

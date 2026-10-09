@@ -60,6 +60,9 @@ void main() async {
     yield LicenseEntryWithLineBreaks([
       'Lucide / Feather icons',
     ], await rootBundle.loadString('assets/licenses/Lucide.txt'));
+    yield LicenseEntryWithLineBreaks([
+      'Readium pager · Dart adaptation',
+    ], await rootBundle.loadString('assets/licenses/Readium.txt'));
   });
   try {
     await ChineseConverter.load();
