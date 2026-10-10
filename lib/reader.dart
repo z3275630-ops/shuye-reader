@@ -499,9 +499,32 @@ List<PageSlice> paginate(
   double height,
   TextScaler scaler, {
   ReaderSettings? settings,
-}) {
-  if (text.isEmpty) return [const PageSlice(0, 0)];
-  final pages = <PageSlice>[];
+}) => [
+  for (final slice in paginationSteps(
+    text,
+    style,
+    width,
+    height,
+    scaler,
+    settings: settings,
+  ))
+    ?slice,
+];
+
+// Yield after every font measurement as well as every completed page. The
+// synchronous and incremental callers share exactly the same page boundaries.
+Iterable<PageSlice?> paginationSteps(
+  String text,
+  TextStyle style,
+  double width,
+  double height,
+  TextScaler scaler, {
+  ReaderSettings? settings,
+}) sync* {
+  if (text.isEmpty) {
+    yield const PageSlice(0, 0);
+    return;
+  }
   var start = 0;
   bool fits(int end) {
     // A dangling UTF-16 high surrogate makes some engines report a one-line
@@ -533,6 +556,7 @@ List<PageSlice> paginate(
       } else {
         high = mid - 1;
       }
+      yield null;
     }
     if (end < text.length &&
         end > start + 1 &&
@@ -551,10 +575,48 @@ List<PageSlice> paginate(
         text.codeUnitAt(end - 1) <= 0xdbff) {
       end--;
     }
-    pages.add(PageSlice(start, end));
+    yield PageSlice(start, end);
     start = end;
   }
-  return pages;
+}
+
+/// Flutter font layout stays on the UI isolate. Each frame supplies at most
+/// one page, stopping between measurements after the small work budget. A
+/// single TextPainter call cannot be preempted and may exceed that budget.
+Future<List<PageSlice>?> paginateInFrames(
+  String text,
+  TextStyle style,
+  double width,
+  double height,
+  TextScaler scaler, {
+  ReaderSettings? settings,
+  required bool Function() isCurrent,
+  required bool Function() shouldPause,
+}) async {
+  final steps = paginationSteps(
+    text,
+    style,
+    width,
+    height,
+    scaler,
+    settings: settings,
+  ).iterator;
+  final result = <PageSlice>[];
+  while (isCurrent()) {
+    await WidgetsBinding.instance.endOfFrame;
+    if (!isCurrent()) return null;
+    if (shouldPause()) continue;
+    final work = Stopwatch()..start();
+    do {
+      if (!steps.moveNext()) return result;
+      final slice = steps.current;
+      if (slice != null) {
+        result.add(slice);
+        break;
+      }
+    } while (work.elapsedMicroseconds < 2000);
+  }
+  return null;
 }
 
 class ReaderScreen extends StatefulWidget {
@@ -631,7 +693,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   int speechIndex = 0;
   final pageSurface = GlobalKey<PageTurnSurfaceState>();
   final layoutCache = <String, ReadingLayout>{};
-  final pendingLayouts = <String>{};
+  final pendingLayouts = <String, Future<void>>{};
   StreamSubscription<MethodCall>? deviceEvents;
   Book get book => widget.book;
   ReaderSettings get settings => widget.settings;
@@ -1765,6 +1827,92 @@ class _ReaderScreenState extends State<ReaderScreen>
                       );
                     }
 
+                    String chapterKey(int c) =>
+                        '$c/${box.maxWidth}/$bodyHeight/${readerLayoutSettingsKey(settings)}/${MediaQuery.textScalerOf(ctx).scale(settings.fontSize)}';
+                    Future<void> prepareChapter(int c) {
+                      if (c < 0 || c >= book.chapters.length) {
+                        return Future<void>.value();
+                      }
+                      final targetKey = chapterKey(c);
+                      if (layoutCache.containsKey(targetKey)) {
+                        return Future<void>.value();
+                      }
+                      return pendingLayouts.putIfAbsent(targetKey, () async {
+                        final activeKey = layoutKey;
+                        final capturedSettings = ReaderSettings.fromJson(
+                          settings.toJson(),
+                        );
+                        final targetText = book.chapters[c].text;
+                        final scaler = MediaQuery.textScalerOf(ctx);
+                        bool current() =>
+                            mounted && !staleLibrary && layoutKey == activeKey;
+                        bool paused() =>
+                            pageSurface.currentState?.busy == true &&
+                            pageSurface.currentState?.waitingForNeighbor !=
+                                true;
+                        try {
+                          // Prepare during idle frames, including before the
+                          // reader reaches the chapter boundary. An explicit
+                          // loading turn can resume this work without jumping.
+                          do {
+                            await WidgetsBinding.instance.endOfFrame;
+                            if (!current()) return;
+                          } while (paused());
+                          final prepared = prepareText(
+                            targetText,
+                            capturedSettings,
+                          );
+                          final slices = await paginateInFrames(
+                            prepared.text,
+                            style,
+                            pageWidth,
+                            bodyHeight,
+                            scaler,
+                            settings: capturedSettings,
+                            isCurrent: current,
+                            shouldPause: paused,
+                          );
+                          if (slices == null || !current()) return;
+                          if (layoutCache.length >= 3) {
+                            layoutCache.remove(
+                              layoutCache.keys.firstWhere(
+                                (k) => k != layoutKey,
+                              ),
+                            );
+                          }
+                          setState(
+                            () => layoutCache[targetKey] = ReadingLayout(
+                              prepared.text,
+                              prepared.offsets,
+                              slices,
+                            ),
+                          );
+                        } catch (error) {
+                          if (current()) message('章节排版失败：$error');
+                        } finally {
+                          pendingLayouts.remove(targetKey);
+                        }
+                      });
+                    }
+
+                    // Keep at most the current and two neighboring chapter
+                    // layouts. Preparation does not change reading progress.
+                    unawaited(prepareChapter(chapter - 1));
+                    unawaited(prepareChapter(chapter + 1));
+                    ReaderNeighborState neighborState(int delta) {
+                      final targetPage = page + delta * (doublePage ? 2 : 1);
+                      if (targetPage >= 0 && targetPage < pages.length) {
+                        return ReaderNeighborState.ready;
+                      }
+                      final c = chapter + delta;
+                      if (c < 0 || c >= book.chapters.length) {
+                        return ReaderNeighborState.boundary;
+                      }
+                      return layoutCache.containsKey(chapterKey(c))
+                          ? ReaderNeighborState.ready
+                          : ReaderNeighborState.loading;
+                    }
+
                     ({Widget child, String identity})? adjacent(int delta) {
                       final step = doublePage ? 2 : 1;
                       var targetChapter = chapter;
@@ -1784,63 +1932,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                         targetKey =
                             '$targetChapter/${box.maxWidth}/$bodyHeight/${readerLayoutSettingsKey(settings)}/${MediaQuery.textScalerOf(ctx).scale(settings.fontSize)}';
                         final cached = layoutCache[targetKey];
-                        if (cached == null) {
-                          if (pendingLayouts.add(targetKey)) {
-                            final activeKey = layoutKey;
-                            final targetText =
-                                book.chapters[targetChapter].text;
-                            final capturedSettings = ReaderSettings.fromJson(
-                              settings.toJson(),
-                            );
-                            final scaler = MediaQuery.textScalerOf(ctx);
-                            void prepareNeighbor(Duration _) {
-                              if (mounted &&
-                                  pageSurface.currentState?.busy == true) {
-                                WidgetsBinding.instance.addPostFrameCallback(
-                                  prepareNeighbor,
-                                );
-                                return;
-                              }
-                              pendingLayouts.remove(targetKey);
-                              if (!mounted ||
-                                  staleLibrary ||
-                                  layoutKey != activeKey) {
-                                return;
-                              }
-                              final prepared = prepareText(
-                                targetText,
-                                capturedSettings,
-                              );
-                              final preparedLayout = ReadingLayout(
-                                prepared.text,
-                                prepared.offsets,
-                                paginate(
-                                  prepared.text,
-                                  style,
-                                  pageWidth,
-                                  bodyHeight,
-                                  scaler,
-                                  settings: capturedSettings,
-                                ),
-                              );
-                              if (layoutCache.length >= 3) {
-                                layoutCache.remove(
-                                  layoutCache.keys.firstWhere(
-                                    (k) => k != layoutKey,
-                                  ),
-                                );
-                              }
-                              setState(
-                                () => layoutCache[targetKey] = preparedLayout,
-                              );
-                            }
-
-                            WidgetsBinding.instance.addPostFrameCallback(
-                              prepareNeighbor,
-                            );
-                          }
-                          return null;
-                        }
+                        if (cached == null) return null;
                         target = cached;
                         targetPage = delta > 0 ? 0 : target.pages.length - 1;
                       }
@@ -1915,6 +2007,9 @@ class _ReaderScreenState extends State<ReaderScreen>
                         key: pageSurface,
                         color: scheme[0],
                         previous: previousPage?.child,
+                        previousState: neighborState(-1),
+                        nextState: neighborState(1),
+                        prepareAdjacent: (d) => prepareChapter(chapter + d),
                         next: nextPage?.child,
                         previousIdentity: previousPage?.identity,
                         nextIdentity: nextPage?.identity,

@@ -30,3 +30,11 @@
 书叶的真机日志显示：回翻落定帧既提升已准备的正文，又首次绘制更远的一页。Flutter 适配改为落定帧只保留已有纸面，下一帧再挂载 / 绘制新远页；仍最多三张纸面，没有新增 Bitmap 缓存。此安排是依据本项目测量作出的 Flutter 实现，不能称为直接移植 Legado 的空闲调度或后台分页。无下一页且可见状态未变时不请求纸面重建；实际到达末页已保存进度，重复越界不再保存相同位置。Readium 曲线与时长公式原样保留。
 
 测量证明正常落定帧工作减少；新段落首次绘制被移至随后一帧，没有凭空消失。下一触摸提前完成旧翻页仍可能遇到较高耗时，极长章节同步分页也未解决。完整对照、回归与手机手感状态见 [0.3.19 验证](verification-0.3.19.md)。
+
+## 0.3.20：审查后的手势与冷加载修复
+
+继续对照上列固定提交的 Readium `mInitialVelocity` / 释放方向判定。本项目记录横滑被识别后的首个非零位移作为初始方向，释放方向相反时撤回；保留距离型慢拖及零速度释放，没有复制 Readium 的完整 fling-only 接受门槛。此前 450 的反向门槛移除，不换成另一个猜测速度值。收尾数学公式不变，来源声明继续有效。
+
+新增对照 [Legado TextChapterLayout](https://github.com/LegadoTeam/legado/blob/5198645f0a504b1f6d1259885317e056ff6a4a02/app/src/main/java/io/legado/app/ui/book/read/page/provider/TextChapterLayout.kt)：排版在 IO context，页面完成时逐页发布。本项目仅参考准备状态、取消和分批供给方法；Flutter TextPainter 不能原样搬进 [后台 isolate](https://docs.flutter.dev/perf/isolates#no-rootbundle-access-or-dartui-methods)。共用既有真实字体分页算法，拆成测量步骤，每帧至多一页并在 2ms 批次预算后让出执行权；单次字体测量不可抢占，整章准备完成后才发布缓存。没有移植 Legado 后台排版源码，不能称为其完整引擎。
+
+相邻页明确区分准备中与全书边界。首次冷跨章先等待实际纸面就绪和绘制，再沿用已有滑动 / 交接机制；取消或失效准备不提交。前后章提前预热，拖动 / 收尾暂停，等待目标章时恢复。缓存与纸面数量不增加。实现、真实回归及边界见 [0.3.20 验证](verification-0.3.20.md)。

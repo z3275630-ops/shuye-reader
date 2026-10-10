@@ -48,6 +48,8 @@ class PageTurnSurface extends StatefulWidget {
   // Mounted and painted outside the clip before dragging. The framework keeps
   // their display lists; movement only composites the prepared sheet layers.
   final Widget? previous, next;
+  final ReaderNeighborState? previousState, nextState;
+  final Future<void> Function(int direction)? prepareAdjacent;
   final Object? pageIdentity, previousIdentity, nextIdentity;
   final bool enabled;
   const PageTurnSurface({
@@ -57,6 +59,9 @@ class PageTurnSurface extends StatefulWidget {
     this.adjacent,
     this.previous,
     this.next,
+    this.previousState,
+    this.nextState,
+    this.prepareAdjacent,
     this.pageIdentity,
     this.previousIdentity,
     this.nextIdentity,
@@ -75,6 +80,9 @@ class _TurnRequest {
 }
 
 enum _SheetRole { current, previous, next }
+
+/// A missing prepared sheet is either a book edge or work still in flight.
+enum ReaderNeighborState { ready, loading, boundary }
 
 class _DeferredRelease {
   final double velocity;
@@ -106,6 +114,11 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
   double _width = 0, _dragOffset = 0, _rawDrag = 0, _from = 0, _to = 0;
   bool _pagerSettling = false, _waitingForSheet = false;
   double _queuedTravel = 0;
+  double _initialMotion = 0;
+  Future<void>? _preparingNeighbor;
+  int? _preparingDirection;
+  int _preparationEpoch = 0;
+  bool get waitingForNeighbor => _preparingNeighbor != null;
   _DeferredRelease? _queuedRelease;
   VoidCallback? _settleCommit;
   double _slideProgress(double t) => _pagerSettling
@@ -114,6 +127,53 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
 
   Widget? _neighbor(int d) =>
       (d > 0 ? widget.next : widget.previous) ?? widget.adjacent?.call(d);
+  ReaderNeighborState _neighborState(int d) =>
+      (d > 0 ? widget.nextState : widget.previousState) ??
+      (_neighbor(d) == null
+          ? ReaderNeighborState.boundary
+          : ReaderNeighborState.ready);
+
+  Future<void> _prepareNeighbor(int d) {
+    if (_preparingDirection == d && _preparingNeighbor != null) {
+      return _preparingNeighbor!;
+    }
+    final prepare = widget.prepareAdjacent;
+    if (prepare == null) return Future<void>.value();
+    final epoch = _epoch;
+    final preparationEpoch = ++_preparationEpoch;
+    _preparingDirection = d;
+    final ready = () async {
+      try {
+        await prepare(d);
+        if (!mounted ||
+            epoch != _epoch ||
+            preparationEpoch != _preparationEpoch ||
+            !widget.enabled) {
+          return;
+        }
+        // The reader must bind and paint its prepared sheet before a release
+        // animation can use it. Loading never commits a different chapter.
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted ||
+            epoch != _epoch ||
+            preparationEpoch != _preparationEpoch ||
+            !widget.enabled) {
+          return;
+        }
+        if (_dragging && direction == d) updateDrag(0);
+      } finally {
+        if (epoch == _epoch &&
+            preparationEpoch == _preparationEpoch &&
+            _preparingDirection == d) {
+          _preparingNeighbor = null;
+          _preparingDirection = null;
+        }
+      }
+    }();
+    _preparingNeighbor = ready;
+    return ready;
+  }
+
   int _epoch = 0;
   double get displacement => _handoff
       ? 0
@@ -126,7 +186,8 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
   );
 
   bool beginDrag() {
-    if (!widget.enabled || _waitingForSheet) return false;
+    if (!widget.enabled || _waitingForSheet || waitingForNeighbor) return false;
+    _initialMotion = 0;
     if (busy) {
       if (mode != 'slide' || (!_settling && !_committing)) return false;
       // A new gesture belongs to the next sheet, not the unfinished old turn.
@@ -176,6 +237,7 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
       return;
     }
     if (!_dragging || !widget.enabled || _width <= 0) return;
+    if (_initialMotion == 0 && dx != 0) _initialMotion = dx;
     _rawDrag += dx;
     final nextDirection = _rawDrag <= 0 ? 1 : -1;
     final oldIncoming = _incoming;
@@ -183,6 +245,10 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
     if (_incoming == null || direction != nextDirection) {
       direction = nextDirection;
       _incoming = _neighbor(direction);
+      if (_incoming == null &&
+          _neighborState(direction) == ReaderNeighborState.loading) {
+        unawaited(_prepareNeighbor(direction));
+      }
     }
     final offset = _incoming == null ? 0.0 : _rawDrag.clamp(-_width, _width);
     // At a book edge, native pagers stop before requesting another draw.
@@ -213,7 +279,10 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
     direction = travel == 0 ? (velocity < 0 ? 1 : -1) : (travel < 0 ? 1 : -1);
     _incoming ??= _neighbor(direction);
     final projected = travel + velocity * .14;
-    final reversing = velocity.abs() >= 450 && velocity * direction > 0;
+    // Readium compares initial and release velocity signs. Here the first
+    // nonzero drag delta supplies the initial direction; retain distance-based
+    // slow dragging and zero-velocity release instead of its fling-only gate.
+    final reversing = _initialMotion * velocity < 0;
     final accept =
         widget.enabled &&
         !reversing &&
@@ -222,10 +291,26 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
             (projected * direction < 0 && projected.abs() >= _width * .3));
     // At a book boundary there is no fictional page to animate.
     if (_incoming == null) {
-      if (accept) commit(direction);
-      _reset();
-      _drain();
-      return;
+      if (accept && _neighborState(direction) == ReaderNeighborState.loading) {
+        final epoch = _epoch;
+        await _prepareNeighbor(direction);
+        if (!mounted || epoch != _epoch || !widget.enabled) return;
+        _incoming = _neighbor(direction);
+        if (_incoming != null) {
+          setState(() => _dragOffset = travel.clamp(-_width, _width));
+          await WidgetsBinding.instance.endOfFrame;
+          if (!mounted || epoch != _epoch || !widget.enabled) return;
+        }
+      }
+      if (_incoming == null) {
+        if (accept &&
+            _neighborState(direction) == ReaderNeighborState.boundary) {
+          commit(direction);
+        }
+        _reset();
+        _drain();
+        return;
+      }
     }
     final target = accept ? -direction * _width : 0.0;
     await _settle(
@@ -254,12 +339,20 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
     mode = request.effect;
     direction = request.direction;
     try {
-      if (mode == 'none' || MediaQuery.disableAnimationsOf(context)) {
-        request.action();
+      _incoming = _neighbor(direction);
+      if (_incoming == null &&
+          _neighborState(direction) == ReaderNeighborState.loading) {
+        await _prepareNeighbor(direction);
+        if (!mounted || epoch != _epoch || !widget.enabled) return;
+        _incoming = _neighbor(direction);
+      }
+      if (_incoming == null) {
+        if (_neighborState(direction) == ReaderNeighborState.boundary) {
+          request.action();
+        }
         return;
       }
-      _incoming = _neighbor(direction);
-      if (_incoming == null) {
+      if (mode == 'none' || MediaQuery.disableAnimationsOf(context)) {
         request.action();
         return;
       }
@@ -346,6 +439,9 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
 
   void _reset() {
     if (!mounted) return;
+    // Invalidates a loading callback after a short/cancelled gesture as well
+    // as animations. Its eventual result must not drive a later gesture.
+    _preparationEpoch++;
     final visualChange =
         snapshot != null ||
         _incoming != null ||
@@ -362,6 +458,9 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
       _queuedRelease = null;
       _waitingForSheet = false;
       _queuedTravel = 0;
+      _initialMotion = 0;
+      _preparingNeighbor = null;
+      _preparingDirection = null;
       _dragging = _settling = _committing = busy = false;
       _handoff = false;
       _dragOffset = _rawDrag = 0;

@@ -106,11 +106,16 @@ class _ReaderTapSurfaceState extends State<ReaderTapSurface> {
             allowed &&
             widget.canTurn()) {
           final travel = e.localPosition - origin;
+          // Once the pointer leaves the tap/hold tolerance it is no longer a
+          // stationary press. Reserve half Flutter's drag slop for this hold
+          // timer, so it cannot reject a slow swipe before drag recognition.
+          if (travel.distance > kTouchSlop / 2) hold?.cancel();
           if (travel.dx.abs() > kTouchSlop &&
               travel.dx.abs() > travel.dy.abs()) {
             // Listener sees movement before pointer-router recognizers do.
             // Resolve a clear horizontal swipe before the editable paragraph
             // can claim it as drag-selection; long presses remain untouched.
+            hold?.cancel();
             horizontal?.acceptSwipe();
           }
         }
