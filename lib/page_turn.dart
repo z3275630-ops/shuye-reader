@@ -178,13 +178,20 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
     if (!_dragging || !widget.enabled || _width <= 0) return;
     _rawDrag += dx;
     final nextDirection = _rawDrag <= 0 ? 1 : -1;
+    final oldIncoming = _incoming;
+    final oldDirection = direction;
     if (_incoming == null || direction != nextDirection) {
       direction = nextDirection;
       _incoming = _neighbor(direction);
     }
-    setState(() {
-      _dragOffset = _incoming == null ? 0 : _rawDrag.clamp(-_width, _width);
-    });
+    final offset = _incoming == null ? 0.0 : _rawDrag.clamp(-_width, _width);
+    // At a book edge, native pagers stop before requesting another draw.
+    if (offset == _dragOffset &&
+        identical(oldIncoming, _incoming) &&
+        (_incoming == null || direction == oldDirection)) {
+      return;
+    }
+    setState(() => _dragOffset = offset);
   }
 
   Future<void> endDrag(double velocity, ValueChanged<int> commit) async {
@@ -339,7 +346,14 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
 
   void _reset() {
     if (!mounted) return;
-    setState(() {
+    final visualChange =
+        snapshot != null ||
+        _incoming != null ||
+        _dragOffset != 0 ||
+        _settling ||
+        _committing ||
+        _handoff;
+    void clear() {
       snapshot?.dispose();
       snapshot = null;
       _incoming = null;
@@ -351,7 +365,13 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
       _dragging = _settling = _committing = busy = false;
       _handoff = false;
       _dragOffset = _rawDrag = 0;
-    });
+    }
+
+    if (visualChange) {
+      setState(clear);
+    } else {
+      clear();
+    }
   }
 
   void _drain() {
@@ -438,8 +458,12 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
               children: [
                 sheet(0, widget.child, visible: !imageEffect || _handoff),
                 for (final d in [-1, 1])
-                  if ((d > 0 ? widget.next : widget.previous) != null ||
-                      (!_handoff && direction == d && _incoming != null))
+                  // Promote the prepared sheet first. Bind the new far-side
+                  // paragraph after handoff, so its first layout/paint cannot
+                  // share the landing frame with the visible page.
+                  if ((!_committing || _sheetKeys.containsKey(_identity(d))) &&
+                      ((d > 0 ? widget.next : widget.previous) != null ||
+                          (!_handoff && direction == d && _incoming != null)))
                     sheet(
                       d,
                       !_handoff && direction == d && _incoming != null

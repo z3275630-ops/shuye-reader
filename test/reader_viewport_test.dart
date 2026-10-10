@@ -238,6 +238,74 @@ void main() {
     expect(page, 0);
   });
 
+  for (final direction in [-1, 1]) {
+    testWidgets('far sheet waits until after landing, direction $direction', (
+      tester,
+    ) async {
+      final key = GlobalKey<PageTurnSurfaceState>();
+      final work = {for (var i = -2; i <= 2; i++) i: _WorkCounts()};
+      var page = 0;
+      late StateSetter update;
+      Widget sheet(int index) => _CountWork(
+        counts: work[index]!,
+        child: SelectableText('Sheet $index', key: ValueKey('sheet-$index')),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return PageTurnSurface(
+                key: key,
+                color: Colors.white,
+                pageIdentity: page,
+                previousIdentity: page - 1,
+                nextIdentity: page + 1,
+                previous: sheet(page - 1),
+                next: sheet(page + 1),
+                child: sheet(page),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final incoming = tester
+          .state<EditableTextState>(
+            find.descendant(
+              of: find.byKey(ValueKey('sheet-$direction')),
+              matching: find.byType(EditableText),
+            ),
+          )
+          .renderEditable;
+      key.currentState!.beginDrag();
+      key.currentState!.updateDrag(-direction * 120.0);
+      final done = key.currentState!.endDrag(
+        -direction * 2000.0,
+        (d) => update(() => page += d),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(page, direction);
+      expect(work[direction * 2]!.layouts, 0);
+      expect(work[direction * 2]!.paints, 0);
+      expect(
+        tester
+            .state<EditableTextState>(
+              find.descendant(
+                of: find.byKey(ValueKey('sheet-$direction')),
+                matching: find.byType(EditableText),
+              ),
+            )
+            .renderEditable,
+        same(incoming),
+      );
+      await tester.pumpAndSettle();
+      await done;
+      expect(work[direction * 2]!.paints, greaterThan(0));
+    });
+  }
+
   testWidgets(
     'new drag completes the accepted sheet once and starts the next gesture',
     (tester) async {
@@ -523,15 +591,77 @@ void main() {
         ),
       ),
     );
+    final stack = find.descendant(
+      of: find.byType(PageTurnSurface),
+      matching: find.byType(Stack),
+    );
+    final restingScene = tester.widget<Stack>(stack);
     key.currentState!.beginDrag();
     key.currentState!.updateDrag(120);
+    await tester.pump();
+    expect(tester.widget<Stack>(stack), same(restingScene));
     expect(key.currentState!.displacement, 0);
     await key.currentState!.endDrag(800, (_) => boundary++);
     expect(boundary, 1);
     expect(key.currentState!.busy, isFalse);
+    await tester.pump();
+    expect(tester.widget<Stack>(stack), same(restingScene));
   });
 
   sqfliteFfiInit();
+  testWidgets('repeated end-of-book gestures do not save unchanged progress', (
+    tester,
+  ) async {
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      DeviceReader.channel,
+      (_) async => null,
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        DeviceReader.channel,
+        null,
+      ),
+    );
+    final opened = (await tester.runAsync(
+      () => ReaderRepository.open(
+        path: inMemoryDatabasePath,
+        factory: databaseFactoryFfi,
+      ),
+    ))!;
+    final repo = _ProgressCountingRepository(opened);
+    final book = Book(
+      id: 'end-boundary',
+      title: 'End',
+      chapters: const [Chapter('Last', 'The end.')],
+    );
+    await tester.runAsync(() => repo.addBook(book));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderScreen(
+          book: book,
+          repository: repo,
+          settings: ReaderSettings(extra: {'reader.reminderMinutes': 0}),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final writes = repo.progressWrites;
+    final offset = book.offset, lastRead = book.lastRead;
+    for (var i = 0; i < 3; i++) {
+      await tester.fling(
+        find.byType(ReaderTapSurface),
+        const Offset(-250, 0),
+        1500,
+      );
+      await tester.pumpAndSettle();
+    }
+    expect(repo.progressWrites, writes);
+    expect(book.offset, offset);
+    expect(book.lastRead, lastRead);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(() => repo.close());
+  });
   for (final spread in [false, true]) {
     testWidgets(
       'reader keeps text and page identity across chrome, drag cancellation and chapter turns: spread $spread',
@@ -895,6 +1025,17 @@ void main() {
 
 class _WorkCounts {
   int layouts = 0, paints = 0;
+}
+
+class _ProgressCountingRepository extends ReaderRepository {
+  int progressWrites = 0;
+  _ProgressCountingRepository(ReaderRepository repository)
+    : super(repository.db);
+  @override
+  Future<void> saveProgress(Book book) {
+    progressWrites++;
+    return super.saveProgress(book);
+  }
 }
 
 class _CountWork extends SingleChildRenderObjectWidget {

@@ -928,7 +928,6 @@ class _ReaderScreenState extends State<ReaderScreen>
     } else if (delta < 0 && chapter > 0) {
       jump(chapter - 1, offset: book.chapters[chapter - 1].text.length);
     } else {
-      if (delta > 0) updateProgress();
       autoPaging = false;
       speaking = false;
       if (delta > 0 && !endNotified && mounted) {
