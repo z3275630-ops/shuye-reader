@@ -80,19 +80,21 @@ abstract final class ShuyeStyle {
   static const fontFamily = 'ShuyeSans';
   static const readerFontFamily = 'ShuyeSerif';
   static const readerAlignment = TextAlign.justify;
-  static const canvas = Color(0xfffaf9f5);
-  static const darkCanvas = Color(0xff212121);
+  static const canvas = Color(0xfffcfcfb); // CDS gray-10
+  static const darkCanvas = Color(0xff151515); // CDS gray-850
   static const clay = Color(0xffd97757);
-  static const controlRadius = 12.0;
-  static const cardRadius = 16.0;
-  static const sheetRadius = 24.0;
+  static const controlRadius = 10.0; // CDS .625rem
+  static const cardRadius = 10.0; // CDS radius--lg
+  static const sheetRadius = 14.0; // CDS radius-composer (.875rem)
+  static const pillRadius = 6.0; // CDS .375rem (chips, snackbars)
+  static const popoverRadius = 8.0; // CDS .5rem (tooltips, popovers)
   static const panelTitle = TextStyle(
     fontSize: 20,
     fontWeight: FontWeight.w600,
     height: 1.3,
     letterSpacing: 0,
   );
-  static const controlMotion = Duration(milliseconds: 100);
+  static const controlMotion = Duration(milliseconds: 120); // CDS dur-snap
 }
 
 AnimationStyle applicationMotion(BuildContext context) =>
@@ -100,7 +102,7 @@ AnimationStyle applicationMotion(BuildContext context) =>
     ? AnimationStyle.noAnimation
     : const AnimationStyle(
         duration: Duration(milliseconds: 200),
-        reverseDuration: Duration(milliseconds: 150),
+        reverseDuration: Duration(milliseconds: 120), // CDS dur-snap
       );
 
 TextAlign readerTextAlign(ReaderSettings? settings) =>
@@ -152,36 +154,36 @@ ThemeData _buildApplicationTheme(
         onTertiary: dark ? const Color(0xff121212) : Colors.white,
         onSecondary: dark ? const Color(0xff262624) : Colors.white,
         secondaryContainer: dark
-            ? const Color(0xff3d3d38)
+            ? const Color(0xff252523) // adjusted for CDS gray-850 canvas
             : const Color(0xffeae9e2),
         onSecondaryContainer: dark
             ? ShuyeStyle.canvas
             : const Color(0xff30302e),
-        surfaceContainerLowest: dark ? const Color(0xff171716) : Colors.white,
+        surfaceContainerLowest: dark ? const Color(0xff131313) : Colors.white, // CDS gray-860
         surfaceContainerLow: dark
-            ? const Color(0xff242422)
+            ? const Color(0xff1a1a19) // CDS gray-830
             : const Color(0xfff0efe9),
         surfaceContainer: dark
-            ? const Color(0xff2c2c2a)
+            ? const Color(0xff1c1c1b) // CDS gray-820
             : const Color(0xffefeee5),
         surfaceContainerHigh: dark
-            ? const Color(0xff363632)
+            ? const Color(0xff1e1e1d) // CDS gray-810
             : const Color(0xffeae9e2),
         surfaceContainerHighest: dark
-            ? const Color(0xff40403b)
+            ? const Color(0xff20201f) // CDS gray-800
             : const Color(0xffe2e1d8),
-        onSurface: dark ? const Color(0xfff5f5f3) : const Color(0xff22221f),
+        onSurface: dark ? const Color(0xfff0efec) : const Color(0xff22221f), // CDS gray-50 (dark) / gray-830 (light)
         onSurfaceVariant: dark
-            ? const Color(0xffc2c0b6)
+            ? const Color(0xff97958d) // CDS gray-350
             : const Color(0xff626057),
-        outline: dark ? const Color(0xff929088) : const Color(0xff87857d),
+        outline: dark ? const Color(0xff929088) : const Color(0xff97958d), // CDS gray-350 (light)
         // Light hairlines sit on a much brighter canvas than the dark ones, so
         // #d6d4cb only reached 1.41:1 there while the dark value reaches 2.03:1
         // against #1f1f1e. The documented strategy layers with 0.5-0.7dp lines
         // instead of shadows, so give the light side a comparable weight.
         outlineVariant: dark
-            ? const Color(0xff50504a)
-            : const Color(0xffc5c2b6),
+            ? const Color(0xff2c2c2a) // CDS gray-750
+            : const Color(0xffe1e0d9), // CDS gray-100
         inverseSurface: dark ? ShuyeStyle.canvas : const Color(0xff30302e),
         onInverseSurface: dark ? const Color(0xff262624) : ShuyeStyle.canvas,
         surfaceTint: Colors.transparent,
@@ -199,8 +201,8 @@ ThemeData _buildApplicationTheme(
   }
   if (id == 'claude' && !dark) {
     colors = colors.copyWith(
-      onSurface: const Color(0xff2b2a27),
-      onSurfaceVariant: const Color(0xff66645c),
+      onSurface: const Color(0xff1a1a19), // CDS neutral-900 / gray-830
+      onSurfaceVariant: const Color(0xff898781), // CDS gray-400
     );
   }
   final card = id == 'claude'
@@ -381,7 +383,7 @@ ThemeData _buildApplicationTheme(
       surfaceTintColor: Colors.transparent,
       elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(ShuyeStyle.cardRadius),
         side: BorderSide(color: border),
       ),
       textStyle: TextStyle(
@@ -408,7 +410,7 @@ ThemeData _buildApplicationTheme(
         height: 1.45,
         letterSpacing: .2,
       ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ShuyeStyle.pillRadius)),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
@@ -444,7 +446,7 @@ ThemeData _buildApplicationTheme(
       ),
     ),
     chipTheme: ChipThemeData(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ShuyeStyle.pillRadius)),
       backgroundColor: control,
       selectedColor: id == 'claude' ? card : colors.secondaryContainer,
       side: BorderSide(color: colors.outlineVariant),
@@ -457,7 +459,7 @@ ThemeData _buildApplicationTheme(
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ShuyeStyle.pillRadius)),
       elevation: 0,
     ),
     dividerTheme: DividerThemeData(color: border, thickness: .7, space: 20),
@@ -511,7 +513,7 @@ ThemeData _buildApplicationTheme(
     tooltipTheme: TooltipThemeData(
       decoration: BoxDecoration(
         color: colors.inverseSurface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(ShuyeStyle.popoverRadius),
       ),
       textStyle: TextStyle(
         fontFamily: ShuyeStyle.fontFamily,
