@@ -56,3 +56,9 @@
 本轮复用的是 Flutter 官方组件；外部阅读器提供方法对照，适配代码由书叶实现。没有新增依赖、字体、图片或原生渲染后端。平移每帧只重定位准备好的三纸面，拖动位移由 ValueNotifier 通知绘制，不重新构造组件树；实际页面交接和首次新远页仍需要更新内容。前后章原本各有 2ms 预算，现在合起来每帧至多供给一页 / 一批测量，并轮流推进；文本预处理独占一个准备批次。必需目标章优先，拖动中暂停备用任务；失效工作不能发布缓存。
 
 2ms 是让出执行权的目标，不是单次 TextPainter / prepareText 的耗时上限；整章完成才发布、极长章节冷加载和当前章首次同步分页仍有边界。真实手感以 release 对 release 的同设备人工验收为准，记录见 verification-paging-2026-10-11.md。
+
+### 同日追加：Flutter 原生选字查询的成熟修复
+
+[Flutter PR #189823](https://github.com/flutter/flutter/pull/189823)，提交 `3ec72ae07035d8c84323bdf9f58cb4849556c0c7`：将 ProcessText 的操作查询放入后台 TaskQueue，避免 PackageManager Binder 和解析外部 APK 标签的磁盘访问阻塞主线程；实际启动操作仍回主线程。核对本机已锁定 embedding 的字节码，确认未包含这项修复，且原 release Perfetto 出现50.829ms的主线程消息处理。
+
+`android/.../ProcessTextQueue.kt` 使用框架后台串行队列，原样复用现有 ProcessTextChannel 解析器 / ProcessTextPlugin，只分发查询与其他动作的线程；属于对官方修复的小范围适配，不是完整引擎移植或新的选字组件。引擎包含上游修复后移除此适配。保留当前正文复制 / 摘录和其他文本控件的系统选字功能，线程与真机证据见本轮验证记录。

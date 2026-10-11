@@ -36,6 +36,7 @@ class MainActivity : AudioServiceFragmentActivity() {
     private var ttsReady = false
     override fun configureFlutterEngine(engine: FlutterEngine) {
         super.configureFlutterEngine(engine)
+        installProcessTextQueue(engine)
         channel = MethodChannel(engine.dartExecutor.binaryMessenger, "dev.shuye/reader")
         tts = TextToSpeech(this) { status ->
             ttsReady = status == TextToSpeech.SUCCESS

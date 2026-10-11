@@ -4,6 +4,7 @@
 
 - `assets/chinese/`：OpenCC 相关字典与许可见该目录的 `LICENSE.txt`；保留 Apache-2.0 原文。
 - Flutter / Dart 和 pubspec.lock 中锁定的依赖：保留各上游许可。应用“关于书叶 → 开源许可”显示 Flutter 收集的依赖声明和本项目 MIT 声明。
+- `android/.../ProcessTextQueue.kt`：按 Flutter [PR #189823](https://github.com/flutter/flutter/pull/189823)、提交 `3ec72ae07035d8c84323bdf9f58cb4849556c0c7` 的后台 TaskQueue 处理适配；实际复用锁定 Flutter 引擎的 ProcessTextChannel 解析器与 ProcessTextPlugin，不另抄一套插件、升级引擎或移除系统选字能力。Flutter 的 BSD 声明继续由原依赖许可展示。
 - PDF、SQLCipher、音频和 ML Kit 等原生组件通过既有依赖或 Android 配置集成；具体组件和模型遵循其上游条款，不能以根目录 MIT 重新许可。ML Kit 服务条款及模型不应被描述为本项目原创开源代码。
 - `lib/app_icons.dart`：功能图标通过统一适配层使用 `lucide_icons_flutter 3.1.22` 的本地修改子集 `3.1.22+shuye.1`（[vqh2602/lucide-flutter-main](https://github.com/vqh2602/lucide-flutter-main)，MIT，Copyright 2024 vqhapp）。固定来源与校验见 `third_party/lucide_icons_flutter/audit.json`，保留应用使用的 59 个默认字形；未修改共享缓存，也不是未修改的上游发行包。依赖许可由 Flutter 收集并显示。品牌叶子仍为本项目路径。
 - `assets/art/`：生成 / 编辑适配过程见 `docs/image-assets.md` 和 `docs/branding-prompts.md`；它们不是第三方原应用的资源提取结果。
