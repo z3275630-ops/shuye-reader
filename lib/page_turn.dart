@@ -147,7 +147,9 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
     _preparingDirection = d;
     final ready = () async {
       try {
+        final _prepSw = Stopwatch()..start();
         await prepare(d);
+        _prepSw.stop();
         if (!mounted ||
             epoch != _epoch ||
             preparationEpoch != _preparationEpoch ||
@@ -156,7 +158,12 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
         }
         // The reader must bind and paint its prepared sheet before a release
         // animation can use it. Loading never commits a different chapter.
+        final _frameSw = Stopwatch()..start();
         await WidgetsBinding.instance.endOfFrame;
+        _frameSw.stop();
+        if (kDebugMode) {
+          debugPrint('[shuye-trace] prepareNeighbor: prepare=${_prepSw.elapsedMilliseconds}ms frame=${_frameSw.elapsedMilliseconds}ms');
+        }
         if (!mounted ||
             epoch != _epoch ||
             preparationEpoch != _preparationEpoch ||
@@ -353,6 +360,8 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
   }
 
   Future<void> _run(_TurnRequest request) async {
+    final _traceTotal = Stopwatch()..start();
+    final _tracePhases = <String, int>{};
     busy = true;
     final epoch = _epoch;
     mode = request.effect;
@@ -361,7 +370,10 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
       _incoming = _neighbor(direction);
       if (_incoming == null &&
           _neighborState(direction) == ReaderNeighborState.loading) {
+        final _sw = Stopwatch()..start();
         await _prepareNeighbor(direction);
+        _sw.stop();
+        _tracePhases['prepareNeighbor'] = _sw.elapsedMilliseconds;
         if (!mounted || epoch != _epoch || !widget.enabled) return;
         _incoming = _neighbor(direction);
       }
@@ -376,6 +388,7 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
         return;
       }
       if (mode == 'curl' || mode == 'fade') {
+        final _snapSw = Stopwatch()..start();
         try {
           if (mode == 'curl') {
             shader ??= (await ui.FragmentProgram.fromAsset(
@@ -399,10 +412,22 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
           if (!mounted || epoch != _epoch) return;
           mode = 'slide';
         }
+        _snapSw.stop();
+        _tracePhases['snapshot'] = _snapSw.elapsedMilliseconds;
       }
       if (!mounted || epoch != _epoch) return;
+      final _settleSw = Stopwatch()..start();
       await _settle(-direction * _width, request.action);
+      _settleSw.stop();
+      _tracePhases['settle'] = _settleSw.elapsedMilliseconds;
     } finally {
+      _traceTotal.stop();
+      if (kDebugMode) {
+        final _parts = _tracePhases.entries
+            .map((e) => '${e.key}=${e.value}ms')
+            .join(' ');
+        debugPrint('[shuye-trace] turn total=${_traceTotal.elapsedMilliseconds}ms${_parts.isEmpty ? '' : ' $_parts'}');
+      }
       if (!request.done.isCompleted) request.done.complete();
       if (mounted && epoch == _epoch) {
         _reset();
@@ -433,19 +458,26 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
     controller.duration = settleDuration;
     setState(() {});
     try {
+      final _animSw = Stopwatch()..start();
       if ((_to - _from).abs() >= .01 &&
           !MediaQuery.disableAnimationsOf(context)) {
         await controller.animateTo(1, duration: settleDuration).orCancel;
       } else {
         controller.value = 1;
       }
+      _animSw.stop();
       if (!mounted || epoch != _epoch || !widget.enabled) return;
       if (commit != null) {
         _settleCommit = null;
         _committing = true;
         commit();
         // Keep the completed incoming page until the new child has painted.
+        final _commitSw = Stopwatch()..start();
         await WidgetsBinding.instance.endOfFrame;
+        _commitSw.stop();
+        if (kDebugMode) {
+          debugPrint('[shuye-trace] settle: anim=${_animSw.elapsedMilliseconds}ms (target ${settleDuration.inMilliseconds}ms) commitPaint=${_commitSw.elapsedMilliseconds}ms');
+        }
         if (!mounted || epoch != _epoch) return;
         _committing = false;
       }
