@@ -115,6 +115,7 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
   bool _handoff = false;
   double _width = 0, _dragOffset = 0, _rawDrag = 0, _from = 0, _to = 0;
   bool _pagerSettling = false, _waitingForSheet = false;
+  bool _useSpring = false;
   double _queuedTravel = 0;
   double _initialMotion = 0;
   Future<void>? _preparingNeighbor;
@@ -124,9 +125,11 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
   int? get preparingDirection => _preparingDirection;
   _DeferredRelease? _queuedRelease;
   VoidCallback? _settleCommit;
-  double _slideProgress(double t) => _pagerSettling
-      ? const ReaderPagerCurve().transform(t)
-      : Curves.easeOutCubic.transform(t);
+  double _slideProgress(double t) => _useSpring
+      ? t
+      : _pagerSettling
+        ? const ReaderPagerCurve().transform(t)
+        : Curves.easeOutCubic.transform(t);
 
   Widget? _neighbor(int d) =>
       (d > 0 ? widget.next : widget.previous) ?? widget.adjacent?.call(d);
@@ -297,7 +300,7 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
     }
     direction = travel == 0 ? (velocity < 0 ? 1 : -1) : (travel < 0 ? 1 : -1);
     _incoming ??= _neighbor(direction);
-    final projected = travel + velocity * .14;
+    final projected = travel + velocity * .25;
     // Readium compares initial and release velocity signs. Here the first
     // nonzero drag delta supplies the initial direction; retain distance-based
     // slow dragging and zero-velocity release instead of its fling-only gate.
@@ -430,12 +433,31 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
     final settleDuration = _pagerSettling
         ? readerPagerDuration(distance, _width, velocity ?? 0)
         : duration;
-    controller.duration = settleDuration;
+    // Use spring physics for gesture-initiated slide turns with real velocity.
+    // The spring converts finger release speed directly into page momentum,
+    // matching the natural feel of iOS/native pagers.
+    _useSpring = _pagerSettling && velocity != null && velocity.abs() > 1;
     setState(() {});
     try {
       if ((_to - _from).abs() >= .01 &&
           !MediaQuery.disableAnimationsOf(context)) {
-        await controller.animateTo(1, duration: settleDuration).orCancel;
+        if (_useSpring) {
+          final spring = SpringDescription.withDampingRatio(
+            mass: 1,
+            stiffness: 250,
+            ratio: 0.85,
+          );
+          // Normalize gesture velocity (px/s) to controller velocity (1/s):
+          // distance is in px, controller travels 0→1.
+          final normalizedVelocity = distance.abs() > 0.01
+              ? velocity! / distance
+              : 0.0;
+          final sim = SpringSimulation(spring, 0, 1, normalizedVelocity);
+          await controller.animateWith(sim).orCancel;
+        } else {
+          controller.duration = settleDuration;
+          await controller.animateTo(1, duration: settleDuration).orCancel;
+        }
       } else {
         controller.value = 1;
       }
@@ -461,6 +483,7 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
     // Invalidates a loading callback after a short/cancelled gesture as well
     // as animations. Its eventual result must not drive a later gesture.
     _preparationEpoch++;
+    _useSpring = false;
     final visualChange =
         snapshot != null ||
         _incoming != null ||
