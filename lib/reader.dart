@@ -1837,6 +1837,9 @@ class _ReaderScreenState extends State<ReaderScreen>
                       }
                       final targetKey = chapterKey(c);
                       if (layoutCache.containsKey(targetKey)) {
+                        if (kDebugMode) {
+                          debugPrint('[shuye-trace] prepareChapter($c): cache hit');
+                        }
                         return Future<void>.value();
                       }
                       return pendingLayouts.putIfAbsent(targetKey, () async {
@@ -1854,6 +1857,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                         bool paused() =>
                             pageSurface.currentState?.busy == true &&
                             !required();
+                        final _ptSw = Stopwatch()..start();
                         try {
                           // Prepare during idle frames, including before the
                           // reader reaches the chapter boundary. An explicit
@@ -1871,7 +1875,9 @@ class _ReaderScreenState extends State<ReaderScreen>
                             shouldPause: paused,
                             isRequired: required,
                           );
+                          _ptSw.stop();
                           if (!preparedCurrent || !current()) return;
+                          final _pgSw = Stopwatch()..start();
                           final slices = await paginateInFrames(
                             prepared!.text,
                             style,
@@ -1884,6 +1890,7 @@ class _ReaderScreenState extends State<ReaderScreen>
                             queue: preparationQueue,
                             isRequired: required,
                           );
+                          _pgSw.stop();
                           if (slices == null || !current()) return;
                           if (layoutCache.length >= 3) {
                             layoutCache.remove(
@@ -1899,6 +1906,9 @@ class _ReaderScreenState extends State<ReaderScreen>
                               slices,
                             ),
                           );
+                          if (kDebugMode) {
+                            debugPrint('[shuye-trace] prepareChapter($c): text=${_ptSw.elapsedMilliseconds}ms paginate=${_pgSw.elapsedMilliseconds}ms');
+                          }
                         } catch (error) {
                           if (current()) message('章节排版失败：$error');
                         } finally {
