@@ -19,6 +19,7 @@ import 'typography.dart';
 import 'reader_gestures.dart';
 import 'reader_viewport.dart';
 import 'privacy.dart';
+import 'reader_preparation.dart';
 
 const readerSchemes = {
   'paper': [Color(0xfff4eddf), Color(0xff3f392e)],
@@ -592,6 +593,8 @@ Future<List<PageSlice>?> paginateInFrames(
   ReaderSettings? settings,
   required bool Function() isCurrent,
   required bool Function() shouldPause,
+  ReaderPreparationQueue? queue,
+  bool Function()? isRequired,
 }) async {
   final steps = paginationSteps(
     text,
@@ -602,21 +605,19 @@ Future<List<PageSlice>?> paginateInFrames(
     settings: settings,
   ).iterator;
   final result = <PageSlice>[];
-  while (isCurrent()) {
-    await WidgetsBinding.instance.endOfFrame;
-    if (!isCurrent()) return null;
-    if (shouldPause()) continue;
-    final work = Stopwatch()..start();
-    do {
-      if (!steps.moveNext()) return result;
+  final completed = await (queue ?? ReaderPreparationQueue()).run(
+    () {
+      if (!steps.moveNext()) return ReaderWorkStep.complete;
       final slice = steps.current;
-      if (slice != null) {
-        result.add(slice);
-        break;
-      }
-    } while (work.elapsedMicroseconds < 2000);
-  }
-  return null;
+      if (slice == null) return ReaderWorkStep.more;
+      result.add(slice);
+      return ReaderWorkStep.page;
+    },
+    isCurrent: isCurrent,
+    shouldPause: shouldPause,
+    isRequired: isRequired,
+  );
+  return completed ? result : null;
 }
 
 class ReaderScreen extends StatefulWidget {
@@ -694,6 +695,7 @@ class _ReaderScreenState extends State<ReaderScreen>
   final pageSurface = GlobalKey<PageTurnSurfaceState>();
   final layoutCache = <String, ReadingLayout>{};
   final pendingLayouts = <String, Future<void>>{};
+  final preparationQueue = ReaderPreparationQueue();
   StreamSubscription<MethodCall>? deviceEvents;
   Book get book => widget.book;
   ReaderSettings get settings => widget.settings;
@@ -1846,24 +1848,32 @@ class _ReaderScreenState extends State<ReaderScreen>
                         final scaler = MediaQuery.textScalerOf(ctx);
                         bool current() =>
                             mounted && !staleLibrary && layoutKey == activeKey;
+                        bool required() =>
+                            pageSurface.currentState?.preparingDirection ==
+                            c - chapter;
                         bool paused() =>
                             pageSurface.currentState?.busy == true &&
-                            pageSurface.currentState?.waitingForNeighbor !=
-                                true;
+                            !required();
                         try {
                           // Prepare during idle frames, including before the
                           // reader reaches the chapter boundary. An explicit
                           // loading turn can resume this work without jumping.
-                          do {
-                            await WidgetsBinding.instance.endOfFrame;
-                            if (!current()) return;
-                          } while (paused());
-                          final prepared = prepareText(
-                            targetText,
-                            capturedSettings,
+                          MappedText? prepared;
+                          final preparedCurrent = await preparationQueue.run(
+                            () {
+                              prepared = prepareText(
+                                targetText,
+                                capturedSettings,
+                              );
+                              return ReaderWorkStep.complete;
+                            },
+                            isCurrent: current,
+                            shouldPause: paused,
+                            isRequired: required,
                           );
+                          if (!preparedCurrent || !current()) return;
                           final slices = await paginateInFrames(
-                            prepared.text,
+                            prepared!.text,
                             style,
                             pageWidth,
                             bodyHeight,
@@ -1871,6 +1881,8 @@ class _ReaderScreenState extends State<ReaderScreen>
                             settings: capturedSettings,
                             isCurrent: current,
                             shouldPause: paused,
+                            queue: preparationQueue,
+                            isRequired: required,
                           );
                           if (slices == null || !current()) return;
                           if (layoutCache.length >= 3) {
@@ -1882,8 +1894,8 @@ class _ReaderScreenState extends State<ReaderScreen>
                           }
                           setState(
                             () => layoutCache[targetKey] = ReadingLayout(
-                              prepared.text,
-                              prepared.offsets,
+                              prepared!.text,
+                              prepared!.offsets,
                               slices,
                             ),
                           );

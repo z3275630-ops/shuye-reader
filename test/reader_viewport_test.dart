@@ -593,19 +593,19 @@ void main() {
     );
     final stack = find.descendant(
       of: find.byType(PageTurnSurface),
-      matching: find.byType(Stack),
+      matching: find.byType(Flow),
     );
-    final restingScene = tester.widget<Stack>(stack);
+    final restingScene = tester.widget<Flow>(stack);
     key.currentState!.beginDrag();
     key.currentState!.updateDrag(120);
     await tester.pump();
-    expect(tester.widget<Stack>(stack), same(restingScene));
+    expect(tester.widget<Flow>(stack), same(restingScene));
     expect(key.currentState!.displacement, 0);
     await key.currentState!.endDrag(800, (_) => boundary++);
     expect(boundary, 1);
     expect(key.currentState!.busy, isFalse);
     await tester.pump();
-    expect(tester.widget<Stack>(stack), same(restingScene));
+    expect(tester.widget<Flow>(stack), same(restingScene));
   });
 
   sqfliteFfiInit();

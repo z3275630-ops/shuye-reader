@@ -105,6 +105,8 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
   ui.Image? snapshot;
   ui.FragmentShader? shader;
   bool busy = false;
+  final _dragPaint = ValueNotifier<double>(0);
+  late final _slidePaint = Listenable.merge([controller, _dragPaint]);
   final _pendingTurns = <_TurnRequest>[];
   String mode = 'none';
   int direction = 1;
@@ -119,6 +121,7 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
   int? _preparingDirection;
   int _preparationEpoch = 0;
   bool get waitingForNeighbor => _preparingNeighbor != null;
+  int? get preparingDirection => _preparingDirection;
   _DeferredRelease? _queuedRelease;
   VoidCallback? _settleCommit;
   double _slideProgress(double t) => _pagerSettling
@@ -238,8 +241,20 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
     }
     if (!_dragging || !widget.enabled || _width <= 0) return;
     if (_initialMotion == 0 && dx != 0) _initialMotion = dx;
-    _rawDrag += dx;
+    final previousTravel = _rawDrag;
+    _rawDrag = (_rawDrag + dx).clamp(-_width, _width);
+    // Legado switches the target when the finger crosses the resting origin.
+    // A partial reverse still withdraws; a full cross starts the other turn.
+    if (previousTravel * _rawDrag < 0) _initialMotion = dx;
+    // foliate-js scrollBy clamps the actual scroll position at the book edge.
+    // Discard invisible overscroll, so the next opposite delta moves at once.
     final nextDirection = _rawDrag <= 0 ? 1 : -1;
+    final atBoundary =
+        _neighborState(nextDirection) == ReaderNeighborState.boundary;
+    if (atBoundary) {
+      _rawDrag = 0;
+      _initialMotion = 0;
+    }
     final oldIncoming = _incoming;
     final oldDirection = direction;
     if (_incoming == null || direction != nextDirection) {
@@ -257,7 +272,11 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
         (_incoming == null || direction == oldDirection)) {
       return;
     }
-    setState(() => _dragOffset = offset);
+    _dragOffset = offset;
+    if (!identical(oldIncoming, _incoming) || direction != oldDirection) {
+      setState(() {});
+    }
+    _dragPaint.value = offset;
   }
 
   Future<void> endDrag(double velocity, ValueChanged<int> commit) async {
@@ -509,6 +528,7 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
     for (final request in _pendingTurns) {
       if (!request.done.isCompleted) request.done.complete();
     }
+    _dragPaint.dispose();
     controller.dispose();
     snapshot?.dispose();
     shader?.dispose();
@@ -519,6 +539,41 @@ class PageTurnSurfaceState extends State<PageTurnSurface>
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, box) {
       _width = box.maxWidth;
+      if (snapshot == null) {
+        final identities = {_identity(0), _identity(-1), _identity(1)};
+        _sheetKeys.removeWhere((id, _) => !identities.contains(id));
+        final roles = <int>[0];
+        final children = <Widget>[];
+        Widget sheet(int d, Widget child) => KeyedSubtree(
+          key: ValueKey(('reader-sheet', _identity(d))),
+          child: ExcludeSemantics(
+            excluding: d != 0,
+            child: IgnorePointer(
+              ignoring: d != 0,
+              child: RepaintBoundary(
+                key: _sheetKey(_identity(d)),
+                child: ColoredBox(color: widget.color, child: child),
+              ),
+            ),
+          ),
+        );
+        children.add(sheet(0, widget.child));
+        for (final d in [-1, 1]) {
+          if (_committing && !_sheetKeys.containsKey(_identity(d))) continue;
+          final child = !_handoff && direction == d && _incoming != null
+              ? _incoming
+              : (d > 0 ? widget.next : widget.previous);
+          if (child == null) continue;
+          roles.add(d);
+          children.add(sheet(d, child));
+        }
+        // Reuse Flutter's paint-only positioning component. The three recorded
+        // sheets do not rebuild or lay out on pointer updates / animation ticks.
+        return Flow(
+          delegate: _ReaderSheetFlow(this, roles, _slidePaint),
+          children: children,
+        );
+      }
       return ClipRect(
         child: AnimatedBuilder(
           animation: controller,
@@ -648,4 +703,33 @@ class TurnPainter extends CustomPainter {
       old.image != image ||
       old.mode != mode ||
       old.direction != direction;
+}
+
+/// Flutter Flow owns clipping, transformed hit testing and retained child layers.
+/// Only sheet positions vary while the prepared content stays unchanged.
+class _ReaderSheetFlow extends FlowDelegate {
+  final PageTurnSurfaceState surface;
+  final List<int> roles;
+  _ReaderSheetFlow(this.surface, this.roles, Listenable repaint)
+    : super(repaint: repaint);
+  @override
+  BoxConstraints getConstraintsForChild(int i, BoxConstraints constraints) =>
+      BoxConstraints.tight(constraints.biggest);
+  @override
+  void paintChildren(FlowPaintingContext context) {
+    final dx = surface.displacement;
+    for (var i = 0; i < roles.length; i++) {
+      context.paintChild(
+        i,
+        transform: Matrix4.translationValues(
+          dx + roles[i] * context.size.width,
+          0,
+          0,
+        ),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ReaderSheetFlow oldDelegate) => true;
 }

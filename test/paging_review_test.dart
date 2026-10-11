@@ -14,6 +14,125 @@ import 'package:shuye_reader/page_turn.dart';
 import 'package:shuye_reader/reader_gestures.dart';
 
 void main() {
+  for (final edge in [-1, 1]) {
+    testWidgets(
+      'book edge reverses immediately without invisible travel $edge',
+      (tester) async {
+        final key = GlobalKey<PageTurnSurfaceState>();
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Center(
+              child: SizedBox(
+                width: 300,
+                height: 400,
+                child: PageTurnSurface(
+                  key: key,
+                  color: Colors.white,
+                  previous: edge == 1 ? const Text('prepared-neighbor') : null,
+                  next: edge == -1 ? const Text('prepared-neighbor') : null,
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ),
+          ),
+        );
+        expect(tester.getSize(find.byType(PageTurnSurface)).width, 300);
+        final surface = key.currentState!;
+        surface.beginDrag();
+        surface.updateDrag(-edge * 120.0);
+        await tester.pump();
+        expect(surface.displacement, 0);
+        expect(find.text('prepared-neighbor'), findsOneWidget);
+        surface.updateDrag(edge * 25.0);
+        await tester.pump();
+        expect(surface.displacement, edge * 25.0);
+        final commits = <int>[];
+        surface.updateDrag(edge * 90.0);
+        final done = surface.endDrag(edge * 1000.0, commits.add);
+        await tester.pumpAndSettle();
+        await done;
+        expect(commits, [-edge]);
+      },
+    );
+  }
+  testWidgets(
+    'moving prepared sheets retain their widget tree during drag and settling',
+    (tester) async {
+      final key = GlobalKey<PageTurnSurfaceState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SizedBox(
+            width: 300,
+            height: 400,
+            child: PageTurnSurface(
+              key: key,
+              color: Colors.white,
+              pageIdentity: 'p0',
+              nextIdentity: 'p1',
+              next: const SelectableText('Next page'),
+              child: const SelectableText('Current page'),
+            ),
+          ),
+        ),
+      );
+      final surface = key.currentState!;
+      surface.beginDrag();
+      surface.updateDrag(-30);
+      await tester.pump();
+      final finder = find.byKey(
+        const ValueKey<(String, Object)>(('reader-sheet', 'p0')),
+      );
+      final prepared = tester.widget(finder);
+      for (var i = 0; i < 8; i++) {
+        surface.updateDrag(-10);
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.widget(finder), same(prepared));
+      }
+      final done = surface.endDrag(-1000, (_) {});
+      await tester.pump();
+      final settling = tester.widget(finder);
+      for (var i = 0; i < 4; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.widget(finder), same(settling));
+      }
+      await tester.pumpAndSettle();
+      await done;
+    },
+  );
+  testWidgets(
+    'crossing the resting origin releases toward the newly visible page',
+    (tester) async {
+      final key = GlobalKey<PageTurnSurfaceState>();
+      final commits = <int>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Center(
+            child: SizedBox(
+              width: 300,
+              height: 400,
+              child: PageTurnSurface(
+                key: key,
+                color: Colors.white,
+                previous: const Text('Previous'),
+                next: const Text('Next'),
+                child: const Text('Current'),
+              ),
+            ),
+          ),
+        ),
+      );
+      final surface = key.currentState!;
+      surface.beginDrag();
+      surface.updateDrag(-100);
+      surface.updateDrag(200);
+      await tester.pump();
+      expect(surface.displacement, 100);
+      final done = surface.endDrag(1000, commits.add);
+      await tester.pumpAndSettle();
+      await done;
+      expect(commits, [-1]);
+    },
+  );
   testWidgets('slow reverse release restores instead of committing', (
     tester,
   ) async {
@@ -210,7 +329,7 @@ void main() {
       );
       await tester.pump();
       current = false;
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(await cancelled, isNull);
     },
   );

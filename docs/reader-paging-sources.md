@@ -38,3 +38,21 @@
 新增对照 [Legado TextChapterLayout](https://github.com/LegadoTeam/legado/blob/5198645f0a504b1f6d1259885317e056ff6a4a02/app/src/main/java/io/legado/app/ui/book/read/page/provider/TextChapterLayout.kt)：排版在 IO context，页面完成时逐页发布。本项目仅参考准备状态、取消和分批供给方法；Flutter TextPainter 不能原样搬进 [后台 isolate](https://docs.flutter.dev/perf/isolates#no-rootbundle-access-or-dartui-methods)。共用既有真实字体分页算法，拆成测量步骤，每帧至多一页并在 2ms 批次预算后让出执行权；单次字体测量不可抢占，整章准备完成后才发布缓存。没有移植 Legado 后台排版源码，不能称为其完整引擎。
 
 相邻页明确区分准备中与全书边界。首次冷跨章先等待实际纸面就绪和绘制，再沿用已有滑动 / 交接机制；取消或失效准备不提交。前后章提前预热，拖动 / 收尾暂停，等待目标章时恢复。缓存与纸面数量不增加。实现、真实回归及边界见 [0.3.20 验证](verification-0.3.20.md)。
+
+
+## 2026-10-11：正式版对照候选，绘制复用与共享预热预算
+
+先阅读实际源码，再做本轮修改：
+
+- [微信读书 Android 卡顿测试，2018](https://www.infoq.cn/news/weixin-reading-stuck-monitor-and-test)：滑动窗口 / 异步读取削峰；当前、前、后三个物理页面提前布局，翻页只绘制；CPU、GPU、GC 分开定位。这是腾讯测试工程师的历史经验，不代表当前微信读书实现。文中 60fps、16.6ms 及监控阈值也不直接作为本手机的验收标准。
+- [微信读书团队 iOS 分享，2016](https://wereadteam.github.io/2016/05/03/WeRead-Performance/)：优先预处理阅读排版、延后非关键数据；控制并发、验证排版结果。这是历史 iOS 实践，没有直接移植 Objective-C 排版引擎。
+- [V2EX 1195212](https://www.v2ex.com/t/1195212)：阅读了问题和评论。发帖者明确没有实锤，原生 / WebView 判断只是社区推测；评论链接的开源方案可以核验，但不能据此认定番茄或起点的现行架构。
+- Legado 固定提交 `5198645f0a504b1f6d1259885317e056ff6a4a02` 的 PageDelegate、HorizontalPageDelegate、SlidePageDelegate、PageView、ReadView、CanvasRecorder：完整核对触摸、取消、abortAnim、录制 / 平移 / 交接。它依赖 Android View / Canvas / StaticLayout，直接接入会替换 Flutter 选字、字体排版和页面体系；本轮不做这个高风险迁移。保留已有三纸面绘制记录、接管已接受旧翻页的方法，没有声称移植整个 Legado 引擎。
+- [readest/foliate-js 5003bbbd0fd260682b9875af5ac11c40191570a2](https://github.com/readest/foliate-js/commit/5003bbbd0fd260682b9875af5ac11c40191570a2)：分开样式、宿主加载、分页；异步返回后重新检查是否正在拖动；备用内容等待两个空闲帧，真正需要的边界页优先。本轮参考这个调度方法，在 Flutter UI isolate 中共用一个队列；不是复制 JS / DOM 引擎。
+- [readest/foliate-js 15fc999f854a41ed6111b8d57c7f25fb97693419](https://github.com/readest/foliate-js/commit/15fc999f854a41ed6111b8d57c7f25fb97693419)：动画复用不变的背景 / 几何数据，暂停拖动中的备用章排版。书叶没有 DOM 强制布局，但原 AnimatedBuilder 每帧重建纸面外层；对应采用框架自带的 [Flow](https://api.flutter.dev/flutter/widgets/Flow-class.html)，直接复用 Flutter 的 RenderFlow、裁切、变换后命中测试、绘制层，而非自己写渲染器。
+- upstream foliate-js `9fd2209b4d33fd759760a56cc8247cc9e29f03b4` paginator 的 `scrollBy`：把实际滚动位置限制到有效邻页。对应修复书叶在全书边界累计不可见位移的死区；无相邻页时丢弃越界位移，反向增量立即移动。不改已认可的 Readium 收尾曲线 / 时长；另外按 Legado HorizontalPageDelegate 的跨原点方向切换，完整越过原点的反向拖动更新初始方向，仅反向收手仍撤回。
+- [Readest PR 3827](https://github.com/readest/readest/pull/3827)，合并 `030a7c08238d152316942539a2396b97518d3a1c`：核对实际 diff，主要处理大书库索引、状态更新、存储及稳定 debounce。书叶保存的是 SQLite 的三个进度字段，已有 ProgressQueue 合并写入，没有每翻一页序列化整座书库；因此不生搬这套 Zustand / JSON 存储代码。
+
+本轮复用的是 Flutter 官方组件；外部阅读器提供方法对照，适配代码由书叶实现。没有新增依赖、字体、图片或原生渲染后端。平移每帧只重定位准备好的三纸面，拖动位移由 ValueNotifier 通知绘制，不重新构造组件树；实际页面交接和首次新远页仍需要更新内容。前后章原本各有 2ms 预算，现在合起来每帧至多供给一页 / 一批测量，并轮流推进；文本预处理独占一个准备批次。必需目标章优先，拖动中暂停备用任务；失效工作不能发布缓存。
+
+2ms 是让出执行权的目标，不是单次 TextPainter / prepareText 的耗时上限；整章完成才发布、极长章节冷加载和当前章首次同步分页仍有边界。真实手感以 release 对 release 的同设备人工验收为准，记录见 verification-paging-2026-10-11.md。
